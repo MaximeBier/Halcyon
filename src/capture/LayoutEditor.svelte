@@ -423,15 +423,9 @@
        its own: Escape already clears the selection from anywhere. -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="stage" bind:this={stage}>
-    <!-- The work surface. Sized from the stage rather than set to `100%`, so
-         that what the coordinates allow and what the screen shows are the
-         same rectangle, computed once, in one place. -->
-    <div
-      class="canvas"
-      style:width={`${surface.w * unit}px`}
-      style:height={`${surface.h * unit}px`}
-      onpointerdown={onStagePointerDown}
-    >
+    <!-- The work surface. Its size comes from the stylesheet and never from a
+         number: see `.canvas` below. -->
+    <div class="canvas" onpointerdown={onStagePointerDown}>
       <KeyboardView config={scene} {frame} decorations />
       {#each shown.keys as key (key.id)}
         <button
@@ -543,8 +537,26 @@
        anyone means to copy. */
     user-select: none;
   }
+  /**
+   * Filled by the stylesheet, never sized from a measurement — and that is a
+   * bug fix, not a preference.
+   *
+   * Setting `width: ${clientWidth}px` here is a feedback loop: the size posted
+   * changes the box the measurement came from. `clientWidth` is rounded to a
+   * whole pixel, so at a fractional zoom — 90 %, where the real content box is
+   * 1688.5 px — it reports 1689, the canvas overflows by half a pixel, and a
+   * horizontal scrollbar appears. That bar then costs fifteen pixels of
+   * height, which overflows the other axis, so both appear at once.
+   *
+   * Worse, it sticks: with a bar present `clientWidth` excludes it, so the
+   * next measurement is fifteen pixels short, the canvas shrinks and the bars
+   * go — which is why zooming out produced them and zooming back in did not.
+   * `100%` is exact by construction, at any zoom.
+   */
   .canvas {
     position: relative;
+    inline-size: 100%;
+    block-size: 100%;
   }
   /* The drawing is scenery, and it covers part of the canvas: without this, a
      press on the empty space *between* two keys landed on the <svg> and the

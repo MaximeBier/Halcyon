@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, cleanup } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import LayoutEditor from './LayoutEditor.svelte';
+import editorSource from './LayoutEditor.svelte?raw';
 import { DEFAULT_STYLE, defaultConfig, type OverlayConfig } from '../config/schema';
 import { surfaceOf } from './layout';
 import { setKeyStyle } from '../config/edit';
@@ -622,13 +623,18 @@ describe('LayoutEditor - the drawing and the handles agree', () => {
     expect(handles[0]!.style.left).toBe(`${ORIGIN.x + DEFAULT_STYLE.gap / 2}px`);
   });
 
-  it('gives the canvas the size of the work surface, in pixels', () => {
-    // Written out rather than left at `100%`, so that what the coordinates
-    // allow and what the screen shows are the same rectangle, computed once.
+  it('never sizes the canvas from the measurement it took of the stage', () => {
+    // A pixel size here is a feedback loop: `clientWidth` is rounded to a
+    // whole pixel, so at 90 % zoom the canvas came out half a pixel wider
+    // than the box it sits in, and both scrollbars appeared. Read from the
+    // source because jsdom resolves neither Svelte's scoped styles nor any
+    // layout: the assertion is that the rule exists, which is the whole fix.
     const { canvas } = editor();
 
-    expect(canvas.style.width).toBe(`${SURFACE.w * DEFAULT_STYLE.unit}px`);
-    expect(canvas.style.height).toBe(`${SURFACE.h * DEFAULT_STYLE.unit}px`);
+    expect(canvas.style.width).toBe('');
+    expect(canvas.style.height).toBe('');
+    expect(editorSource).toMatch(/\.canvas\s*\{[^}]*inline-size:\s*100%/);
+    expect(editorSource).toMatch(/\.canvas\s*\{[^}]*block-size:\s*100%/);
   });
 
   it('measures again when the window changes size', async () => {
