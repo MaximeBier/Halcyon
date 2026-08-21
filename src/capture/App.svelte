@@ -14,6 +14,7 @@
   import { createOverlayRegistry } from './overlays';
   import { createConfigBroadcaster } from './broadcast';
   import { addLearnedKey, pickLearned, removeKey, removeKeys } from './learn';
+  import { surfaceOf } from './layout';
   import { loadLayoutMap, resolveLayout, type LayoutMapLike } from '../keyboard/labels';
   import { setLayoutOverride } from '../config/edit';
   import { createAxisSuggester } from './suggest';
@@ -93,6 +94,14 @@
   let lastKey = $state<string | null>(null);
 
   let selectedIds = $state<number[]>([]);
+  /**
+   * The editor's stage, in pixels — measured there, read here.
+   *
+   * Learning a key places it, and a placement has to land on the work surface
+   * (task 31). This page cannot measure a stage it does not own, so the box
+   * comes back out of the editor and both sides derive the surface from it.
+   */
+  let stageBox = $state({ width: 0, height: 0 });
   let layout = $state<LayoutMapLike | null>(null);
   void loadLayoutMap(navigator).then((map) => (layout = map));
 
@@ -526,7 +535,15 @@
       // One key per activation: the mode closes itself, so holding the key
       // down cannot add it a second time.
       learning = false;
-      const next = addLearnedKey(config, learned, activeLayout);
+      // The same surface the editor draws on, derived from the same box and
+      // the same unit: a key learned onto a surface the stage does not have
+      // would land where nobody can reach it.
+      const next = addLearnedKey(
+        config,
+        learned,
+        activeLayout,
+        surfaceOf(stageBox, config.style.unit),
+      );
       // Read from the result, not from the report: the label is the layout's
       // business, and the wizard's third step names the key it just saw.
       const before = config.keys.map((key) => key.id);
@@ -639,6 +656,7 @@
         {config}
         {frame}
         bind:selectedIds
+        bind:stageBox
         onChange={updateConfig}
         layout={activeLayout}
         suggestAxis={selectedIds.length === 1 && suggestedIds.includes(selectedIds[0]!)}

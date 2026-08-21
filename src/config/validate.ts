@@ -46,11 +46,32 @@ export function isExtent(value: unknown): value is number {
 }
 
 /**
- * Positions are non-negative: the scene draws its viewBox from the origin, so
- * a key at `x: -1` is rendered outside the frame and never appears — with
- * nothing to explain its absence.
+ * A position is any finite number, negative included.
+ *
+ * It used to be non-negative, for a reason that expired: the scene drew its
+ * viewBox from the origin, so a key at `x: -1` fell outside the frame and
+ * never appeared. Since task 23b the broadcast renders with `pack`, whose
+ * origin is `min(x)` — the leftmost key *becomes* the left edge, wherever it
+ * sits — and the editor draws on a surface whose origin is a constant with
+ * room on every side of it (task 31).
+ *
+ * What is left is the rule that never expires: JSON is happy to hand over
+ * `NaN`, which survives every clamp and reaches the SVG as an attribute the
+ * browser discards, taking the key off the screen with no error anywhere.
  */
 export function isPosition(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+/**
+ * A distance, which may be nothing but never less than nothing.
+ *
+ * Positions and gaps shared `isPosition` until task 31 widened it. They are
+ * not the same quantity: a key at `-1` is a key one unit to the left, while a
+ * gap of `-1` is keys drawn over each other and an SVG rect the browser
+ * discards.
+ */
+export function isNonNegative(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0;
 }
 
@@ -100,7 +121,7 @@ export function isResolvedConfig(value: unknown): value is ResolvedConfig {
     typeof config.version === 'number' &&
     Number.isFinite(config.version) &&
     isExtent(config.unit) &&
-    isPosition(config.gap) &&
+    isNonNegative(config.gap) &&
     Array.isArray(config.keys) &&
     config.keys.every(isResolvedKey)
   );

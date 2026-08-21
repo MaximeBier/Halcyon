@@ -3,6 +3,7 @@ import { render, cleanup } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import LayoutEditor from './LayoutEditor.svelte';
 import { DEFAULT_STYLE, defaultConfig, type OverlayConfig } from '../config/schema';
+import { surfaceOf } from './layout';
 import { setKeyStyle } from '../config/edit';
 
 afterEach(cleanup);
@@ -13,6 +14,30 @@ afterEach(cleanup);
 // snapped to 1.5.
 const TWO_KEYS_ACROSS = 2 * DEFAULT_STYLE.unit;
 
+/**
+ * The stage every test renders into, and the surface that follows from it.
+ *
+ * Stubbed rather than measured, and stubbed **before** the render: jsdom lays
+ * nothing out, so an editor left to its own devices would fall back to the
+ * minimum surface and none of the coordinates below would mean anything.
+ */
+const STAGE = { width: 1440, height: 720 };
+const SURFACE = surfaceOf(STAGE, DEFAULT_STYLE.unit);
+
+/**
+ * Where key coordinate 0,0 sits in stage pixels: the middle of the stage.
+ *
+ * The work surface has room on every side of the origin (task 31), so a
+ * client point of 0,0 is half a screen left of and above the first key. Every
+ * coordinate below is written relative to that centre, through `from`.
+ */
+const ORIGIN = { x: -SURFACE.x * DEFAULT_STYLE.unit, y: -SURFACE.y * DEFAULT_STYLE.unit };
+
+const from = (x: number, y: number): PointerEventInit => ({
+  clientX: ORIGIN.x + x,
+  clientY: ORIGIN.y + y,
+});
+
 function twoKeys(): OverlayConfig {
   const config = defaultConfig();
   config.keys.push(
@@ -22,16 +47,42 @@ function twoKeys(): OverlayConfig {
   return config;
 }
 
-function editor(config = twoKeys()) {
+function laidOut(box: { width: number; height: number }) {
+  Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+    value: box.width,
+    configurable: true,
+  });
+  Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
+    value: box.height,
+    configurable: true,
+  });
+}
+
+// Deleted rather than restored: the stub shadows the accessor `Element`
+// provides, and removing it hands the real one back.
+afterEach(() =>
+  ['clientWidth', 'clientHeight'].forEach((name) =>
+    Reflect.deleteProperty(HTMLElement.prototype, name),
+  ),
+);
+
+function editor(config = twoKeys(), box = STAGE) {
+  laidOut(box);
   const onChange = vi.fn();
-  const view = render(LayoutEditor, { props: { config, frame: [], selectedIds: [], onChange } });
+  const view = render(LayoutEditor, {
+    props: { config, frame: [], selectedIds: [], stageBox: { ...box }, onChange },
+  });
   const handles = [...view.container.querySelectorAll('button.handle')] as HTMLElement[];
   // jsdom has no pointer capture; the editor only ever asks for it.
   for (const handle of handles) {
     handle.setPointerCapture = () => {};
     handle.releasePointerCapture = () => {};
   }
-  return { ...view, onChange, handles };
+  // The canvas is what carries the layout and the bare-surface handler; the
+  // stage is only the window onto it, and what scrolls.
+  const canvas = view.container.querySelector<HTMLElement>('.canvas')!;
+  const stage = view.container.querySelector<HTMLElement>('.stage')!;
+  return { ...view, onChange, handles, canvas, stage };
 }
 
 const press = (target: Element, init: PointerEventInit = {}) =>
@@ -254,15 +305,14 @@ describe('LayoutEditor - a customized key says so', () => {
 
 describe('LayoutEditor - pressing nothing means nothing selected', () => {
   it('drops the selection when the press lands on bare stage', async () => {
-    const { handles, container } = editor();
-    const stage = container.querySelector('.stage')!;
+    const { handles, canvas } = editor();
 
     press(handles[0]!);
     window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }));
     await tick();
     expect(handles[0]!.getAttribute('aria-pressed')).toBe('true');
 
-    stage.dispatchEvent(
+    canvas.dispatchEvent(
       new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 2 }),
     );
     await tick();
@@ -283,13 +333,12 @@ describe('LayoutEditor - pressing nothing means nothing selected', () => {
   });
 
   it('closes the popover too', async () => {
-    const { handles, container } = editor();
-    const stage = container.querySelector('.stage')!;
+    const { handles, container, canvas } = editor();
 
     handles[0]!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
     await tick();
 
-    stage.dispatchEvent(
+    canvas.dispatchEvent(
       new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 2 }),
     );
     await tick();
@@ -340,8 +389,7 @@ describe('LayoutEditor - a half-typed field is not thrown away', () => {
     // the default action of a press elsewhere, so it happens after this
     // handler. Unmounting first detaches a focused input, which then fires
     // neither blur nor change, and the label just typed is lost.
-    const { handles, container } = editor();
-    const stage = container.querySelector('.stage')!;
+    const { handles, container, canvas } = editor();
 
     handles[0]!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
     await tick();
@@ -356,7 +404,7 @@ describe('LayoutEditor - a half-typed field is not thrown away', () => {
     const blurred = vi.fn();
     label.addEventListener('blur', blurred);
 
-    stage.dispatchEvent(
+    canvas.dispatchEvent(
       new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 4 }),
     );
 
@@ -380,22 +428,20 @@ describe('LayoutEditor - lasso selection', () => {
     window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }));
 
   it('takes the keys the rectangle covers', async () => {
-    const { container } = editor();
-    const stage = container.querySelector('.stage')!;
+    const { container, canvas } = editor();
 
-    press(stage, { clientX: 1, clientY: 1 });
-    move(stage, { clientX: TWO_KEYS_ACROSS, clientY: HALF_KEY });
+    press(canvas, from(1, 1));
+    move(canvas, from(TWO_KEYS_ACROSS, HALF_KEY));
     await tick();
 
     expect(selected(container)).toEqual([1, 2]);
   });
 
   it('stops where the rectangle stops', async () => {
-    const { container } = editor();
-    const stage = container.querySelector('.stage')!;
+    const { container, canvas } = editor();
 
-    press(stage, { clientX: 1, clientY: 1 });
-    move(stage, { clientX: HALF_KEY, clientY: HALF_KEY });
+    press(canvas, from(1, 1));
+    move(canvas, from(HALF_KEY, HALF_KEY));
     await tick();
 
     expect(selected(container)).toEqual([1]);
@@ -404,22 +450,20 @@ describe('LayoutEditor - lasso selection', () => {
   it('works drawn backwards, up and to the left', async () => {
     // Half of all lassos are. Left to a negative extent this selects nothing,
     // and the gesture appears to fail at random.
-    const { container } = editor();
-    const stage = container.querySelector('.stage')!;
+    const { container, canvas } = editor();
 
-    press(stage, { clientX: HALF_KEY, clientY: HALF_KEY });
-    move(stage, { clientX: 1, clientY: 1 });
+    press(canvas, from(HALF_KEY, HALF_KEY));
+    move(canvas, from(1, 1));
     await tick();
 
     expect(selected(container)).toEqual([1]);
   });
 
   it('shows the rectangle while it is being drawn, and not after', async () => {
-    const { container } = editor();
-    const stage = container.querySelector('.stage')!;
+    const { container, canvas } = editor();
 
-    press(stage, { clientX: 1, clientY: 1 });
-    move(stage, { clientX: HALF_KEY, clientY: HALF_KEY });
+    press(canvas, from(1, 1));
+    move(canvas, from(HALF_KEY, HALF_KEY));
     await tick();
     expect(marquee(container)).not.toBeNull();
 
@@ -428,16 +472,29 @@ describe('LayoutEditor - lasso selection', () => {
     expect(marquee(container)).toBeNull();
   });
 
+  it('draws the rectangle where the pointer is, not where the origin is', async () => {
+    // The marquee is positioned in canvas pixels while the gesture is
+    // measured in key coordinates, so it is the one place the translation has
+    // to be applied twice — and forgetting the second one draws the rectangle
+    // a whole surface away from the pointer.
+    const { container, canvas } = editor();
+
+    press(canvas, from(0, 0));
+    move(canvas, from(HALF_KEY, HALF_KEY));
+    await tick();
+
+    expect(marquee(container)!.getAttribute('style')).toContain(`left: ${ORIGIN.x}px`);
+  });
+
   it('adds to the selection when Shift is held, as Shift+click does', async () => {
-    const { container, handles } = editor();
-    const stage = container.querySelector('.stage')!;
+    const { container, canvas, handles } = editor();
 
     press(handles[1]!);
     release();
     await tick();
 
-    press(stage, { clientX: 1, clientY: 1, shiftKey: true });
-    move(stage, { clientX: HALF_KEY, clientY: HALF_KEY });
+    press(canvas, { ...from(1, 1), shiftKey: true });
+    move(canvas, from(HALF_KEY, HALF_KEY));
     await tick();
 
     expect(selected(container)).toEqual([1, 2]);
@@ -446,14 +503,14 @@ describe('LayoutEditor - lasso selection', () => {
   it('still clears the selection on a press that goes nowhere', async () => {
     // The behaviour bare stage had before the lasso existed. A marquee of no
     // size must not become a way to keep a selection one clicked away from.
-    const { container, handles } = editor();
+    const { container, canvas, handles } = editor();
 
     press(handles[0]!);
     release();
     await tick();
     expect(selected(container)).toEqual([1]);
 
-    press(container.querySelector('.stage')!, { clientX: 1, clientY: 1 });
+    press(canvas, from(1, 1));
     release();
     await tick();
 
@@ -461,21 +518,20 @@ describe('LayoutEditor - lasso selection', () => {
   });
 
   it('never starts from a key: pressing one drags it', async () => {
-    const { container, handles } = editor();
+    const { container, canvas, handles } = editor();
 
-    press(handles[0]!, { clientX: 1, clientY: 1 });
-    move(container.querySelector('.stage')!, { clientX: HALF_KEY, clientY: HALF_KEY });
+    press(handles[0]!, from(1, 1));
+    move(canvas, from(HALF_KEY, HALF_KEY));
     await tick();
 
     expect(marquee(container)).toBeNull();
   });
 
   it('takes the rectangle away with the gesture on Escape', async () => {
-    const { container } = editor();
-    const stage = container.querySelector('.stage')!;
+    const { container, canvas } = editor();
 
-    press(stage, { clientX: 1, clientY: 1 });
-    move(stage, { clientX: TWO_KEYS_ACROSS, clientY: HALF_KEY });
+    press(canvas, from(1, 1));
+    move(canvas, from(TWO_KEYS_ACROSS, HALF_KEY));
     await tick();
 
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
@@ -488,11 +544,10 @@ describe('LayoutEditor - lasso selection', () => {
   it('drops the rectangle when the release happened out of sight', async () => {
     // Same failure the drag has: a pointerup outside the window leaves the
     // marquee following the mouse with nothing held down.
-    const { container } = editor();
-    const stage = container.querySelector('.stage')!;
+    const { container, canvas } = editor();
 
-    press(stage, { clientX: 1, clientY: 1 });
-    move(stage, { clientX: HALF_KEY, clientY: HALF_KEY, buttons: 0 });
+    press(canvas, from(1, 1));
+    move(canvas, { ...from(HALF_KEY, HALF_KEY), buttons: 0 });
     await tick();
 
     expect(marquee(container)).toBeNull();
@@ -540,12 +595,11 @@ describe('LayoutEditor - the lasso follows the scroll', () => {
     // conversion has to add the scroll back — otherwise a layout scrolled by
     // one key draws the lasso a key away from the pointer and selects the
     // neighbours. jsdom scrolls nothing on its own, so the offset is set here.
-    const { container } = editor();
-    const stage = container.querySelector<HTMLElement>('.stage')!;
-    stage.scrollLeft = DEFAULT_STYLE.unit;
+    const { container, canvas, stage } = editor();
+    stage.scrollLeft = ORIGIN.x + DEFAULT_STYLE.unit;
 
-    press(stage, { clientX: 1, clientY: 1 });
-    move(stage, { clientX: DEFAULT_STYLE.unit / 2, clientY: DEFAULT_STYLE.unit / 2 });
+    press(canvas, { clientX: 1, clientY: 1 });
+    move(canvas, { clientX: DEFAULT_STYLE.unit / 2, clientY: ORIGIN.y + DEFAULT_STYLE.unit / 2 });
     await tick();
 
     const pressed = [...container.querySelectorAll('button.handle')].map((handle) =>
@@ -555,36 +609,83 @@ describe('LayoutEditor - the lasso follows the scroll', () => {
   });
 });
 
-describe('LayoutEditor - the popover stays inside the stage', () => {
-  const room = (el: Element, width: number) =>
-    Object.defineProperty(el, 'clientWidth', { value: width, configurable: true });
+describe('LayoutEditor - the drawing and the handles agree', () => {
+  it('puts the first key where its handle is', () => {
+    // The SVG is translated onto the canvas while the handles are positioned
+    // from the same origin: two conversions of the same coordinate, and if
+    // either forgets the constant they drift apart by a whole surface —
+    // handles floating over empty space, keys nobody can grab.
+    const { container, handles } = editor();
+    const rect = container.querySelector('svg rect')!;
 
+    expect(rect.getAttribute('x')).toBe(`${ORIGIN.x + DEFAULT_STYLE.gap / 2}`);
+    expect(handles[0]!.style.left).toBe(`${ORIGIN.x + DEFAULT_STYLE.gap / 2}px`);
+  });
+
+  it('gives the canvas the size of the work surface, in pixels', () => {
+    // Written out rather than left at `100%`, so that what the coordinates
+    // allow and what the screen shows are the same rectangle, computed once.
+    const { canvas } = editor();
+
+    expect(canvas.style.width).toBe(`${SURFACE.w * DEFAULT_STYLE.unit}px`);
+    expect(canvas.style.height).toBe(`${SURFACE.h * DEFAULT_STYLE.unit}px`);
+  });
+
+  it('measures again when the window changes size', async () => {
+    // The surface *is* the stage, so a window that changed size and a surface
+    // that did not means an origin off centre and a boundary in the wrong
+    // place — keys clamped against an edge that is no longer there.
+    const { handles } = editor();
+    const wider = { width: STAGE.width + 720, height: STAGE.height };
+
+    laidOut(wider);
+    window.dispatchEvent(new Event('resize'));
+    await tick();
+
+    const origin = -surfaceOf(wider, DEFAULT_STYLE.unit).x * DEFAULT_STYLE.unit;
+    expect(handles[0]!.style.left).toBe(`${origin + DEFAULT_STYLE.gap / 2}px`);
+  });
+
+  it('measures its own stage rather than waiting to be told', async () => {
+    // Rendered without a `stageBox`, so the only way the origin can land in
+    // the middle is if the editor measured the stage itself. Everywhere else
+    // the box is passed in, which would let this go untested.
+    laidOut(STAGE);
+    const view = render(LayoutEditor, {
+      props: { config: twoKeys(), frame: [], selectedIds: [], onChange: vi.fn() },
+    });
+    await tick();
+
+    const handle = view.container.querySelector<HTMLElement>('button.handle')!;
+    expect(handle.style.left).toBe(`${ORIGIN.x + DEFAULT_STYLE.gap / 2}px`);
+  });
+});
+
+describe('LayoutEditor - the popover stays inside the stage', () => {
   it('slides the popover left rather than off the right edge', async () => {
     // Anchored to a key near the edge, a 284 px panel ran outside the visible
-    // stage. The stage scrolls, so instead of the panel moving, a horizontal
-    // scrollbar appeared and half the controls sat off-screen.
+    // stage — and instead of the panel moving, a horizontal scrollbar
+    // appeared and half the controls sat off-screen.
     const config = twoKeys();
     config.keys[1]!.x = 8;
     const { container, handles } = editor(config);
-    room(container.querySelector('.stage')!, 700);
 
     handles[1]!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
     await tick();
 
     const left = Number.parseFloat(container.querySelector<HTMLElement>('.anchor')!.style.left);
-    expect(left).toBeLessThan(8 * DEFAULT_STYLE.unit);
-    expect(left + 284).toBeLessThanOrEqual(700);
+    expect(left).toBeLessThan(ORIGIN.x + 8 * DEFAULT_STYLE.unit);
+    expect(left + 284).toBeLessThanOrEqual(STAGE.width);
   });
 
   it('leaves a popover that already fits exactly where the key is', async () => {
     const { container, handles } = editor();
-    room(container.querySelector('.stage')!, 2000);
 
     handles[1]!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
     await tick();
 
     expect(container.querySelector<HTMLElement>('.anchor')!.style.left).toBe(
-      `${DEFAULT_STYLE.unit}px`,
+      `${ORIGIN.x + DEFAULT_STYLE.unit}px`,
     );
   });
 });

@@ -1,7 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { addLearnedKey, pickLearned, removeKey, removeKeys, LEARN_TRAVEL_THRESHOLD } from './learn';
-import { defaultConfig } from '../config/schema';
+import { DEFAULT_STYLE, defaultConfig } from '../config/schema';
+import { surfaceOf } from './layout';
 import type { AnalogEntry } from '../keyboard/decode';
+
+/** A stage of 1440 × 720 at the default unit: 20 × 10 key units. */
+const SURFACE = surfaceOf({ width: 1440, height: 720 }, DEFAULT_STYLE.unit);
 
 const azerty = new Map([
   ['KeyQ', 'a'],
@@ -43,7 +47,7 @@ describe('pickLearned', () => {
 
 describe('addLearnedKey', () => {
   it('adds the key with its label, its size and its default position', () => {
-    const config = addLearnedKey(defaultConfig(), entry(174, 0x2c, 900), azerty);
+    const config = addLearnedKey(defaultConfig(), entry(174, 0x2c, 900), azerty, SURFACE);
 
     expect(config.keys).toHaveLength(1);
     expect(config.keys[0]).toMatchObject({
@@ -57,7 +61,7 @@ describe('addLearnedKey', () => {
   });
 
   it('applies the key mode by default', () => {
-    const config = addLearnedKey(defaultConfig(), entry(1, 0x14, 900), azerty);
+    const config = addLearnedKey(defaultConfig(), entry(1, 0x14, 900), azerty, SURFACE);
 
     expect(config.keys[0]?.mode).toBe('key');
     expect(config.keys[0]?.style).toBeUndefined();
@@ -65,36 +69,62 @@ describe('addLearnedKey', () => {
 
   it('lines up learned keys the way a keyboard does', () => {
     let config = defaultConfig();
-    config = addLearnedKey(config, entry(1, 0x1a, 900), azerty); // Z
-    config = addLearnedKey(config, entry(2, 0x04, 900), azerty); // Q
-    config = addLearnedKey(config, entry(3, 0x16, 900), azerty); // S
+    config = addLearnedKey(config, entry(1, 0x1a, 900), azerty, SURFACE); // Z
+    config = addLearnedKey(config, entry(2, 0x04, 900), azerty, SURFACE); // Q
+    config = addLearnedKey(config, entry(3, 0x16, 900), azerty, SURFACE); // S
 
     expect(config.keys.map((k) => [k.label, k.x, k.y])).toEqual([
-      ['Z', 0.75, 0],
-      ['Q', 0, 1],
-      ['S', 1, 1],
+      ['Z', 0, 0],
+      ['Q', -0.75, 1],
+      ['S', 0.25, 1],
     ]);
   });
 
   it('does not add the same key twice', () => {
-    let config = addLearnedKey(defaultConfig(), entry(1, 0x14, 900), azerty);
-    config = addLearnedKey(config, entry(1, 0x14, 900), azerty);
+    let config = addLearnedKey(defaultConfig(), entry(1, 0x14, 900), azerty, SURFACE);
+    config = addLearnedKey(config, entry(1, 0x14, 900), azerty, SURFACE);
 
     expect(config.keys).toHaveLength(1);
   });
 
   it('keeps the custom positions of keys already placed', () => {
-    let config = addLearnedKey(defaultConfig(), entry(1, 0x1a, 900), azerty);
+    let config = addLearnedKey(defaultConfig(), entry(1, 0x1a, 900), azerty, SURFACE);
     config.keys[0]!.x = 10;
     config.keys[0]!.y = 10;
 
-    config = addLearnedKey(config, entry(2, 0x04, 900), azerty);
+    config = addLearnedKey(config, entry(2, 0x04, 900), azerty, SURFACE);
 
     expect(config.keys[0]).toMatchObject({ x: 10, y: 10 });
   });
 
+  it('leaves a layout parked left of the origin exactly where it is', () => {
+    // The reframing used to rewrite every position whenever a new key landed
+    // before the origin. On a work surface with room on all sides that is a
+    // layout teleporting under the hand that placed it (task 31).
+    let config = addLearnedKey(defaultConfig(), entry(1, 0x1a, 900), azerty, SURFACE);
+    config.keys[0]!.x = -8;
+    config.keys[0]!.y = -3;
+
+    config = addLearnedKey(config, entry(2, 0x04, 900), azerty, SURFACE);
+
+    expect(config.keys[0]).toMatchObject({ x: -8, y: -3 });
+    expect(config.keys[1]).toMatchObject({ x: -8.75, y: -2 });
+  });
+
+  it('brings a key back onto the surface rather than off its edge', () => {
+    // Reachable: a layout dragged hard against the left edge, then a key
+    // learned that belongs further left still. Off the canvas it would be
+    // drawn at a pixel the stage cannot scroll to.
+    let config = addLearnedKey(defaultConfig(), entry(1, 0x1a, 900), azerty, SURFACE);
+    config.keys[0]!.x = SURFACE.x;
+
+    config = addLearnedKey(config, entry(2, 0x04, 900), azerty, SURFACE);
+
+    expect(config.keys[1]?.x).toBe(SURFACE.x);
+  });
+
   it('accepts a key missing from the geometry table', () => {
-    const config = addLearnedKey(defaultConfig(), entry(200, 0xff, 900), azerty);
+    const config = addLearnedKey(defaultConfig(), entry(200, 0xff, 900), azerty, SURFACE);
 
     expect(config.keys[0]).toMatchObject({ label: 'HID 0xff', w: 1, h: 1 });
   });
@@ -105,7 +135,7 @@ describe('addLearnedKey', () => {
     // without either.
     const before = defaultConfig();
 
-    addLearnedKey(before, entry(1, 0x14, 900), azerty);
+    addLearnedKey(before, entry(1, 0x14, 900), azerty, SURFACE);
 
     expect(before.keys).toEqual([]);
   });
@@ -113,22 +143,22 @@ describe('addLearnedKey', () => {
 
 describe('removeKey', () => {
   it('removes the requested key and leaves the others untouched', () => {
-    let config = addLearnedKey(defaultConfig(), entry(1, 0x14, 900), azerty);
-    config = addLearnedKey(config, entry(2, 0x1a, 900), azerty);
+    let config = addLearnedKey(defaultConfig(), entry(1, 0x14, 900), azerty, SURFACE);
+    config = addLearnedKey(config, entry(2, 0x1a, 900), azerty, SURFACE);
 
     expect(removeKey(config, 1).keys.map((k) => k.id)).toEqual([2]);
   });
 
   it('removes every selected key at once', () => {
-    let config = addLearnedKey(defaultConfig(), entry(1, 0x14, 900), azerty);
-    config = addLearnedKey(config, entry(2, 0x1a, 900), azerty);
-    config = addLearnedKey(config, entry(3, 0x16, 900), azerty);
+    let config = addLearnedKey(defaultConfig(), entry(1, 0x14, 900), azerty, SURFACE);
+    config = addLearnedKey(config, entry(2, 0x1a, 900), azerty, SURFACE);
+    config = addLearnedKey(config, entry(3, 0x16, 900), azerty, SURFACE);
 
     expect(removeKeys(config, [1, 3]).keys.map((k) => k.id)).toEqual([2]);
   });
 
   it('does nothing for a key that is not there', () => {
-    const config = addLearnedKey(defaultConfig(), entry(1, 0x14, 900), azerty);
+    const config = addLearnedKey(defaultConfig(), entry(1, 0x14, 900), azerty, SURFACE);
 
     expect(removeKey(config, 99).keys).toHaveLength(1);
   });

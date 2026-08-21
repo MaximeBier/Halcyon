@@ -1,5 +1,19 @@
 import { OVERLAY_TOKENS } from '../styles/tokens';
 
+/**
+ * Bumped when the stored shape changes in a way a migration has to repair —
+ * and **not** otherwise.
+ *
+ * Task 31 widened what a coordinate may be, which was very nearly a bump: an
+ * older build handed a negative coordinate drops the key as malformed and
+ * reports only a count, where a version it did not know would have told it the
+ * truth (spec §8.8). It stayed at 1 all the same, under global constraint 18 —
+ * there are no older builds in anyone's hands, so the message had no reader,
+ * and the only thing shipped would have been a migration that rewrites a
+ * number into itself.
+ *
+ * Re-read at the first user. Until then, structure wins over compatibility.
+ */
 export const CONFIG_VERSION = 1;
 
 export type KeyMode = 'key' | 'axis';

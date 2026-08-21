@@ -48,6 +48,32 @@ describe('migrate', () => {
     if (result.ok) expect(result.config.layoutOverride).toBe('auto');
   });
 
+  it('has a step for every version between the first and the current one', () => {
+    // A bump with no matching step turns every stored profile into
+    // `unreadable` — the same answer a corrupt file gets, on a file that is
+    // merely old. Cheaper to find here than on someone's machine.
+    for (let from = 0; from < CONFIG_VERSION; from++) {
+      const result = migrate({ version: from, layout: 'iso', style: {}, keys: [aKey] });
+
+      expect(result, `no migration from version ${from}`).toMatchObject({ ok: true });
+      if (result.ok) expect(result.config.version).toBe(CONFIG_VERSION);
+    }
+  });
+
+  it('keeps a key placed left of and above the origin', () => {
+    // Until task 31 these were dropped as malformed, which meant the file
+    // lost a key and reported only a count.
+    const result = migrate({
+      version: CONFIG_VERSION,
+      layout: 'iso',
+      style: {},
+      keys: [{ ...aKey, x: -3, y: -1.5 }],
+    });
+
+    expect(result).toMatchObject({ ok: true, dropped: 0 });
+    if (result.ok) expect(result.config.keys[0]).toMatchObject({ x: -3, y: -1.5 });
+  });
+
   it('rejects a configuration written by a future version', () => {
     expect(migrate({ version: CONFIG_VERSION + 1, layout: 'iso', keys: [], style: {} })).toEqual({
       ok: false,
@@ -247,15 +273,21 @@ describe('migrate - the per-key style is not a safe place either', () => {
     if (result.ok) expect(result.config.style.gap).toBe(0);
   });
 
-  it('drops a key placed outside the frame the viewBox draws', () => {
+  it('drops a key whose coordinate is not a number at all', () => {
+    // What is left of the rule task 31 relaxed. A negative coordinate is a
+    // position; `null` and infinity are not, and they reach the SVG as
+    // attributes the browser discards — the key vanishes with no error.
     const result = migrate({
       version: 1,
       layout: 'iso',
       style: {},
-      keys: [{ ...aKey, x: -1 }],
+      keys: [
+        { ...aKey, x: null },
+        { ...aKey, id: 175, y: Number.POSITIVE_INFINITY },
+      ],
     });
 
-    expect(result.ok).toBe(true);
+    expect(result).toMatchObject({ ok: true, dropped: 2 });
     if (result.ok) expect(result.config.keys).toEqual([]);
   });
 });

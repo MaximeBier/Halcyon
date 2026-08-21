@@ -1,6 +1,7 @@
 import type { AnalogEntry } from '../keyboard/decode';
 import { geometryFor, placeNewKey } from '../keyboard/geometry';
 import { labelFor, type LayoutMapLike } from '../keyboard/labels';
+import { ontoSurface, type Rect } from './layout';
 import type { KeyConfig, OverlayConfig } from '../config/schema';
 
 /**
@@ -34,14 +35,17 @@ export function addLearnedKey(
   config: OverlayConfig,
   entry: AnalogEntry,
   layout: LayoutMapLike | null,
+  surface: Rect,
 ): OverlayConfig {
   if (config.keys.some((key) => key.id === entry.index)) return config;
 
   const geometry = geometryFor(entry.usage);
-  // Keys already placed keep their position; they move only when the new one
-  // falls before the origin and forces a reframing (spec §8.5).
-  const placements = placeNewKey(config.keys, entry.usage);
-  const placed = placements[placements.length - 1]!;
+  const w = geometry?.w ?? 1;
+  const h = geometry?.h ?? 1;
+  // Keys already placed never move (spec §8.5). The new one is brought back
+  // onto the surface if its reference position falls off it — which is what
+  // happens as soon as the board being rebuilt is wider than the stage.
+  const placed = ontoSurface(placeNewKey(config.keys, entry.usage), w, h, surface);
 
   const key: KeyConfig = {
     id: entry.index,
@@ -50,21 +54,11 @@ export function addLearnedKey(
     label: labelFor(entry.usage, layout),
     x: placed.x,
     y: placed.y,
-    w: geometry?.w ?? 1,
-    h: geometry?.h ?? 1,
+    w,
+    h,
   };
 
-  return {
-    ...config,
-    keys: [
-      ...config.keys.map((existing, index) => ({
-        ...existing,
-        x: placements[index]!.x,
-        y: placements[index]!.y,
-      })),
-      key,
-    ],
-  };
+  return { ...config, keys: [...config.keys, key] };
 }
 
 export function removeKey(config: OverlayConfig, id: number): OverlayConfig {

@@ -4,7 +4,15 @@
   import { hasOverrides, resolve } from '../config/resolve';
   import { UI_TOKENS } from '../styles/ui-tokens';
   import { recommendedSize } from '../view/scene';
-  import { keysWithin, moveKeysBy, normalizeRect, pixelsToUnits, type Point } from './layout';
+  import {
+    keysWithin,
+    moveKeysBy,
+    normalizeRect,
+    onSurface,
+    pixelsToUnits,
+    surfaceOf,
+    type Point,
+  } from './layout';
   import { removeKeys } from './learn';
   import type { OverlayConfig } from '../config/schema';
   import type { LayoutMapLike } from '../keyboard/labels';
@@ -14,6 +22,7 @@
     config,
     frame,
     selectedIds = $bindable([]),
+    stageBox = $bindable({ width: 0, height: 0 }),
     onChange,
     layout = null,
     suggestAxis = false,
@@ -22,6 +31,16 @@
     config: OverlayConfig;
     frame: readonly FrameKey[];
     selectedIds: number[];
+    /**
+     * The stage in pixels, measured here and read out.
+     *
+     * Bound rather than kept private because learning a key also has to place
+     * it on the work surface, and that happens in the page above — which
+     * cannot measure a stage it does not own. The measurement travels, not
+     * the surface: both sides then derive it through `surfaceOf`, from the
+     * same box and the same unit.
+     */
+    stageBox?: { width: number; height: number };
     onChange: (next: OverlayConfig) => void;
     /** Passed straight through to the popover; the editor makes no use of it. */
     layout?: LayoutMapLike | null;
@@ -77,7 +96,31 @@
 
   /** What the editor shows: the draft while dragging, the real one otherwise. */
   const shown = $derived(draft ?? config);
-  const scene = $derived(resolve(shown));
+  const resolved = $derived(resolve(shown));
+
+  const unit = $derived(shown.style.unit);
+  const gap = $derived(shown.style.gap);
+
+  function measure() {
+    if (stage) stageBox = { width: stage.clientWidth, height: stage.clientHeight };
+  }
+  $effect(measure);
+
+  const surface = $derived(surfaceOf(stageBox, unit));
+
+  /** A key coordinate in stage pixels. */
+  const acrossX = (x: number) => (x - surface.x) * unit;
+  const acrossY = (y: number) => (y - surface.y) * unit;
+
+  /**
+   * The drawing, translated onto the work surface.
+   *
+   * Every pixel below is a stage pixel: the handles, the marquee and the
+   * popover all measure from the same origin as the SVG, and the only place
+   * key coordinates appear is where they are read from or written to the
+   * configuration.
+   */
+  const scene = $derived(onSurface(resolved, surface));
   const selection = $derived(shown.keys.filter((key) => selectedIds.includes(key.id)));
   /**
    * What the OBS browser source has to be, in pixels — and the reason it is
@@ -91,10 +134,7 @@
    *
    * Read from the draft during a drag, so it moves as the layout does.
    */
-  const source = $derived(recommendedSize(scene));
-
-  const unit = $derived(shown.style.unit);
-  const gap = $derived(shown.style.gap);
+  const source = $derived(recommendedSize(resolved));
 
   // Hidden for the length of the gesture, not closed: following the key across
   // the stage is unreadable, and staying put covers where the key is going.
@@ -112,16 +152,16 @@
    * right edge.
    *
    * Anchored to a key near the edge, the popover used to run outside the
-   * visible stage. The stage scrolls, so instead of the panel moving, a
-   * horizontal scrollbar appeared and half the controls sat off-screen.
-   * Clamped against the *visible* window rather than the content, so it still
-   * lands correctly on a layout that is scrolled sideways.
+   * visible stage — and instead of the panel moving, a horizontal scrollbar
+   * appeared and half the controls sat off-screen. Clamped against the
+   * *visible* window rather than the content, so it still lands correctly if
+   * the stage ever is scrolled.
    */
   const anchor = $derived.by(() => {
-    const left = Math.min(...selection.map((key) => key.x)) * unit;
-    const y = Math.max(...selection.map((key) => key.y + key.h)) * unit;
+    const left = acrossX(Math.min(...selection.map((key) => key.x)));
+    const y = acrossY(Math.max(...selection.map((key) => key.y + key.h)));
 
-    const room = stage?.clientWidth ?? 0;
+    const room = stageBox.width;
     if (room === 0) return { x: left, y };
 
     const from = stage?.scrollLeft ?? 0;
@@ -188,8 +228,12 @@
   function stagePoint(event: PointerEvent): Point {
     const box = stage?.getBoundingClientRect();
     return {
-      x: pixelsToUnits(event.clientX - (box?.left ?? 0) + (stage?.scrollLeft ?? 0), unit),
-      y: pixelsToUnits(event.clientY - (box?.top ?? 0) + (stage?.scrollTop ?? 0), unit),
+      // The surface origin comes back off: everything above works in canvas
+      // pixels, and a lasso is compared against key coordinates.
+      x:
+        pixelsToUnits(event.clientX - (box?.left ?? 0) + (stage?.scrollLeft ?? 0), unit) +
+        surface.x,
+      y: pixelsToUnits(event.clientY - (box?.top ?? 0) + (stage?.scrollTop ?? 0), unit) + surface.y,
     };
   }
 
@@ -273,7 +317,7 @@
 
     const dx = pixelsToUnits(event.clientX - drag.startX, config.style.unit);
     const dy = pixelsToUnits(event.clientY - drag.startY, config.style.unit);
-    draft = moveKeysBy(config, drag.origins, dx, dy);
+    draft = moveKeysBy(config, drag.origins, dx, dy, surface);
   }
 
   /** Drops the gesture without writing anything. */
@@ -369,6 +413,7 @@
   onpointermove={onPointerMove}
   onpointerup={onPointerUp}
   onpointercancel={abandon}
+  onresize={measure}
 />
 
 <div class="editor">
@@ -377,55 +422,66 @@
   <!-- The stage is a surface, not a control, and it needs no keyboard path of
        its own: Escape already clears the selection from anywhere. -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="stage" bind:this={stage} onpointerdown={onStagePointerDown}>
-    <KeyboardView config={scene} {frame} decorations />
-    {#each shown.keys as key (key.id)}
-      <button
-        class="handle"
-        class:selected={selectedIds.includes(key.id)}
-        class:overridden={hasOverrides(key)}
-        style:left={`${key.x * unit + gap / 2}px`}
-        style:top={`${key.y * unit + gap / 2}px`}
-        style:width={`${Math.max(0, key.w * unit - gap)}px`}
-        style:height={`${Math.max(0, key.h * unit - gap)}px`}
-        onpointerdown={(event) => onPointerDown(event, key.id)}
-        onclick={(event) => onClick(event, key.id)}
-        ondblclick={() => open(key.id)}
-        onkeydown={(event) => onHandleKeyDown(event, key.id)}
-        oncontextmenu={(event) => {
-          // The native menu offers nothing over a key handle, and it would
-          // land on top of the popover we are opening underneath it.
-          event.preventDefault();
-          open(key.id);
-        }}
-        aria-label={`Select ${key.label}`}
-        aria-pressed={selectedIds.includes(key.id)}
-      ></button>
-    {/each}
+  <div class="stage" bind:this={stage}>
+    <!-- The work surface. Sized from the stage rather than set to `100%`, so
+         that what the coordinates allow and what the screen shows are the
+         same rectangle, computed once, in one place. -->
+    <div
+      class="canvas"
+      style:width={`${surface.w * unit}px`}
+      style:height={`${surface.h * unit}px`}
+      onpointerdown={onStagePointerDown}
+    >
+      <KeyboardView config={scene} {frame} decorations />
+      {#each shown.keys as key (key.id)}
+        <button
+          class="handle"
+          class:selected={selectedIds.includes(key.id)}
+          class:overridden={hasOverrides(key)}
+          style:left={`${acrossX(key.x) + gap / 2}px`}
+          style:top={`${acrossY(key.y) + gap / 2}px`}
+          style:width={`${Math.max(0, key.w * unit - gap)}px`}
+          style:height={`${Math.max(0, key.h * unit - gap)}px`}
+          onpointerdown={(event) => onPointerDown(event, key.id)}
+          onclick={(event) => onClick(event, key.id)}
+          ondblclick={() => open(key.id)}
+          onkeydown={(event) => onHandleKeyDown(event, key.id)}
+          oncontextmenu={(event) => {
+            // The native menu offers nothing over a key handle, and it would
+            // land on top of the popover we are opening underneath it.
+            event.preventDefault();
+            open(key.id);
+          }}
+          aria-label={`Select ${key.label}`}
+          aria-pressed={selectedIds.includes(key.id)}
+        ></button>
+      {/each}
 
-    {#if lassoRect}
-      <div
-        class="lasso"
-        style:left={`${lassoRect.x * unit}px`}
-        style:top={`${lassoRect.y * unit}px`}
-        style:width={`${lassoRect.w * unit}px`}
-        style:height={`${lassoRect.h * unit}px`}
-      ></div>
-    {/if}
+      {#if lassoRect}
+        <div
+          class="lasso"
+          style:left={`${acrossX(lassoRect.x)}px`}
+          style:top={`${acrossY(lassoRect.y)}px`}
+          style:width={`${lassoRect.w * unit}px`}
+          style:height={`${lassoRect.h * unit}px`}
+        ></div>
+      {/if}
 
-    {#if popoverVisible}
-      <div class="anchor" style:left={`${anchor.x}px`} style:top={`${anchor.y + gap}px`}>
-        <KeyPopover
-          {config}
-          {selectedIds}
-          {onChange}
-          {layout}
-          {suggestAxis}
-          {onDismissSuggestion}
-          onClose={() => (editingFor = [])}
-        />
-      </div>
-    {/if}
+      {#if popoverVisible}
+        <div class="anchor" style:left={`${anchor.x}px`} style:top={`${anchor.y + gap}px`}>
+          <KeyPopover
+            {config}
+            {selectedIds}
+            {surface}
+            {onChange}
+            {layout}
+            {suggestAxis}
+            {onDismissSuggestion}
+            onClose={() => (editingFor = [])}
+          />
+        </div>
+      {/if}
+    </div>
   </div>
 
   <div class="foot">
@@ -466,24 +522,39 @@
     background: color-mix(in srgb, var(--he-accent, #7c9eff) 12%, transparent);
     border-radius: var(--he-radius, 4px);
   }
+  /**
+   * The window onto the work surface — and the same size as it, so in normal
+   * use nothing scrolls and no bar appears.
+   *
+   * `auto` rather than `hidden` all the same: a profile imported with far-off
+   * coordinates, or a window shrunk after the fact, puts a key past the edge,
+   * and a scrollbar is then the difference between a key that can be reached
+   * and one that is simply gone.
+   */
   .stage {
     flex: 1;
     position: relative;
     overflow: auto;
     background: var(--he-stage, #0b0d11);
+    scrollbar-width: thin;
+    scrollbar-color: var(--he-border-control, #232838) transparent;
     /* A drag across the keys used to select the SVG labels as if they were a
        paragraph, leaving a blue smear over the layout. Nothing here is text
        anyone means to copy. */
     user-select: none;
   }
-  /* The drawing is scenery, and it covers the whole stage: without this, a
+  .canvas {
+    position: relative;
+  }
+  /* The drawing is scenery, and it covers part of the canvas: without this, a
      press on the empty space *between* two keys landed on the <svg> and the
      "pressing bare stage clears the selection" guard never matched — the only
      place it did was outside the layout's bounding box, which is often
      nowhere. Found in review on 2026-08-20. The handles are siblings, so they
      keep their events. */
-  .stage :global(svg) {
+  .canvas :global(svg) {
     pointer-events: none;
+    display: block;
   }
   .handle {
     position: absolute;

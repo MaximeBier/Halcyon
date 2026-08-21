@@ -1,4 +1,4 @@
-import type { KeyConfig, KeyMode, OverlayConfig } from '../config/schema';
+import type { KeyConfig, KeyMode, OverlayConfig, ResolvedConfig } from '../config/schema';
 
 /** A quarter key: enough for a ZQSD cross block (spec §8.7). */
 export const GRID = 0.25;
@@ -31,12 +31,110 @@ function patchKey(
   return { ...config, keys: config.keys.map((key) => (key.id === id ? patch(key) : key)) };
 }
 
-export function moveKey(config: OverlayConfig, id: number, x: number, y: number): OverlayConfig {
+/**
+ * The smallest work surface, in key units.
+ *
+ * Only ever reached before the stage has been laid out — under a test, or
+ * before the first paint — where a surface of nothing would clamp every key
+ * onto a single point. Smaller than any real stage, so it never wins on a
+ * screen.
+ */
+const MIN_SURFACE = { w: 12, h: 8 };
+
+/**
+ * The work surface, in key units: **what the stage can show, and nothing
+ * more**, with the origin at its centre.
+ *
+ * Two properties, and the whole design of the editor rests on them.
+ *
+ * *It does not depend on the content.* Two attempts at centring the layout
+ * failed the same way: a reference frame sized by what it measures moves with
+ * it, so dragging a key right widened the box, its left edge receded by half
+ * of that, and the key followed the pointer at half speed. The stage's size is
+ * not something a drag can change, which is what buys the 1:1 movement.
+ *
+ * *It is exactly what is visible.* A surface larger than the window would need
+ * scrollbars to reach, and a key pushed into the part nobody scrolled to is a
+ * key nobody finds. Here the edge of the work surface is the edge of the
+ * screen: there is nowhere to lose a key.
+ *
+ * Where the layout ends up on it changes nothing downstream — the broadcast
+ * packs, and only the positions of the keys relative to each other ever reach
+ * the overlay (spec §5.4).
+ */
+export function surfaceOf(box: { width: number; height: number }, unit: number): Rect {
+  // A unit of zero would make the surface infinite, which is the one answer
+  // that cannot be clamped against. The style validator already refuses it;
+  // this is here because the consequence is silent.
+  const across = unit > 0 ? unit : 1;
+  const w = Math.max(MIN_SURFACE.w, box.width / across);
+  const h = Math.max(MIN_SURFACE.h, box.height / across);
+
+  return { x: -w / 2, y: -h / 2, w, h };
+}
+
+/**
+ * Keeps a span of `extent` inside `[from, from + span]`.
+ *
+ * `Math.max` last, deliberately: a key wider than the surface makes the two
+ * bounds cross, and the one to honour then is the near edge. The other order
+ * pushes it off the surface on the left, which is the failure this whole
+ * function exists to prevent.
+ */
+function clamp(value: number, extent: number, from: number, span: number): number {
+  return Math.max(from, Math.min(value, from + span - extent));
+}
+
+/**
+ * A position brought back onto the work surface, for a key of that size.
+ *
+ * The one boundary, and it applies to every way a key gets a position —
+ * dragged, typed into the fields, or placed by learning. Off the surface, a
+ * key is off the screen: neither visible nor clickable, its only trace a line
+ * in the sidebar list.
+ */
+export function ontoSurface(at: Point, w: number, h: number, surface: Rect): Point {
+  return {
+    x: clamp(at.x, w, surface.x, surface.w),
+    y: clamp(at.y, h, surface.y, surface.h),
+  };
+}
+
+/**
+ * The same scene, expressed in stage coordinates.
+ *
+ * The drawing has to be translated rather than merely offset in CSS: an SVG
+ * draws its `viewBox` from zero, so a key at `x: -1` would be painted outside
+ * the frame and never appear — which is the very thing the old rule guarded
+ * against, and the reason it takes a translation to be rid of it.
+ */
+export function onSurface(config: ResolvedConfig, surface: Rect): ResolvedConfig {
+  return {
+    ...config,
+    keys: config.keys.map((key) => ({ ...key, x: key.x - surface.x, y: key.y - surface.y })),
+  };
+}
+
+export function moveKey(
+  config: OverlayConfig,
+  id: number,
+  x: number,
+  y: number,
+  surface: Rect,
+): OverlayConfig {
   return patchKey(config, id, (key) => ({
     ...key,
-    x: Math.max(0, snap(x)),
-    y: Math.max(0, snap(y)),
+    ...ontoSurface({ x: snap(x), y: snap(y) }, key.w, key.h, surface),
   }));
+}
+
+/**
+ * The most of `shift` that keeps a group spanning `[low, high]` on the
+ * surface — clamped once, for the whole group, so the alignments inside it
+ * survive being pushed against an edge.
+ */
+function clampShift(shift: number, low: number, high: number, from: number, span: number): number {
+  return Math.max(from - low, Math.min(shift, from + span - high));
 }
 
 /**
@@ -52,13 +150,32 @@ export function moveKeysBy(
   origins: ReadonlyMap<number, { x: number; y: number }>,
   dx: number,
   dy: number,
+  surface: Rect,
 ): OverlayConfig {
   if (origins.size === 0) return config;
 
-  const positions = [...origins.values()];
-  // The group stops at the edge instead of crushing against the origin.
-  const shiftX = Math.max(snap(dx), -Math.min(...positions.map((p) => p.x)));
-  const shiftY = Math.max(snap(dy), -Math.min(...positions.map((p) => p.y)));
+  // Origins for where the group started, the live keys for how big it is: the
+  // offset is bounded by the group's *edges*, and a key clamped by its corner
+  // hangs half of itself off the surface.
+  const boxes = config.keys
+    .filter((key) => origins.has(key.id))
+    .map((key) => ({ ...origins.get(key.id)!, w: key.w, h: key.h }));
+  if (boxes.length === 0) return config;
+
+  const shiftX = clampShift(
+    snap(dx),
+    Math.min(...boxes.map((box) => box.x)),
+    Math.max(...boxes.map((box) => box.x + box.w)),
+    surface.x,
+    surface.w,
+  );
+  const shiftY = clampShift(
+    snap(dy),
+    Math.min(...boxes.map((box) => box.y)),
+    Math.max(...boxes.map((box) => box.y + box.h)),
+    surface.y,
+    surface.h,
+  );
 
   return {
     ...config,

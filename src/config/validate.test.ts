@@ -35,6 +35,8 @@ describe('isResolvedConfig', () => {
   it('refuses the sizes that collapse or invert the scene', () => {
     expect(isResolvedConfig({ ...resolved(), unit: 0 })).toBe(false);
     expect(isResolvedConfig({ ...resolved(), unit: -56 })).toBe(false);
+    // A gap is a distance, not a position: the two shared one rule until
+    // task 31 widened positions, and this is what keeps them apart.
     expect(isResolvedConfig({ ...resolved(), gap: -1 })).toBe(false);
     expect(isResolvedConfig({ ...resolved(), unit: Number.NaN })).toBe(false);
   });
@@ -46,12 +48,24 @@ describe('isResolvedConfig', () => {
       return isResolvedConfig({ ...config, keys: [{ ...keys[0]!, ...over }] });
     };
 
-    expect(bad({ x: -1 })).toBe(false);
+    expect(bad({ x: Number.NaN })).toBe(false);
+    expect(bad({ y: Number.POSITIVE_INFINITY })).toBe(false);
     expect(bad({ w: 0 })).toBe(false);
     expect(bad({ h: Number.POSITIVE_INFINITY })).toBe(false);
     expect(bad({ id: 'q' })).toBe(false);
     expect(bad({ mode: 'sideways' })).toBe(false);
     expect(bad({ label: 42 })).toBe(false);
+  });
+
+  it('accepts a key left of and above the origin', () => {
+    // The work surface has an origin with room on every side of it (task 31),
+    // and the broadcast packs — the leftmost key *becomes* the left edge — so
+    // a negative coordinate is a position like any other. The rule that used
+    // to refuse them guarded a renderer that stopped existing at task 23b.
+    const config = resolved();
+    const keys = config.keys as Record<string, unknown>[];
+
+    expect(isResolvedConfig({ ...config, keys: [{ ...keys[0]!, x: -4, y: -2.5 }] })).toBe(true);
   });
 
   it('refuses a key whose style is incomplete', () => {

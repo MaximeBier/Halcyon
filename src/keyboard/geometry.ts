@@ -151,18 +151,20 @@ export interface Placement {
 }
 
 /**
- * Places a learned key at its position relative to the keys already placed,
- * reframing the whole set if the new one falls before the origin: learning
+ * Where a learned key goes, relative to the keys already placed: learning
  * A, Z, E, R lines them up the way a keyboard does (spec §8.5).
  *
- * Returns the positions of every key, the new one last. Existing keys move
- * only for the reframing — never otherwise, or a placement made by hand
- * would be overwritten by the next learned key.
+ * **Nothing already on the surface moves.** It used to: the whole set was
+ * reframed whenever the new key fell before the origin, because a negative
+ * coordinate was refused. That rule went at task 31, and with it the last
+ * reason to touch a key nobody asked to move — a layout pushed left of the
+ * origin on purpose would have snapped back to it on the next key learned,
+ * which is the content-derived origin this task exists to be rid of.
  */
 export function placeNewKey(
   existing: readonly { usage: number; x: number; y: number }[],
   usage: number,
-): Placement[] {
+): Placement {
   const kept: Placement[] = existing.map(({ x, y }) => ({ x, y }));
   const geometry = BY_USAGE.get(usage);
 
@@ -195,26 +197,18 @@ export function placeNewKey(
     }
   }
 
-  let placed: Placement;
   if (!geometry || !anchor) {
     // Unknown usage, or no reference at all: right of the set.
-    placed =
-      kept.length === 0
-        ? { x: 0, y: 0 }
-        : {
-            x: Math.max(...kept.map((key) => key.x)) + 1,
-            y: Math.min(...kept.map((key) => key.y)),
-          };
-  } else {
-    placed = {
-      x: anchor.key.x + (geometry.x - anchor.geometry.x),
-      y: anchor.key.y + (geometry.y - anchor.geometry.y),
-    };
+    return kept.length === 0
+      ? { x: 0, y: 0 }
+      : {
+          x: Math.max(...kept.map((key) => key.x)) + 1,
+          y: Math.min(...kept.map((key) => key.y)),
+        };
   }
 
-  const all = [...kept, placed];
-  const shiftX = Math.min(0, ...all.map((key) => key.x));
-  const shiftY = Math.min(0, ...all.map((key) => key.y));
-
-  return all.map((key) => ({ x: key.x - shiftX, y: key.y - shiftY }));
+  return {
+    x: anchor.key.x + (geometry.x - anchor.geometry.x),
+    y: anchor.key.y + (geometry.y - anchor.geometry.y),
+  };
 }

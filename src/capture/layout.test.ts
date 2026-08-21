@@ -9,8 +9,12 @@ import {
   resizeKeys,
   setMode,
   snap,
+  surfaceOf,
 } from './layout';
-import { defaultConfig, type OverlayConfig } from '../config/schema';
+import { DEFAULT_STYLE, defaultConfig, type OverlayConfig } from '../config/schema';
+
+/** A stage of 1440 × 720 at the default unit: 20 × 10 key units. */
+const SURFACE = surfaceOf({ width: 1440, height: 720 }, DEFAULT_STYLE.unit);
 
 function config(): OverlayConfig {
   const base = defaultConfig();
@@ -40,31 +44,96 @@ describe('snap', () => {
   });
 });
 
-describe('moveKey', () => {
-  it('moves while snapping to the grid', () => {
-    expect(moveKey(config(), 1, 2.13, 1.4).keys[0]).toMatchObject({ x: 2.25, y: 1.5 });
+describe('surfaceOf', () => {
+  it('is the stage, in key units, with the origin at its centre', () => {
+    // The two halves of what the surface is for: a key at 0,0 lands in the
+    // middle of the screen, and it has somewhere to go in all four
+    // directions.
+    expect(SURFACE).toEqual({ x: -10, y: -5, w: 20, h: 10 });
   });
 
-  it('forbids negative positions', () => {
-    expect(moveKey(config(), 1, -3, -1).keys[0]).toMatchObject({ x: 0, y: 0 });
+  it('shrinks and grows with the window', () => {
+    // Not a constant, and it must not be: the promise is that the edge of the
+    // work surface is the edge of the screen, whatever size the screen is.
+    const narrow = surfaceOf({ width: 1000, height: 720 }, DEFAULT_STYLE.unit);
+
+    expect(narrow.w).toBeLessThan(SURFACE.w);
+    expect(narrow.x).toBe(-narrow.w / 2);
+  });
+
+  it('holds more keys as the keys get smaller', () => {
+    // The answer to "my keyboard does not fit": the surface is measured in
+    // key units, so halving the unit doubles the room.
+    const small = surfaceOf({ width: 1440, height: 720 }, DEFAULT_STYLE.unit / 2);
+
+    expect(small.w).toBe(SURFACE.w * 2);
+  });
+
+  it('never collapses to nothing before the stage has been measured', () => {
+    // jsdom lays nothing out, and neither does a browser before the first
+    // paint. A surface of zero would clamp every key onto a single point.
+    const unmeasured = surfaceOf({ width: 0, height: 0 }, DEFAULT_STYLE.unit);
+
+    expect(unmeasured.w).toBeGreaterThan(0);
+    expect(unmeasured.h).toBeGreaterThan(0);
+  });
+
+  it('refuses to make the surface infinite over a unit of zero', () => {
+    // The style validator already refuses it; what makes it worth a line here
+    // is that the consequence — every clamp comparing against Infinity — is
+    // completely silent.
+    expect(Number.isFinite(surfaceOf({ width: 1440, height: 720 }, 0).w)).toBe(true);
+  });
+});
+
+describe('moveKey', () => {
+  it('moves while snapping to the grid', () => {
+    expect(moveKey(config(), 1, 2.13, 1.4, SURFACE).keys[0]).toMatchObject({ x: 2.25, y: 1.5 });
+  });
+
+  it('accepts a position left of and above the origin', () => {
+    expect(moveKey(config(), 1, -3, -1, SURFACE).keys[0]).toMatchObject({ x: -3, y: -1 });
+  });
+
+  it('stops at the edge of the work surface rather than off it', () => {
+    // Not a matter of taste: a key dropped off the surface is drawn at a
+    // pixel outside the stage, so it can be neither seen nor
+    // clicked — and the only trace of it is a line in the sidebar list.
+    const far = moveKey(config(), 1, -1000, -1000, SURFACE).keys[0];
+    const beyond = moveKey(config(), 1, 1000, 1000, SURFACE).keys[0];
+
+    expect(far).toMatchObject({ x: SURFACE.x, y: SURFACE.y });
+    // The key is one unit wide, and it is its far edge that has to stay in.
+    expect(beyond).toMatchObject({ x: SURFACE.x + SURFACE.w - 1, y: SURFACE.y + SURFACE.h - 1 });
+  });
+
+  it('puts a key too big for the surface against the near edge', () => {
+    // The two bounds cross once the key is wider than the surface, and only
+    // one of them can be honoured. Honouring the far one slides the key off
+    // to the left — further out than where it started, which is the failure
+    // the clamp exists to prevent.
+    const wide = config();
+    wide.keys[0]!.w = SURFACE.w + 10;
+
+    expect(moveKey(wide, 1, 0, 0, SURFACE).keys[0]?.x).toBe(SURFACE.x);
   });
 
   it('ignores an unknown id', () => {
     const before = config();
 
-    expect(moveKey(before, 99, 5, 5)).toEqual(before);
+    expect(moveKey(before, 99, 5, 5, SURFACE)).toEqual(before);
   });
 
   it('refuses a value that is not a number', () => {
     // The numeric fields hand over whatever was typed; an empty one is NaN,
     // and NaN reaches the SVG as an attribute the browser discards.
-    expect(moveKey(config(), 1, Number.NaN, 2).keys[0]).toMatchObject({ x: 0, y: 2 });
+    expect(moveKey(config(), 1, Number.NaN, 2, SURFACE).keys[0]).toMatchObject({ x: 0, y: 2 });
   });
 
   it('leaves the configuration it was given untouched', () => {
     const before = config();
 
-    moveKey(before, 1, 5, 5);
+    moveKey(before, 1, 5, 5, SURFACE);
 
     expect(before.keys[0]).toMatchObject({ x: 0, y: 0 });
   });
@@ -74,7 +143,7 @@ describe('moveKeysBy', () => {
   it('moves the whole group by the same offset, snapped to the grid', () => {
     const before = pair();
 
-    const after = moveKeysBy(before, origins(before, 1, 2), 1.13, 0.9);
+    const after = moveKeysBy(before, origins(before, 1, 2), 1.13, 0.9, SURFACE);
 
     expect(after.keys[0]).toMatchObject({ x: 1.25, y: 1 });
     expect(after.keys[1]).toMatchObject({ x: 3, y: 3 });
@@ -84,7 +153,7 @@ describe('moveKeysBy', () => {
     const before = pair();
     before.keys[1]!.x = 1.6; // deliberately off-grid key
 
-    const after = moveKeysBy(before, origins(before, 1, 2), 1, 0);
+    const after = moveKeysBy(before, origins(before, 1, 2), 1, 0, SURFACE);
 
     expect(after.keys[1]?.x).toBeCloseTo(2.6, 10);
   });
@@ -92,25 +161,49 @@ describe('moveKeysBy', () => {
   it('does not move the keys outside the group', () => {
     const before = pair();
 
-    const after = moveKeysBy(before, origins(before, 1), 1, 1);
+    const after = moveKeysBy(before, origins(before, 1), 1, 1, SURFACE);
 
     expect(after.keys[1]).toMatchObject({ x: 1.75, y: 2 });
   });
 
-  it('stops the whole group at the edge instead of crushing it against the origin', () => {
+  it('stops the whole group at the edge of the surface instead of crushing it', () => {
     const before = pair();
 
-    const after = moveKeysBy(before, origins(before, 1, 2), -5, 0);
+    const after = moveKeysBy(before, origins(before, 1, 2), -1000, 0, SURFACE);
 
-    expect(after.keys[0]?.x).toBe(0);
-    expect(after.keys[1]?.x).toBe(1.75);
+    // The gap of 1.75 between them survives: it is the offset that is
+    // clamped, once, and not each key against the edge on its own.
+    expect(after.keys[0]?.x).toBe(SURFACE.x);
+    expect(after.keys[1]?.x).toBe(SURFACE.x + 1.75);
+  });
+
+  it('measures the far edge from the widest key, not from its corner', () => {
+    const before = pair();
+
+    const after = moveKeysBy(before, origins(before, 1, 2), 1000, 1000, SURFACE);
+
+    // Key 2 sits at 1.75 and is one unit wide, so 2.75 is what has to land on
+    // the edge. Clamping the corner instead would push its right half off.
+    expect(after.keys[1]?.x).toBe(SURFACE.x + SURFACE.w - 1);
+    expect(after.keys[0]?.x).toBe(SURFACE.x + SURFACE.w - 2.75);
+  });
+
+  it('holds a group wider than the surface against the near edge', () => {
+    const before = pair();
+    before.keys[1]!.x = SURFACE.w + 5;
+
+    const after = moveKeysBy(before, origins(before, 1, 2), 0, 0, SURFACE);
+
+    // Same crossing of bounds as a single oversized key, and the same answer:
+    // the left edge wins, so what is on screen stays on screen.
+    expect(after.keys[0]?.x).toBe(SURFACE.x);
   });
 
   it('always starts again from the origin positions, with no accumulation', () => {
     const before = pair();
     const memo = origins(before, 1, 2);
 
-    const dragged = moveKeysBy(moveKeysBy(before, memo, 1, 0), memo, 2, 0);
+    const dragged = moveKeysBy(moveKeysBy(before, memo, 1, 0, SURFACE), memo, 2, 0, SURFACE);
 
     expect(dragged.keys[0]?.x).toBe(2);
   });
@@ -118,7 +211,7 @@ describe('moveKeysBy', () => {
   it('does nothing when the drag carries no key', () => {
     const before = pair();
 
-    expect(moveKeysBy(before, new Map(), 3, 3)).toBe(before);
+    expect(moveKeysBy(before, new Map(), 3, 3, SURFACE)).toBe(before);
   });
 });
 

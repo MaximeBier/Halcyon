@@ -2,7 +2,7 @@
   import { clearKeyStyle, setKeyLabel, setKeyMode, setKeyStyle } from '../config/edit';
   import { effectiveStyle, overriddenKeys } from '../config/resolve';
   import { removeKeys } from './learn';
-  import { moveKey, resizeKeys, GRID } from './layout';
+  import { moveKey, resizeKeys, GRID, type Rect } from './layout';
   import { labelFor, type LayoutMapLike } from '../keyboard/labels';
   import type { FillDirection, KeyMode, KeyStyle, OverlayConfig } from '../config/schema';
 
@@ -14,6 +14,7 @@
   let {
     config,
     selectedIds,
+    surface,
     onChange,
     onClose,
     layout = null,
@@ -22,6 +23,12 @@
   }: {
     config: OverlayConfig;
     selectedIds: number[];
+    /**
+     * The work surface the position fields write into. Typing 500 into X is
+     * as good a way off the screen as dragging, and it goes through the same
+     * boundary.
+     */
+    surface: Rect;
     onChange: (next: OverlayConfig) => void;
     onClose: () => void;
     /** What the keyboard says this position produces, for the way back. */
@@ -220,7 +227,7 @@
             value={single.x}
             onchange={(event) => {
               const x = typed(event.currentTarget, single.x);
-              if (x !== null) onChange(moveKey(config, single.id, x, single.y));
+              if (x !== null) onChange(moveKey(config, single.id, x, single.y, surface));
             }}
           />
           <span class="times">,</span>
@@ -232,7 +239,7 @@
             value={single.y}
             onchange={(event) => {
               const y = typed(event.currentTarget, single.y);
-              if (y !== null) onChange(moveKey(config, single.id, single.x, y));
+              if (y !== null) onChange(moveKey(config, single.id, single.x, y, surface));
             }}
           />
         </div>

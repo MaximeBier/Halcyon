@@ -3,9 +3,13 @@ import { render, cleanup } from '@testing-library/svelte';
 import KeyPopover from './KeyPopover.svelte';
 import popoverSource from './KeyPopover.svelte?raw';
 import { setKeyLabel, setKeyStyle } from '../config/edit';
-import { defaultConfig, type OverlayConfig } from '../config/schema';
+import { DEFAULT_STYLE, defaultConfig, type OverlayConfig } from '../config/schema';
+import { surfaceOf } from './layout';
 
 afterEach(cleanup);
+
+/** A stage of 1440 × 720 at the default unit: 20 × 10 key units. */
+const SURFACE = surfaceOf({ width: 1440, height: 720 }, DEFAULT_STYLE.unit);
 
 function twoKeys(): OverlayConfig {
   const config = defaultConfig();
@@ -20,7 +24,7 @@ function popover(config = twoKeys(), selectedIds = [1]) {
   const onChange = vi.fn();
   const onClose = vi.fn();
   return {
-    ...render(KeyPopover, { props: { config, selectedIds, onChange, onClose } }),
+    ...render(KeyPopover, { props: { config, selectedIds, surface: SURFACE, onChange, onClose } }),
     onChange,
     onClose,
     config,
@@ -172,6 +176,7 @@ describe('KeyPopover - the axis suggestion', () => {
       props: {
         config,
         selectedIds,
+        surface: SURFACE,
         onChange,
         onClose: vi.fn(),
         suggestAxis: true,
@@ -236,7 +241,7 @@ describe('KeyPopover - going back to the detected label', () => {
   const withLayout = (config: OverlayConfig, layout: Map<string, string> | null) => {
     const onChange = vi.fn();
     const view = render(KeyPopover, {
-      props: { config, selectedIds: [1], onChange, onClose: vi.fn(), layout },
+      props: { config, selectedIds: [1], surface: SURFACE, onChange, onClose: vi.fn(), layout },
     });
     return { ...view, onChange };
   };

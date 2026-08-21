@@ -78,46 +78,39 @@ describe('ISO geometry table - 105 entries typed by hand', () => {
   });
 });
 
+/** Learns a series of usages, one at a time, the way the editor does. */
+function learn(usages: readonly number[]): { usage: number; x: number; y: number }[] {
+  const placed: { usage: number; x: number; y: number }[] = [];
+  for (const usage of usages) placed.push({ usage, ...placeNewKey(placed, usage) });
+  return placed;
+}
+
 describe('placeNewKey', () => {
   it('places the first key at the origin', () => {
-    expect(placeNewKey([], 0x1a)).toEqual([{ x: 0, y: 0 }]);
+    expect(placeNewKey([], 0x1a)).toEqual({ x: 0, y: 0 });
   });
 
-  it('places the new key relative to the existing ones, without moving them', () => {
+  it('places the new key relative to the existing ones', () => {
     // Z is already placed (usage W). We add S (usage S), one row down, right.
-    const placed = placeNewKey([{ usage: 0x1a, x: 0, y: 0 }], 0x16);
-
-    expect(placed).toEqual([
-      { x: 0, y: 0 },
-      { x: 0.25, y: 1 },
-    ]);
+    expect(placeNewKey([{ usage: 0x1a, x: 0, y: 0 }], 0x16)).toEqual({ x: 0.25, y: 1 });
   });
 
-  it('reframes the whole set when the new key falls left of the origin', () => {
-    // Q (usage A) sits left of Z (usage W): everything slides to the right.
-    const placed = placeNewKey([{ usage: 0x1a, x: 0, y: 0 }], 0x04);
-
-    expect(placed).toEqual([
-      { x: 0.75, y: 0 },
-      { x: 0, y: 1 },
-    ]);
+  it('places a key that belongs left of the origin to the left of it', () => {
+    // Q (usage A) sits left of Z (usage W). Everything used to slide right
+    // instead; a negative coordinate is a position like any other since
+    // task 31, and moving what is already placed is the thing to avoid.
+    expect(placeNewKey([{ usage: 0x1a, x: 0, y: 0 }], 0x04)).toEqual({ x: -0.75, y: 1 });
   });
 
-  it('does not reframe keys already moved by hand when it is not needed', () => {
-    const placed = placeNewKey([{ usage: 0x1a, x: 10, y: 10 }], 0x04);
-
-    expect(placed).toEqual([
-      { x: 10, y: 10 },
-      { x: 9.25, y: 11 },
-    ]);
+  it('follows a key moved by hand rather than the board it came from', () => {
+    expect(placeNewKey([{ usage: 0x1a, x: 10, y: 10 }], 0x04)).toEqual({ x: 9.25, y: 11 });
   });
 
-  it('places an unknown usage right of the set, without moving anything', () => {
+  it('places an unknown usage right of the set', () => {
     const placed = placeNewKey([{ usage: 0x1a, x: 0, y: 0 }], 0xff);
 
-    expect(placed[0]).toEqual({ x: 0, y: 0 });
-    expect(placed[1]?.y).toBe(0);
-    expect(placed[1]?.x).toBeGreaterThan(0);
+    expect(placed.y).toBe(0);
+    expect(placed.x).toBeGreaterThan(0);
   });
 
   it('anchors on a known key even when an unknown one sits in the list', () => {
@@ -129,40 +122,25 @@ describe('placeNewKey', () => {
       0x16,
     );
 
-    expect(placed[2]).toEqual({ x: 0.25, y: 1 });
+    expect(placed).toEqual({ x: 0.25, y: 1 });
   });
 
   it('rebuilds a whole keyboard in the shape of a keyboard', () => {
     // The point of the table, learned key by key: A Z E R on an AZERTY board
     // are Q W E R by usage, and they must come out on one row, adjacent.
-    let learned: { usage: number; x: number; y: number }[] = [];
-    for (const usage of [0x14, 0x1a, 0x08, 0x15]) {
-      const placed = placeNewKey(learned, usage);
-      learned = placed.map((position, index) => ({
-        usage: index === placed.length - 1 ? usage : learned[index]!.usage,
-        ...position,
-      }));
-    }
+    const learned = learn([0x14, 0x1a, 0x08, 0x15]);
 
     expect(learned.map((k) => k.y)).toEqual([0, 0, 0, 0]);
     expect(learned.map((k) => k.x)).toEqual([0, 1, 2, 3]);
   });
 
-  it('gives no key a negative position, whatever the order they are learned in', () => {
-    // Reframing exists for this: learn the rightmost key first and every
-    // later one lands before the origin.
-    const order = [0x15, 0x08, 0x1a, 0x14];
-    let learned: { usage: number; x: number; y: number }[] = [];
+  it('keeps the row a row when it is learned right to left', () => {
+    // The order reframing existed for: every key after the first lands
+    // before the origin. What matters is that they stay one unit apart and
+    // that none of them moves twice — not which side of zero they end on.
+    const learned = learn([0x15, 0x08, 0x1a, 0x14]);
 
-    for (const usage of order) {
-      const placed = placeNewKey(learned, usage);
-      learned = placed.map((position, index) => ({
-        usage: index === placed.length - 1 ? usage : learned[index]!.usage,
-        ...position,
-      }));
-    }
-
-    for (const key of learned) expect(key.x).toBeGreaterThanOrEqual(0);
+    expect(learned.map((k) => k.x)).toEqual([0, -1, -2, -3]);
   });
 });
 
@@ -179,22 +157,13 @@ describe('placeNewKey - which key it measures from', () => {
       0x2c, // Space
     );
 
-    expect(placed[2]).toEqual({ x: 8.75, y: 5 });
+    expect(placed).toEqual({ x: 8.75, y: 5 });
   });
 
   it('still lines up a row learned left to right', () => {
     // The nearest anchor and the first anchor agree here, which is why the
     // change is invisible on the common case.
-    let learned: { usage: number; x: number; y: number }[] = [];
-    for (const usage of [0x14, 0x1a, 0x08, 0x15]) {
-      const placed = placeNewKey(learned, usage);
-      learned = placed.map((position, index) => ({
-        usage: index === placed.length - 1 ? usage : learned[index]!.usage,
-        ...position,
-      }));
-    }
-
-    expect(learned.map((k) => k.x)).toEqual([0, 1, 2, 3]);
+    expect(learn([0x14, 0x1a, 0x08, 0x15]).map((k) => k.x)).toEqual([0, 1, 2, 3]);
   });
 
   it('measures distance on the reference board, not on the screen', () => {
@@ -209,6 +178,6 @@ describe('placeNewKey - which key it measures from', () => {
     );
 
     // AltLeft is at 2.5 on the reference board, Space at 3.75: one unit apart.
-    expect(placed[2]).toEqual({ x: 4.25, y: 3 });
+    expect(placed).toEqual({ x: 4.25, y: 3 });
   });
 });
