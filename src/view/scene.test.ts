@@ -344,4 +344,26 @@ describe('recommendedSize', () => {
   it('is zero when nothing is configured', () => {
     expect(recommendedSize(config())).toEqual({ width: 0, height: 0 });
   });
+
+  it('quotes whole pixels, not the dust of the arithmetic', () => {
+    // `217.00000000000003 × 146.00000000000006 px` is what the footer showed,
+    // and it is not a figure anyone can type into OBS. It comes from a key
+    // whose position is off the quarter grid — an imported profile, or a file
+    // edited by hand — because `(x - origin + w) * unit` is then exact in
+    // arithmetic and not in floats. Both directions occur — 109.00000000000001
+    // for this key, 200.99999999999997 two hundredths to the left — so
+    // rounding has to absorb the dust before it decides which way to go.
+    const scene = config(key({ id: 1, x: 0, y: 0 }), key({ id: 2, x: 0.09, y: 0.09 }));
+
+    expect(recommendedSize(scene)).toEqual({ width: 109, height: 109 });
+  });
+
+  it('rounds a genuinely fractional size up, never down', () => {
+    // A browser source one pixel short crops, silently, on the two edges that
+    // matter least to notice and most to lose. Rounding down would trade a
+    // clean number for a clipped key.
+    const scene = config(key({ w: 1.005, h: 1.005 }));
+
+    expect(recommendedSize(scene)).toEqual({ width: 101, height: 101 });
+  });
 });

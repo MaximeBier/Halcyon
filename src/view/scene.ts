@@ -203,7 +203,22 @@ export function buildScene(
 }
 
 /**
- * Size to give the browser source in OBS, in pixels.
+ * Rounds a pixel size up to a whole pixel, dust and all.
+ *
+ * **Up**, because a browser source one pixel short crops — silently, on the
+ * two edges hardest to notice. And **the dust first**, because
+ * `(x - origin + w) * unit` is exact in arithmetic and not in floats: it
+ * arrives as `109.00000000000001` as readily as `200.99999999999997`, so a
+ * bare `Math.ceil` would answer 110 to a scene that measures 109.
+ *
+ * A thousandth of a pixel is far below anything a source can express, and far
+ * above the error, which lands in the last bit or two.
+ */
+const DUST = 1e-3;
+const wholePixels = (value: number) => Math.max(0, Math.ceil(value - DUST));
+
+/**
+ * Size to give the browser source in OBS, in whole pixels.
  *
  * The packed bounding box, never the raw one: an unpacked measurement
  * describes an area whose top and left are empty by construction, and handing
@@ -211,8 +226,12 @@ export function buildScene(
  *
  * Measured by building the scene rather than by a formula of its own, so the
  * number quoted and the pixels drawn cannot drift apart.
+ *
+ * Whole pixels because **this figure is typed into OBS**, which takes
+ * integers. It stays true even once every key is on the quarter grid: an
+ * imported profile is under no obligation to be, and neither is `unit`.
  */
 export function recommendedSize(config: ResolvedConfig): { width: number; height: number } {
   const { width, height } = buildScene(config, [], { pack: true });
-  return { width, height };
+  return { width: wholePixels(width), height: wholePixels(height) };
 }

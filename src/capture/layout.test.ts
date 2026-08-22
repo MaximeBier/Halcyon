@@ -18,6 +18,18 @@ import { DEFAULT_STYLE, defaultConfig, type OverlayConfig } from '../config/sche
 /** A stage of 1440 × 720 at the default unit: 20 × 10 key units. */
 const SURFACE = surfaceOf({ width: 1440, height: 720 }, DEFAULT_STYLE.unit);
 
+/**
+ * A stage whose edges land nowhere near the grid — which is the ordinary case.
+ *
+ * The surface is a pixel measurement divided by the unit, so its edges are on
+ * no grid at all; `SURFACE` above is the exception, not the rule. 1002 px at
+ * the default unit puts them at ±6.958333333333333.
+ */
+const ODD = surfaceOf({ width: 1002, height: 562 }, DEFAULT_STYLE.unit);
+
+/** Whether a coordinate is one the quarter-key grid can express. */
+const onGrid = (value: number) => snap(value) === value;
+
 function config(): OverlayConfig {
   const base = defaultConfig();
   base.keys.push({ id: 1, usage: 0x14, mode: 'key', label: 'A', x: 0, y: 0, w: 1, h: 1 });
@@ -120,6 +132,25 @@ describe('moveKey', () => {
     expect(moveKey(wide, 1, 0, 0, SURFACE).keys[0]?.x).toBe(SURFACE.x);
   });
 
+  it('leaves a key clamped against an edge on the grid', () => {
+    // The bug behind `217.00000000000003 × 146.00000000000006 px` in the
+    // footer. The surface is a pixel measurement divided by the unit, so its
+    // edges sit on no grid: a key pushed against one took a coordinate like
+    // -6.958333333333333, and every size and position derived from it carried
+    // the dust. The grid is the set of positions a key may hold — the boundary
+    // does not get to invent one outside it.
+    const far = moveKey(config(), 1, 1000, 1000, ODD).keys[0]!;
+    const near = moveKey(config(), 1, -1000, -1000, ODD).keys[0]!;
+
+    expect([far.x, far.y, near.x, near.y].every(onGrid)).toBe(true);
+    // Rounded *inwards*, both ends: the whole point of the clamp is that the
+    // key stays on the surface, and a quarter key the wrong way undoes it.
+    expect(far.x + 1).toBeLessThanOrEqual(ODD.x + ODD.w);
+    expect(near.x).toBeGreaterThanOrEqual(ODD.x);
+    expect(far.y + 1).toBeLessThanOrEqual(ODD.y + ODD.h);
+    expect(near.y).toBeGreaterThanOrEqual(ODD.y);
+  });
+
   it('ignores an unknown id', () => {
     const before = config();
 
@@ -188,6 +219,20 @@ describe('moveKeysBy', () => {
     // the edge. Clamping the corner instead would push its right half off.
     expect(after.keys[1]?.x).toBe(SURFACE.x + SURFACE.w - 1);
     expect(after.keys[0]?.x).toBe(SURFACE.x + SURFACE.w - 2.75);
+  });
+
+  it('leaves a whole group clamped against an edge on the grid', () => {
+    // Worse than the single key, and the same cause: the clamped offset is
+    // itself off the grid, so pushing a group against an edge took *every*
+    // key with it — one gesture, and nothing in the layout is expressible any
+    // more.
+    const before = pair();
+
+    const after = moveKeysBy(before, origins(before, 1, 2), 1000, -1000, ODD);
+
+    expect(after.keys.every((key) => onGrid(key.x) && onGrid(key.y))).toBe(true);
+    expect(Math.max(...after.keys.map((key) => key.x + key.w))).toBeLessThanOrEqual(ODD.x + ODD.w);
+    expect(Math.min(...after.keys.map((key) => key.y))).toBeGreaterThanOrEqual(ODD.y);
   });
 
   it('holds a group wider than the surface against the near edge', () => {

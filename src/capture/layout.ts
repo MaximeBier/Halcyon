@@ -74,7 +74,24 @@ export function surfaceOf(box: { width: number; height: number }, unit: number):
 }
 
 /**
- * Keeps a span of `extent` inside `[from, from + span]`.
+ * The two ways onto the grid, and which one a boundary needs.
+ *
+ * **A boundary rounds inwards**, always. The surface is a pixel measurement
+ * divided by the unit, so its edges land on no grid: left alone, a key pushed
+ * against one takes a coordinate like `-6.958333333333333`, and every size and
+ * position derived from it carries the dust — which is how the footer came to
+ * quote `217.00000000000003 × 146.00000000000006 px`.
+ *
+ * Rounding the other way would put the key a quarter of a key *past* the edge,
+ * which is the one thing the clamp exists to prevent. The price is a margin of
+ * up to a quarter key against each edge, unreachable: the grid is the set of
+ * positions a key may hold, and the edge of the screen is not one of them.
+ */
+const gridUp = (value: number) => Math.ceil(value / GRID) * GRID;
+const gridDown = (value: number) => Math.floor(value / GRID) * GRID;
+
+/**
+ * Keeps a span of `extent` inside `[from, from + span]`, on the grid.
  *
  * `Math.max` last, deliberately: a key wider than the surface makes the two
  * bounds cross, and the one to honour then is the near edge. The other order
@@ -82,7 +99,7 @@ export function surfaceOf(box: { width: number; height: number }, unit: number):
  * function exists to prevent.
  */
 function clamp(value: number, extent: number, from: number, span: number): number {
-  return Math.max(from, Math.min(value, from + span - extent));
+  return Math.max(gridUp(from), Math.min(value, gridDown(from + span - extent)));
 }
 
 /**
@@ -170,9 +187,16 @@ export function moveKey(
  * The most of `shift` that keeps a group spanning `[low, high]` on the
  * surface — clamped once, for the whole group, so the alignments inside it
  * survive being pushed against an edge.
+ *
+ * The two bounds are rounded inwards for the same reason as `clamp`'s, and it
+ * matters more here: an off-grid offset takes **every** key in the group with
+ * it, so one push against an edge left nothing in the layout expressible on
+ * the grid. A group that was off-grid to begin with stays that way — that is
+ * `moveKeysBy`'s deliberate tolerance, and the offset being on the grid is
+ * what preserves it.
  */
 function clampShift(shift: number, low: number, high: number, from: number, span: number): number {
-  return Math.max(from - low, Math.min(shift, from + span - high));
+  return Math.max(gridUp(from - low), Math.min(shift, gridDown(from + span - high)));
 }
 
 /**
