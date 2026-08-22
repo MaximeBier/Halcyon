@@ -58,6 +58,13 @@
   ontoggle={(event) => saveOpenState(storage, id, event.currentTarget.open)}
 >
   <summary>
+    <!-- Its own caret, because `summary { display: flex }` below removes the
+         native disclosure triangle — set `display` to anything but `list-item`
+         and the marker goes. Without it these folds read as plain headings,
+         which is how a setting ends up unreachable while sitting one click
+         away. One glyph rotated by the `[open]` state, never two swapped: a
+         second glyph is a second source of truth about the same thing. -->
+    <span class="caret" data-caret aria-hidden="true">▸</span>
     <span class="title">{title}</span>
     {#if modified}
       <!-- Not a colour on the title: a dot survives being read by someone who
@@ -98,6 +105,23 @@
   summary:focus-visible {
     outline: 2px solid var(--he-accent, #7c9eff);
     outline-offset: 2px;
+  }
+  /* `list-item` would bring the native marker back, and with it a bullet whose
+     colour and size no engine agrees on. */
+  summary::marker,
+  summary::-webkit-details-marker {
+    content: '';
+    display: none;
+  }
+  .caret {
+    font-size: var(--he-size-xs, 14px);
+    color: var(--he-text-faint, #5a5f70);
+    /* Rotated rather than replaced, and transitioned so the gesture is legible
+       even when the contents below it appears in one frame. */
+    transition: rotate 120ms ease-out;
+  }
+  .fold[open] .caret {
+    rotate: 90deg;
   }
   .title {
     color: var(--he-text-muted, #8b90a0);

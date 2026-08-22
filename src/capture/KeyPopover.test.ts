@@ -20,11 +20,31 @@ function twoKeys(): OverlayConfig {
   return config;
 }
 
+/** The fold inside remembers its state, and reaches for nothing. */
+const memory = (initial: Record<string, string> = {}) => {
+  const held = new Map(Object.entries(initial));
+  return {
+    getItem: (k: string) => held.get(k) ?? null,
+    setItem: (k: string, v: string) => void held.set(k, v),
+  };
+};
+
+/**
+ * The Style block, already unfolded.
+ *
+ * It is shut on a first run — the test below holds that — and a shut fold
+ * renders nothing at all, so every test that reads a row starts from someone
+ * who has opened it once.
+ */
+const unfolded = () => memory({ 'he-overlay:open:key-style': '1' });
+
 function popover(config = twoKeys(), selectedIds = [1]) {
   const onChange = vi.fn();
   const onClose = vi.fn();
   return {
-    ...render(KeyPopover, { props: { config, selectedIds, surface: SURFACE, onChange, onClose } }),
+    ...render(KeyPopover, {
+      props: { config, selectedIds, surface: SURFACE, onChange, onClose, storage: unfolded() },
+    }),
     onChange,
     onClose,
     config,
@@ -179,6 +199,7 @@ describe('KeyPopover - the axis suggestion', () => {
         surface: SURFACE,
         onChange,
         onClose: vi.fn(),
+        storage: memory(),
         suggestAxis: true,
         onDismissSuggestion,
       },
@@ -241,7 +262,15 @@ describe('KeyPopover - going back to the detected label', () => {
   const withLayout = (config: OverlayConfig, layout: Map<string, string> | null) => {
     const onChange = vi.fn();
     const view = render(KeyPopover, {
-      props: { config, selectedIds: [1], surface: SURFACE, onChange, onClose: vi.fn(), layout },
+      props: {
+        config,
+        selectedIds: [1],
+        surface: SURFACE,
+        onChange,
+        onClose: vi.fn(),
+        storage: memory(),
+        layout,
+      },
     });
     return { ...view, onChange };
   };
@@ -297,5 +326,138 @@ describe('the width the editor is told about', () => {
 
     expect(rule).toContain('box-sizing: border-box');
     expect(rule).toContain('--he-popover-width');
+  });
+});
+
+describe('KeyPopover - the Style block', () => {
+  const row = (c: Element, property: string) =>
+    c.querySelector<HTMLElement>(`[data-style-row="${property}"]`)!;
+  const swatch = (c: Element, property: string) =>
+    row(c, property).querySelector<HTMLInputElement>('input')!;
+  const tag = (c: Element, property: string) =>
+    row(c, property).querySelector<HTMLElement>('[data-tag]')!;
+
+  it('overrides the travel fill, which nothing could reach before', () => {
+    // `KeyStyle` has carried nine properties since task 13 and the popover
+    // offered one of them. The model, the resolution, the broadcast and the
+    // storage could all do this; only the interface never asked (spec §8.2).
+    const { container, onChange } = popover();
+
+    change(swatch(container, 'fillColor'), '#123456');
+
+    expect(onChange.mock.calls[0]![0].keys[0].style).toEqual({ fillColor: '#123456' });
+  });
+
+  it('overrides the rest colour', () => {
+    const { container, onChange } = popover();
+
+    change(swatch(container, 'restColor'), '#0a0b0c');
+
+    expect(onChange.mock.calls[0]![0].keys[0].style).toEqual({ restColor: '#0a0b0c' });
+  });
+
+  it('overrides the radius, because a round key in a square block is a layout intent', () => {
+    const { container, onChange } = popover();
+
+    change(swatch(container, 'radius'), '11');
+
+    expect(onChange.mock.calls[0]![0].keys[0].style).toEqual({ radius: 11 });
+  });
+
+  it('refuses an empty radius rather than reading it as zero', () => {
+    // `+''` is 0, so a field cleared to be retyped would square the key and
+    // broadcast it — the defect the size fields already guard against.
+    const { container, onChange } = popover();
+
+    change(swatch(container, 'radius'), '');
+
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('says of every line whether it is overridden or inherited', () => {
+    const { container } = popover(setKeyStyle(twoKeys(), [1], 'fillColor', '#123456'));
+
+    expect(tag(container, 'fillColor').textContent).toMatch(/override/i);
+    expect(tag(container, 'restColor').textContent).toMatch(/global/i);
+    expect(tag(container, 'activeColor').textContent).toMatch(/global/i);
+  });
+
+  it('counts the overrides in the header of the fold', () => {
+    // What a fold hides has to be readable while it is shut (spec §9.3).
+    const twice = setKeyStyle(
+      setKeyStyle(twoKeys(), [1], 'fillColor', '#123456'),
+      [1],
+      'radius',
+      9,
+    );
+
+    expect(popover(twice).container.querySelector('summary')!.textContent).toContain('2 override');
+  });
+
+  it('hands every override back in one gesture', () => {
+    const twice = setKeyStyle(
+      setKeyStyle(twoKeys(), [1], 'fillColor', '#123456'),
+      [1],
+      'radius',
+      9,
+    );
+    const { container, onChange } = popover(twice);
+
+    container.querySelector<HTMLButtonElement>('[data-reset-all]')!.click();
+
+    // One write, so one undo — and the bag is dropped, not left empty.
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0]![0].keys[0].style).toBeUndefined();
+  });
+
+  it('hands one line back from its own tag', () => {
+    // The plate draws a tag, not a button, on each line. Making the tag itself
+    // the way back costs no space and keeps what the single-property reset
+    // could do before this block existed: return one colour without returning
+    // the four beside it.
+    const twice = setKeyStyle(
+      setKeyStyle(twoKeys(), [1], 'fillColor', '#123456'),
+      [1],
+      'radius',
+      9,
+    );
+    const { container, onChange } = popover(twice);
+
+    tag(container, 'radius').click();
+
+    expect(onChange.mock.calls[0]![0].keys[0].style).toEqual({ fillColor: '#123456' });
+  });
+
+  it('keeps the fill direction inside the block, where the lot puts it', () => {
+    const { container, onChange } = popover();
+
+    row(container, 'fillDirection')
+      .querySelector<HTMLButtonElement>('[data-direction="left"]')!
+      .click();
+
+    expect(onChange.mock.calls[0]![0].keys[0].style).toEqual({ fillDirection: 'left' });
+  });
+});
+
+describe('KeyPopover - the Style block is shut on a first run', () => {
+  it('starts folded, unlike the global panel', () => {
+    // The two are not the same case. The global panel's contents *is* what one
+    // opened the section for; a per-key override is by definition the
+    // exception, and the popover's height is load-bearing — it flips above the
+    // selection, or pins to the top, when it does not fit under its key.
+    // Nothing is hidden by closing it: the header counts the overrides.
+    const { container } = render(KeyPopover, {
+      props: {
+        config: twoKeys(),
+        selectedIds: [1],
+        surface: SURFACE,
+        onChange: vi.fn(),
+        onClose: vi.fn(),
+        storage: memory(),
+      },
+    });
+
+    expect(container.querySelector('details')!.open).toBe(false);
+    expect(container.querySelector('[data-style-row="fillColor"]')).toBeNull();
   });
 });

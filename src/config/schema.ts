@@ -137,6 +137,18 @@ export const STYLE_KEYS = Object.keys(INHERITABLE) as readonly (keyof KeyStyle)[
  * `src/styles/tokens.ts` in task 14b; they are the same values, not
  * placeholders.
  */
+/**
+ * What a corner radius may be, in pixels — here rather than in one of the two
+ * panels that offer it, so the global field and the per-key field cannot drift.
+ *
+ * The floor is what matters: `rx="-5"` is an SVG error, not a square corner,
+ * and what survives it is up to the browser. Zero is a legitimate choice.
+ * The ceiling is derived — SVG clamps `rx` to half the shorter side, so half
+ * of the largest key a unit can be is the point past which no radius changes
+ * anything on any key.
+ */
+export const RADIUS_BOUNDS = { min: 0, max: 100 } as const;
+
 export const DEFAULT_STYLE: GlobalStyle = {
   restColor: OVERLAY_TOKENS.keyRest,
   borderColor: OVERLAY_TOKENS.keyBorder,

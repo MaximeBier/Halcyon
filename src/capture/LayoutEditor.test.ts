@@ -71,7 +71,16 @@ function editor(config = twoKeys(), box = STAGE, selectedIds: number[] = []) {
   laidOut(box);
   const onChange = vi.fn();
   const view = render(LayoutEditor, {
-    props: { config, frame: [], selectedIds, stageBox: { ...box }, onChange },
+    props: {
+      config,
+      frame: [],
+      selectedIds,
+      stageBox: { ...box },
+      onChange,
+      // The popover's Style fold remembers whether it is open; nothing here
+      // reaches for  on its own.
+      storage: { getItem: () => null, setItem: () => {} },
+    },
   });
   const handles = [...view.container.querySelectorAll('button.handle')] as HTMLElement[];
   // jsdom has no pointer capture; the editor only ever asks for it.
@@ -667,7 +676,13 @@ describe('LayoutEditor - the drawing and the handles agree', () => {
     // the box is passed in, which would let this go untested.
     laidOut(STAGE);
     const view = render(LayoutEditor, {
-      props: { config: twoKeys(), frame: [], selectedIds: [], onChange: vi.fn() },
+      props: {
+        config: twoKeys(),
+        frame: [],
+        selectedIds: [],
+        onChange: vi.fn(),
+        storage: { getItem: () => null, setItem: () => {} },
+      },
     });
     await tick();
 

@@ -26,6 +26,7 @@
     selectedIds = $bindable([]),
     stageBox = $bindable({ width: 0, height: 0 }),
     onChange,
+    storage,
     layout = null,
     suggestAxis = false,
     onDismissSuggestion = () => {},
@@ -44,6 +45,11 @@
      */
     stageBox?: { width: number; height: number };
     onChange: (next: OverlayConfig) => void;
+    /**
+     * Passed straight through to the popover, whose Style fold remembers
+     * whether it is open. The editor keeps nothing of its own in it.
+     */
+    storage: Pick<Storage, 'getItem' | 'setItem'>;
     /** Passed straight through to the popover; the editor makes no use of it. */
     layout?: LayoutMapLike | null;
     suggestAxis?: boolean;
@@ -651,6 +657,7 @@
             {selectedIds}
             {surface}
             {onChange}
+            {storage}
             {layout}
             {suggestAxis}
             {onDismissSuggestion}

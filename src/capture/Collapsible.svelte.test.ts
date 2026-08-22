@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import Host from './Collapsible.harness.svelte';
+import collapsibleSource from './Collapsible.svelte?raw';
 
 afterEach(cleanup);
 
@@ -77,5 +78,32 @@ describe('what the header says while shut', () => {
     const { container } = fold({ note: '4 · 1 to report' });
 
     expect(summary(container).querySelector('[data-note]')!.textContent).toContain('1 to report');
+  });
+});
+
+describe('looking like something that opens', () => {
+  it('draws its own caret, since the native marker is gone', async () => {
+    // `summary { display: flex }` removes the disclosure triangle in every
+    // engine — set `display` to anything but `list-item` and the marker goes.
+    // The folds were left looking like plain headings, which is how a setting
+    // ends up unreachable while sitting one click away.
+    const { container } = fold();
+
+    expect(container.querySelector('[data-caret]')).not.toBeNull();
+  });
+
+  it('turns the caret when it opens, rather than swapping two glyphs', async () => {
+    // One element rotated by the `[open]` state, so the two directions cannot
+    // disagree with the fold — a second glyph is a second source of truth.
+    const { container } = fold();
+    const caret = container.querySelector('[data-caret]')!;
+    const glyph = caret.textContent;
+
+    details(container).open = true;
+    details(container).dispatchEvent(new Event('toggle'));
+    await tick();
+
+    expect(container.querySelector('[data-caret]')!.textContent).toBe(glyph);
+    expect(collapsibleSource).toMatch(/\[open\][^{]*\{[^}]*rotate/);
   });
 });

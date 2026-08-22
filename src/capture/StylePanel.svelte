@@ -1,6 +1,6 @@
 <script lang="ts">
   import { setGlobalStyle } from '../config/edit';
-  import type { FillDirection, OverlayConfig } from '../config/schema';
+  import { RADIUS_BOUNDS, type FillDirection, type OverlayConfig } from '../config/schema';
 
   /**
    * Global appearance, and nothing else.
@@ -36,18 +36,12 @@
     ['right', '→ Right'],
   ];
 
-  /**
-   * What each size may hold. `min` and `max` bind the spinner, not the keyboard.
-   *
-   * The radius ceiling is derived rather than picked: SVG clamps `rx` to half
-   * the shorter side, so half of the largest key a unit can be is the point
-   * past which no radius changes anything on any key. Its floor is zero — a
-   * square key is a choice, not a missing value.
-   */
+  /** What each size may hold. `min` and `max` bind the spinner, not the keyboard. */
   const BOUNDS = {
     unit: { min: 16, max: 200 },
     gap: { min: 0, max: 40 },
-    radius: { min: 0, max: 100 },
+    // Shared with the popover's own radius field, so the two cannot drift.
+    radius: RADIUS_BOUNDS,
   } as const;
 
   /**

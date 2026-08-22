@@ -683,6 +683,7 @@
         bind:selectedIds
         bind:stageBox
         onChange={updateConfig}
+        {storage}
         layout={activeLayout}
         suggestAxis={selectedIds.length === 1 && suggestedIds.includes(selectedIds[0]!)}
         onDismissSuggestion={() => {
@@ -766,7 +767,17 @@
       <!-- Global appearance. Per-key overrides live in the popover the editor
            anchors to the selection, never here (spec §16.4). -->
       <section class="block">
-        <Collapsible id="style" title="Global style · all keys" modified={styled} {storage}>
+        <!-- Open on a first run, unlike the per-key block in the popover. The
+             contents of this one *is* what someone came to the section for;
+             the popover's is the exception, and its header already says
+             whether this key has any. -->
+        <Collapsible
+          id="style"
+          title="Global style · all keys"
+          modified={styled}
+          defaultOpen
+          {storage}
+        >
           <StylePanel {config} onChange={updateConfig} />
         </Collapsible>
       </section>

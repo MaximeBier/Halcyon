@@ -4,7 +4,14 @@
   import { removeKeys } from './learn';
   import { moveKey, resizeKeys, GRID, type Rect } from './layout';
   import { labelFor, type LayoutMapLike } from '../keyboard/labels';
-  import type { FillDirection, KeyMode, KeyStyle, OverlayConfig } from '../config/schema';
+  import Collapsible from './Collapsible.svelte';
+  import {
+    RADIUS_BOUNDS,
+    type FillDirection,
+    type KeyMode,
+    type KeyStyle,
+    type OverlayConfig,
+  } from '../config/schema';
 
   /**
    * Everything that belongs to the selection: mode, colour, fill direction,
@@ -17,6 +24,7 @@
     surface,
     onChange,
     onClose,
+    storage,
     layout = null,
     suggestAxis = false,
     onDismissSuggestion = () => {},
@@ -31,6 +39,14 @@
     surface: Rect;
     onChange: (next: OverlayConfig) => void;
     onClose: () => void;
+    /**
+     * For the Style fold, which remembers whether it is open (spec §9.3).
+     *
+     * Injected rather than reached for, like every other fold's: `localStorage`
+     * throws outright with cookies blocked, and a popover is the last place
+     * that should take a page down.
+     */
+    storage: Pick<Storage, 'getItem' | 'setItem'>;
     /** What the keyboard says this position produces, for the way back. */
     layout?: LayoutMapLike | null;
     /** The key travels its whole depth and never fires (spec §7.4). */
@@ -77,12 +93,53 @@
     ['right', '→'],
   ];
 
+  const COLORS: [keyof KeyStyle & ('activeColor' | 'fillColor' | 'restColor'), string][] = [
+    ['activeColor', 'Active color'],
+    ['fillColor', 'Travel fill'],
+    ['restColor', 'Rest'],
+  ];
+
+  /**
+   * Hands the whole selection back to the global style, in one write.
+   *
+   * Every override the header counted, not only the five the block draws: an
+   * imported profile may carry an opacity or a font per key, which nothing
+   * here can set — and a button that says "reset to global" while leaving one
+   * behind is worse than no button.
+   */
+  function resetStyle() {
+    onChange(
+      overridden.reduce((next, property) => clearKeyStyle(next, selectedIds, property), config),
+    );
+  }
+
   function typed(input: HTMLInputElement, fallback: number): number | null {
     if (input.value !== '') return Number(input.value);
     input.value = String(fallback);
     return null;
   }
 </script>
+
+<!--
+  `override` or `global`, on every line of the block — and the overridden one is
+  a button, because the tag is exactly where one would click to undo it.
+-->
+{#snippet inheritance(property: keyof KeyStyle)}
+  {#if overridden.includes(property)}
+    <button
+      type="button"
+      class="tag over"
+      data-tag
+      data-reset={property}
+      title="Reset to global"
+      onclick={() => onChange(clearKeyStyle(config, selectedIds, property))}
+    >
+      override
+    </button>
+  {:else}
+    <span class="tag" data-tag>global</span>
+  {/if}
+{/snippet}
 
 {#if lead && effective}
   <div class="popover" role="dialog" aria-label="Key style">
@@ -143,45 +200,93 @@
       </p>
     {/if}
 
-    <div class="row">
-      <label for="key-activeColor">Active</label>
-      <div class="value">
-        <input
-          id="key-activeColor"
-          name="activeColor"
-          type="color"
-          value={effective.activeColor}
-          onchange={(event) => apply('activeColor', event.currentTarget.value)}
-        />
-        {#if overridden.includes('activeColor')}
-          <button
-            type="button"
-            class="link"
-            data-reset="activeColor"
-            onclick={() => onChange(clearKeyStyle(config, selectedIds, 'activeColor'))}
-          >
-            Reset to global
-          </button>
-        {/if}
-      </div>
-    </div>
+    <!--
+      Every appearance property a key may hold, behind one fold (lot of
+      2026-08-21). Five of the nine: opacity and the two font properties stay
+      global — two typefaces in one overlay serve no real case — and
+      `borderColor` is on its way out of the model entirely.
 
-    <div class="row">
-      <span class="label" id="key-fillDirection">Fill</span>
-      <div class="segmented small" role="group" aria-labelledby="key-fillDirection">
-        {#each DIRECTIONS as [value, glyph] (value)}
-          <button
-            type="button"
-            data-direction={value}
-            class:on={effective.fillDirection === value}
-            aria-pressed={effective.fillDirection === value}
-            aria-label={value}
-            onclick={() => apply('fillDirection', value)}
-          >
-            {glyph}
-          </button>
+      The tag on each line **is** the way back for that line. The plate draws a
+      tag and a single "Reset to global" at the foot; a tag that resets keeps
+      what the old per-property link could do — return one colour without
+      returning the four beside it — and costs not a pixel more.
+    -->
+    <div class="style-block">
+      <Collapsible
+        id="key-style"
+        title="Style"
+        note={overridden.length > 0
+          ? `${overridden.length} override${overridden.length === 1 ? '' : 's'}`
+          : null}
+        modified={overridden.length > 0}
+        {storage}
+      >
+        {#each COLORS as [property, label] (property)}
+          <div class="row" data-style-row={property}>
+            <label for={`key-${property}`}>{label}</label>
+            <div class="value">
+              <input
+                id={`key-${property}`}
+                name={property}
+                type="color"
+                value={effective[property]}
+                onchange={(event) => apply(property, event.currentTarget.value)}
+              />
+              {@render inheritance(property)}
+            </div>
+          </div>
         {/each}
-      </div>
+
+        <div class="row" data-style-row="fillDirection">
+          <span class="label" id="key-fillDirection">Fill direction</span>
+          <div class="value">
+            <div class="segmented small" role="group" aria-labelledby="key-fillDirection">
+              {#each DIRECTIONS as [value, glyph] (value)}
+                <button
+                  type="button"
+                  data-direction={value}
+                  class:on={effective.fillDirection === value}
+                  aria-pressed={effective.fillDirection === value}
+                  aria-label={value}
+                  onclick={() => apply('fillDirection', value)}
+                >
+                  {glyph}
+                </button>
+              {/each}
+            </div>
+            {@render inheritance('fillDirection')}
+          </div>
+        </div>
+
+        <div class="row" data-style-row="radius">
+          <label for="key-radius">Radius</label>
+          <div class="value">
+            <input
+              id="key-radius"
+              name="radius"
+              type="number"
+              min={RADIUS_BOUNDS.min}
+              max={RADIUS_BOUNDS.max}
+              value={effective.radius}
+              onchange={(event) => {
+                const value = typed(event.currentTarget, effective!.radius);
+                if (value !== null)
+                  apply('radius', Math.min(RADIUS_BOUNDS.max, Math.max(RADIUS_BOUNDS.min, value)));
+              }}
+            />
+            <span class="unit">px</span>
+            {@render inheritance('radius')}
+          </div>
+        </div>
+
+        {#if overridden.length > 0}
+          <div class="row end">
+            <button type="button" class="link" data-reset-all onclick={resetStyle}>
+              Reset to global
+            </button>
+          </div>
+        {/if}
+      </Collapsible>
     </div>
 
     {#if single}
@@ -334,6 +439,45 @@
     align-items: center;
     justify-content: space-between;
     gap: 10px;
+  }
+  /* The fold brings its own frame; inside the popover it is a run of rows like
+     any other, so it gets the same spacing and no second border. */
+  .style-block :global(.fold) {
+    border: none;
+    padding: 0;
+    display: grid;
+    gap: 10px;
+  }
+  /**
+   * `override` or `global`, at the end of every line of the Style block.
+   *
+   * Quiet on purpose: the amber says "this one differs", and everything else is
+   * the faintest text on the panel — a column of six labels shouting `global`
+   * would read as six problems. The overridden one is a button, so it carries
+   * the pointer cursor that says it can be undone.
+   */
+  .tag {
+    font-size: var(--he-size-xs, 14px);
+    color: var(--he-text-ghost, #4a4f60);
+    background: none;
+    border: none;
+    padding: 0;
+    font-family: inherit;
+  }
+  .tag.over {
+    color: var(--he-override, #d9a05b);
+    cursor: pointer;
+  }
+  .tag.over:hover {
+    text-decoration: underline;
+  }
+  .tag.over:focus-visible {
+    outline: 2px solid var(--he-accent, #7c9eff);
+    outline-offset: 2px;
+  }
+  .unit {
+    font-size: var(--he-size-xs, 14px);
+    color: var(--he-text-ghost, #4a4f60);
   }
   label,
   .label {
