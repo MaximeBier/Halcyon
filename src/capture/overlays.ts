@@ -1,8 +1,19 @@
 /** Three missed beats: the overlay beats every 2 s. */
 export const OVERLAY_TIMEOUT_MS = 6000;
 
+/** How many overlays are listening, and from where. */
+export interface OverlayCounts {
+  inObs: number;
+  inBrowser: number;
+}
+
 export interface OverlayRegistry {
-  seen(id: string, now: number): void;
+  /**
+   * `browser` is the overlay saying where it is (spec §16.7), not a guess made
+   * here: only the page itself can tell, and it decides once before its first
+   * paint.
+   */
+  seen(id: string, now: number, browser: boolean): void;
   /**
    * Drops an overlay that announced it was leaving, rather than waiting out
    * its timeout. A reload draws a new id, so an overlay that leaves silently
@@ -17,8 +28,15 @@ export interface OverlayRegistry {
    * a count left standing there would never come down on its own.
    */
   clear(): void;
-  /** Number of live overlays, computed lazily on read. */
-  count(now: number): number;
+  /**
+   * Live overlays, split by host and computed lazily on read.
+   *
+   * Split because one figure stopped answering the question the moment anyone
+   * used the tool: opening `overlay.html` to check it works takes the count
+   * from one to two, and the total can no longer say whether the one in OBS is
+   * among them. **A diagnostic that its own use invalidates is not one.**
+   */
+  counts(now: number): OverlayCounts;
 }
 
 /**
@@ -29,11 +47,13 @@ export interface OverlayRegistry {
  * the only thing that tells them apart (spec §11).
  */
 export function createOverlayRegistry(timeoutMs: number = OVERLAY_TIMEOUT_MS): OverlayRegistry {
-  const lastSeen = new Map<string, number>();
+  const lastSeen = new Map<string, { at: number; browser: boolean }>();
 
   return {
-    seen(id, now) {
-      lastSeen.set(id, now);
+    seen(id, now, browser) {
+      // Keyed by id, so a page that somehow reported a different host replaces
+      // its own entry rather than adding a second listener.
+      lastSeen.set(id, { at: now, browser });
     },
     forget(id) {
       lastSeen.delete(id);
@@ -41,11 +61,12 @@ export function createOverlayRegistry(timeoutMs: number = OVERLAY_TIMEOUT_MS): O
     clear() {
       lastSeen.clear();
     },
-    count(now) {
-      let live = 0;
-      for (const [id, at] of lastSeen) {
-        if (now - at > timeoutMs) lastSeen.delete(id);
-        else live++;
+    counts(now) {
+      const live = { inObs: 0, inBrowser: 0 };
+      for (const [id, entry] of lastSeen) {
+        if (now - entry.at > timeoutMs) lastSeen.delete(id);
+        else if (entry.browser) live.inBrowser++;
+        else live.inObs++;
       }
       return live;
     },

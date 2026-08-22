@@ -1,7 +1,7 @@
 import { isResolvedConfig } from '../config/validate';
 import type { ResolvedConfig } from '../config/schema';
 
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 
 /** [matrix index, travel 0..1023, actuation]. `active` is always transmitted. */
 export type FrameKey = readonly [id: number, travel: number, active: 0 | 1];
@@ -12,8 +12,26 @@ export type FrameKey = readonly [id: number, travel: number, active: 0 | 1];
  * impossible without something to tell them apart, and the spec asks for that
  * count as well.
  */
-export type HelloMessage = { v: typeof PROTOCOL_VERSION; t: 'hello'; id: string };
-export type BeatMessage = { v: typeof PROTOCOL_VERSION; t: 'beat'; id: string };
+export type HelloMessage = {
+  v: typeof PROTOCOL_VERSION;
+  t: 'hello';
+  id: string;
+  /**
+   * The overlay is in an ordinary browser rather than in OBS (spec §16.7).
+   *
+   * Opening `overlay.html` to check that it works took the count from one to
+   * two, and the figure was not wrong — that page *is* an overlay. It became
+   * useless the instant anyone used it: no way left to tell whether the one in
+   * OBS was among them. **The diagnostic tool broke the diagnostic.**
+   */
+  browser: boolean;
+};
+export type BeatMessage = {
+  v: typeof PROTOCOL_VERSION;
+  t: 'beat';
+  id: string;
+  browser: boolean;
+};
 /**
  * Sent as the overlay page goes away. Expiry alone cannot replace it: a reload
  * draws a new id, so the page that left keeps being counted next to the one
@@ -85,6 +103,14 @@ export function parseMessage(payload: unknown): OverlayMessage | null {
     // saying someone is watching when nobody is. On a bye it cuts the other
     // way — that is the message which removes a listener.
     if (typeof id !== 'string' || id === '') return null;
+  }
+
+  if (t === 'hello' || t === 'beat') {
+    const { browser } = inner as { browser?: unknown };
+    // Required rather than defaulted: a missing flag would read as `false` and
+    // report an overlay inside OBS that nobody there can see. `bye` is exempt —
+    // it says who is leaving, and where it was makes no difference to that.
+    if (typeof browser !== 'boolean') return null;
   }
 
   return inner as OverlayMessage;

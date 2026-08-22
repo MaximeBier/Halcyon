@@ -1,3 +1,4 @@
+import { PROTOCOL_VERSION } from '../protocol/messages';
 import { resolve } from '../config/resolve';
 import type { OverlayConfig } from '../config/schema';
 import type { OverlayMessage } from '../protocol/messages';
@@ -25,7 +26,7 @@ export function createConfigBroadcaster(options: {
   registry: OverlayRegistry;
 }): ConfigBroadcaster {
   function send(config: OverlayConfig) {
-    options.obs.broadcast({ v: 1, t: 'config', config: resolve(config) });
+    options.obs.broadcast({ v: PROTOCOL_VERSION, t: 'config', config: resolve(config) });
   }
 
   return {
@@ -38,7 +39,7 @@ export function createConfigBroadcaster(options: {
       }
       if (message.t !== 'hello' && message.t !== 'beat') return;
 
-      options.registry.seen(message.id, now);
+      options.registry.seen(message.id, now, message.browser);
       // An OBS started after Chrome must not wait for the next setting change.
       // A reloaded overlay arrives under a new id and holds nothing, so this
       // fires again for it — deduplicating here would leave it blank.

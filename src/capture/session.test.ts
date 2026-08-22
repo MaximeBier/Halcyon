@@ -1,3 +1,4 @@
+import { PROTOCOL_VERSION } from '../protocol/messages';
 import { describe, it, expect, vi } from 'vitest';
 import { createCaptureSession } from './session';
 import type { FrameKey } from '../protocol/messages';
@@ -21,7 +22,7 @@ describe('createCaptureSession', () => {
 
     session.handleReport(report(entry(174, 0x50, 996, 0x01)), 0);
 
-    expect(broadcast).toHaveBeenCalledWith({ v: 1, t: 'frame', k: [[174, 996, 1]] });
+    expect(broadcast).toHaveBeenCalledWith({ v: PROTOCOL_VERSION, t: 'frame', k: [[174, 996, 1]] });
   });
 
   it('transmits actuation even at partial travel', () => {
@@ -29,7 +30,7 @@ describe('createCaptureSession', () => {
 
     session.handleReport(report(entry(30, 0x16, 300, 0x00)), 0);
 
-    expect(broadcast).toHaveBeenCalledWith({ v: 1, t: 'frame', k: [[30, 300, 0]] });
+    expect(broadcast).toHaveBeenCalledWith({ v: PROTOCOL_VERSION, t: 'frame', k: [[30, 300, 0]] });
   });
 
   it('feeds the local preview with the very same keys', () => {
@@ -46,7 +47,7 @@ describe('createCaptureSession', () => {
     session.handleReport(report(entry(30, 0x16, 500, 0x02)), 0);
 
     expect(anomalies).toEqual([{ kind: 'unknown-low-bits', index: 30, field: (500 << 6) | 0x02 }]);
-    expect(broadcast).toHaveBeenCalledWith({ v: 1, t: 'frame', k: [] });
+    expect(broadcast).toHaveBeenCalledWith({ v: PROTOCOL_VERSION, t: 'frame', k: [] });
   });
 
   it('retries the OBS connection on every report: event-driven, timer-free', () => {
@@ -85,7 +86,11 @@ describe('createCaptureSession — throughput', () => {
     session.handleReport(report(entry(174, 0x50, 0, 0x00)), 2);
 
     expect(broadcast).toHaveBeenCalledTimes(2);
-    expect(broadcast).toHaveBeenLastCalledWith({ v: 1, t: 'frame', k: [[174, 0, 0]] });
+    expect(broadcast).toHaveBeenLastCalledWith({
+      v: PROTOCOL_VERSION,
+      t: 'frame',
+      k: [[174, 0, 0]],
+    });
   });
 
   it('feeds the local preview even with the frames it sacrifices', () => {
@@ -108,7 +113,7 @@ describe('createCaptureSession — throughput', () => {
 
     session.handleReport(report(entry(174, 0x50, 100, 0x00), entry(9, 0x1a, 900, 0x01)), 0);
 
-    expect(broadcast).toHaveBeenCalledWith({ v: 1, t: 'frame', k: [[174, 100, 0]] });
+    expect(broadcast).toHaveBeenCalledWith({ v: PROTOCOL_VERSION, t: 'frame', k: [[174, 100, 0]] });
   });
 
   it('reports the rate of the frame it has just sent, not the previous one', () => {
@@ -135,7 +140,7 @@ describe('createCaptureSession — an overlay announcing itself', () => {
 
     session.resend(1);
 
-    expect(broadcast).toHaveBeenCalledWith({ v: 1, t: 'frame', k: [[174, 400, 0]] });
+    expect(broadcast).toHaveBeenCalledWith({ v: PROTOCOL_VERSION, t: 'frame', k: [[174, 400, 0]] });
   });
 
   it('sends a rest frame when nothing is pressed, rather than nothing at all', () => {
@@ -145,7 +150,7 @@ describe('createCaptureSession — an overlay announcing itself', () => {
 
     session.resend(0);
 
-    expect(broadcast).toHaveBeenCalledWith({ v: 1, t: 'frame', k: [] });
+    expect(broadcast).toHaveBeenCalledWith({ v: PROTOCOL_VERSION, t: 'frame', k: [] });
   });
 });
 
@@ -170,7 +175,7 @@ describe('createCaptureSession — a connection that dropped', () => {
 
     session.handleReport(report(entry(174, 0x50, 0, 0x00)), 2);
 
-    expect(broadcast).toHaveBeenCalledWith({ v: 1, t: 'frame', k: [[174, 0, 0]] });
+    expect(broadcast).toHaveBeenCalledWith({ v: PROTOCOL_VERSION, t: 'frame', k: [[174, 0, 0]] });
   });
 });
 

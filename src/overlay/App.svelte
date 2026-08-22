@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { PROTOCOL_VERSION } from '../protocol/messages';
   import { createObsClient } from '../transport/obs';
   import { readOverlayParams } from './params';
   import { createRateCounter } from '../protocol/rate';
@@ -52,7 +53,8 @@
       // earlier is simply dropped. This also re-announces the overlay after
       // OBS has been restarted under it.
       connected = status === 'identified';
-      if (status === 'identified') obs.broadcast({ v: 1, t: 'hello', id });
+      if (status === 'identified')
+        obs.broadcast({ v: PROTOCOL_VERSION, t: 'hello', id, browser: decorated });
     },
     onMessage: (message) => {
       // The overlay discards hello, beat and bye: those are its own messages
@@ -78,7 +80,7 @@
     // Same clock as the WebHID report timestamps the capture page feeds in:
     // both are measured from `performance.timeOrigin`.
     obs.ensureConnected(performance.now());
-    obs.broadcast({ v: 1, t: 'beat', id });
+    obs.broadcast({ v: PROTOCOL_VERSION, t: 'beat', id, browser: decorated });
     // The beat no longer measures anything — it only lets the figure fall.
     // Without this re-read the count would freeze at its last value the moment
     // frames stopped, printing 58/s beside a link that had gone quiet.
@@ -90,7 +92,7 @@
   // overlay read as eleven listeners. `pagehide` rather than `beforeunload`:
   // it also fires when the page is frozen into the back/forward cache, and it
   // is the event browsers actually guarantee.
-  addEventListener('pagehide', () => obs.broadcast({ v: 1, t: 'bye', id }));
+  addEventListener('pagehide', () => obs.broadcast({ v: PROTOCOL_VERSION, t: 'bye', id }));
 </script>
 
 <!--

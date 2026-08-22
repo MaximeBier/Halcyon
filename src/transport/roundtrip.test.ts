@@ -1,3 +1,4 @@
+import { PROTOCOL_VERSION } from '../protocol/messages';
 import { describe, it, expect, vi } from 'vitest';
 import { createObsClient } from './obs';
 import { createOverlayRegistry } from '../capture/overlays';
@@ -77,9 +78,9 @@ describe('capture to overlay round trip', () => {
     await vi.waitFor(() => expect(capture.status).toBe('identified'));
     await vi.waitFor(() => expect(overlay.status).toBe('identified'));
 
-    capture.broadcast({ v: 1, t: 'frame', k: [[174, 996, 1]] });
+    capture.broadcast({ v: PROTOCOL_VERSION, t: 'frame', k: [[174, 996, 1]] });
 
-    expect(received).toEqual([{ v: 1, t: 'frame', k: [[174, 996, 1]] }]);
+    expect(received).toEqual([{ v: PROTOCOL_VERSION, t: 'frame', k: [[174, 996, 1]] }]);
   });
 
   it('lets the capture count two overlays from their heartbeats', async () => {
@@ -90,7 +91,7 @@ describe('capture to overlay round trip', () => {
     const registry = createOverlayRegistry();
 
     const capture = spawnClient(server, (m) => {
-      if (m.t === 'hello' || m.t === 'beat') registry.seen(m.id, 1000);
+      if (m.t === 'hello' || m.t === 'beat') registry.seen(m.id, 1000, m.browser);
     });
     const first = spawnClient(server, () => {});
     const second = spawnClient(server, () => {});
@@ -100,11 +101,11 @@ describe('capture to overlay round trip', () => {
 
     await vi.waitFor(() => expect(second.status).toBe('identified'));
 
-    first.broadcast({ v: 1, t: 'hello', id: 'first' });
-    second.broadcast({ v: 1, t: 'beat', id: 'second' });
-    capture.broadcast({ v: 1, t: 'frame', k: [] });
+    first.broadcast({ v: PROTOCOL_VERSION, t: 'hello', id: 'first', browser: false });
+    second.broadcast({ v: PROTOCOL_VERSION, t: 'beat', id: 'second', browser: false });
+    capture.broadcast({ v: PROTOCOL_VERSION, t: 'frame', k: [] });
 
-    expect(registry.count(1000)).toBe(2);
+    expect(registry.counts(1000).inObs).toBe(2);
   });
 
   it('counts one overlay across a reload, not two', async () => {
@@ -115,7 +116,7 @@ describe('capture to overlay round trip', () => {
     const registry = createOverlayRegistry();
 
     const capture = spawnClient(server, (m) => {
-      if (m.t === 'hello' || m.t === 'beat') registry.seen(m.id, 1000);
+      if (m.t === 'hello' || m.t === 'beat') registry.seen(m.id, 1000, m.browser);
       if (m.t === 'bye') registry.forget(m.id);
     });
     const overlay = spawnClient(server, () => {});
@@ -125,12 +126,12 @@ describe('capture to overlay round trip', () => {
     await vi.waitFor(() => expect(overlay.status).toBe('identified'));
 
     for (let reload = 0; reload < 10; reload++) {
-      overlay.broadcast({ v: 1, t: 'hello', id: `run-${reload}` });
-      overlay.broadcast({ v: 1, t: 'bye', id: `run-${reload}` });
+      overlay.broadcast({ v: PROTOCOL_VERSION, t: 'hello', id: `run-${reload}`, browser: false });
+      overlay.broadcast({ v: PROTOCOL_VERSION, t: 'bye', id: `run-${reload}` });
     }
-    overlay.broadcast({ v: 1, t: 'hello', id: 'run-final' });
+    overlay.broadcast({ v: PROTOCOL_VERSION, t: 'hello', id: 'run-final', browser: false });
 
-    expect(registry.count(1000)).toBe(1);
+    expect(registry.counts(1000).inObs).toBe(1);
   });
 });
 
@@ -157,7 +158,7 @@ describe('capture to overlay round trip - the configuration', () => {
       h: 1,
       style: { activeColor: '#ff0000' },
     });
-    capture.broadcast({ v: 1, t: 'config', config: resolve(config) });
+    capture.broadcast({ v: PROTOCOL_VERSION, t: 'config', config: resolve(config) });
 
     const delivered = received.find((m) => m.t === 'config');
     if (delivered?.t !== 'config') throw new Error('the configuration never arrived');
@@ -178,7 +179,7 @@ describe('capture to overlay round trip - the configuration', () => {
     overlay.connect();
     await vi.waitFor(() => expect(overlay.status).toBe('identified'));
 
-    attacker.broadcast({ v: 1, t: 'config', config: { keys: 'nope' } as never });
+    attacker.broadcast({ v: PROTOCOL_VERSION, t: 'config', config: { keys: 'nope' } as never });
 
     expect(received.some((m) => m.t === 'config')).toBe(false);
   });

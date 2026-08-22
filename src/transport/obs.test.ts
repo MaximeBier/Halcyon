@@ -1,3 +1,4 @@
+import { PROTOCOL_VERSION } from '../protocol/messages';
 import { describe, it, expect, vi } from 'vitest';
 import { createObsClient, RETRY_MAX_MS, type ObsStatus } from './obs';
 import { computeAuth } from './auth';
@@ -89,13 +90,13 @@ describe('createObsClient', () => {
     socket().receive({ op: 2, d: { negotiatedRpcVersion: 1 } });
     socket().sent.length = 0;
 
-    client.broadcast({ v: 1, t: 'frame', k: [[174, 996, 1]] });
+    client.broadcast({ v: PROTOCOL_VERSION, t: 'frame', k: [[174, 996, 1]] });
 
     const request = socket().parsed()[0];
     expect(request.op).toBe(6);
     expect(request.d.requestType).toBe('BroadcastCustomEvent');
     expect(request.d.requestData.eventData).toEqual({
-      heOverlay: { v: 1, t: 'frame', k: [[174, 996, 1]] },
+      heOverlay: { v: PROTOCOL_VERSION, t: 'frame', k: [[174, 996, 1]] },
     });
   });
 
@@ -105,7 +106,9 @@ describe('createObsClient', () => {
     const { client, socket } = setup();
     client.connect();
 
-    expect(client.broadcast({ v: 1, t: 'hello', id: 'test' })).toBe(false);
+    expect(client.broadcast({ v: PROTOCOL_VERSION, t: 'hello', id: 'test', browser: false })).toBe(
+      false,
+    );
     expect(socket().sent).toHaveLength(0);
   });
 
@@ -115,7 +118,7 @@ describe('createObsClient', () => {
     socket().receive(HELLO_NO_AUTH);
     socket().receive({ op: 2, d: {} });
 
-    expect(client.broadcast({ v: 1, t: 'frame', k: [] })).toBe(true);
+    expect(client.broadcast({ v: PROTOCOL_VERSION, t: 'frame', k: [] })).toBe(true);
   });
 
   it('surfaces incoming CustomEvents and ignores foreign payloads', () => {
@@ -126,12 +129,15 @@ describe('createObsClient', () => {
 
     socket().receive({
       op: 5,
-      d: { eventType: 'CustomEvent', eventData: { heOverlay: { v: 1, t: 'hello', id: 'test' } } },
+      d: {
+        eventType: 'CustomEvent',
+        eventData: { heOverlay: { v: PROTOCOL_VERSION, t: 'hello', id: 'test', browser: false } },
+      },
     });
     socket().receive({ op: 5, d: { eventType: 'CustomEvent', eventData: { other: true } } });
     socket().receive({ op: 5, d: { eventType: 'CurrentSceneChanged', eventData: {} } });
 
-    expect(messages).toEqual([{ v: 1, t: 'hello', id: 'test' }]);
+    expect(messages).toEqual([{ v: PROTOCOL_VERSION, t: 'hello', id: 'test', browser: false }]);
   });
 
   it('ensureConnected does not reopen an already identified socket', () => {
@@ -221,7 +227,7 @@ describe('createObsClient', () => {
     expect(client.status).toBe('identified');
     expect(sockets).toHaveLength(2);
 
-    client.broadcast({ v: 1, t: 'hello', id: 'test' });
+    client.broadcast({ v: PROTOCOL_VERSION, t: 'hello', id: 'test', browser: false });
     expect(socket().sent.length).toBeGreaterThan(0);
   });
 
@@ -425,7 +431,7 @@ describe('an overlay speaking a protocol we cannot read', () => {
     // wondering why their overlay went blank after a deploy (spec §11).
     const { socket, versions, messages } = setupWithVersions();
 
-    socket().receive(event({ heOverlay: { v: 7, t: 'hello', id: 'a' } }));
+    socket().receive(event({ heOverlay: { v: 7, t: 'hello', id: 'a', browser: false } }));
 
     expect(versions).toEqual([7]);
     expect(messages).toEqual([]);
@@ -434,7 +440,9 @@ describe('an overlay speaking a protocol we cannot read', () => {
   it('stays quiet about a message it could read', () => {
     const { socket, versions, messages } = setupWithVersions();
 
-    socket().receive(event({ heOverlay: { v: 1, t: 'hello', id: 'a' } }));
+    socket().receive(
+      event({ heOverlay: { v: PROTOCOL_VERSION, t: 'hello', id: 'a', browser: false } }),
+    );
 
     expect(versions).toEqual([]);
     expect(messages).toHaveLength(1);

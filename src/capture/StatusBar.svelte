@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { KeyboardStatus } from '../keyboard/device';
   import type { ObsStatus } from '../transport/obs';
-  import { keyboardHint, obsHint } from './settings';
+  import { keyboardHint, obsHint, overlayTally } from './settings';
   import { UI_TOKENS } from '../styles/ui-tokens';
 
   let {
@@ -13,7 +13,7 @@
     keyboard: KeyboardStatus;
     obs: ObsStatus;
     rate: number;
-    overlays: number;
+    overlays: { inObs: number; inBrowser: number };
   } = $props();
 
   // Permanent, never modal (spec §11): a dialog would have to be dismissed,
@@ -31,7 +31,10 @@
     {obsHint(obs)}
   </span>
   <span class="pill">{rate} fps</span>
-  <span class="pill">{overlays} overlay{overlays === 1 ? '' : 's'} connected</span>
+  <span class="pill">
+    <span class="dot" style:background={dot(overlays.inObs > 0)}></span>
+    {overlayTally(overlays)}
+  </span>
 </header>
 
 <style>

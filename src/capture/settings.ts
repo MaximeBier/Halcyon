@@ -119,3 +119,21 @@ export function obsHint(status: ObsStatus): string {
       return 'Not connected to OBS yet.';
   }
 }
+
+/**
+ * How many overlays are listening, and where — in one line for the status bar.
+ *
+ * **The one in OBS is never folded into a total.** It is the one on air, so it
+ * is the figure someone is looking for — and a single number stopped answering
+ * that the day anyone opened `overlay.html` in a tab to check that it worked,
+ * because the tab is an overlay too (spec §16.7). A diagnostic that its own use
+ * invalidates is not a diagnostic.
+ */
+export function overlayTally(counts: { inObs: number; inBrowser: number }): string {
+  const overlays = (count: number) => `${count} overlay${count === 1 ? '' : 's'}`;
+
+  if (counts.inObs === 0 && counts.inBrowser === 0) return 'No overlay connected';
+  if (counts.inObs === 0) return `${overlays(counts.inBrowser)} in a browser`;
+  if (counts.inBrowser === 0) return `${overlays(counts.inObs)} in OBS`;
+  return `${overlays(counts.inObs)} in OBS · ${counts.inBrowser} in a browser`;
+}

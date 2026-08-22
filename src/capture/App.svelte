@@ -162,7 +162,15 @@
   });
 
   let rate = $state(0);
-  let overlayCount = $state(0);
+  /**
+   * How many overlays are listening, and from where.
+   *
+   * Two figures rather than one since 2026-08-23: opening `overlay.html` in a
+   * tab to check that it works is an overlay, so the total could no longer say
+   * whether the one in OBS was among them (spec §16.7).
+   */
+  let listeners = $state({ inObs: 0, inBrowser: 0 });
+  const overlayCount = $derived(listeners.inObs + listeners.inBrowser);
 
   /**
    * Everything worth writing down, for the report nobody can write blind
@@ -288,7 +296,7 @@
 
   /** A synchronous reading, not a timer: allowed on the capture page. */
   function refreshOverlays() {
-    overlayCount = overlays.count(performance.now());
+    listeners = overlays.counts(performance.now());
   }
 
   // An empty number field binds to null, and `ws://localhost:null` throws
@@ -623,7 +631,7 @@
 -->
 <div class="app">
   <header class="bar">
-    <StatusBar keyboard={keyboardStatus} obs={obsStatus} {rate} overlays={overlayCount} />
+    <StatusBar keyboard={keyboardStatus} obs={obsStatus} {rate} overlays={listeners} />
 
     {#if canResume}
       <!-- Amber, and in the header: findable long after the card was put

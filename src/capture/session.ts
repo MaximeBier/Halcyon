@@ -1,3 +1,4 @@
+import { PROTOCOL_VERSION } from '../protocol/messages';
 import { decodeAnalogReport, type AnalogEntry, type DecodeAnomaly } from '../keyboard/decode';
 import { buildFrame, createFrameEmitter } from '../protocol/emit';
 import type { FrameKey } from '../protocol/messages';
@@ -38,7 +39,8 @@ export function createCaptureSession(options: CaptureSessionOptions): CaptureSes
   const emitter = createFrameEmitter();
   let current: FrameKey[] = [];
 
-  const deliver = (frame: FrameKey[]) => options.obs.broadcast({ v: 1, t: 'frame', k: frame });
+  const deliver = (frame: FrameKey[]) =>
+    options.obs.broadcast({ v: PROTOCOL_VERSION, t: 'frame', k: frame });
 
   return {
     handleReport(data, timestamp) {

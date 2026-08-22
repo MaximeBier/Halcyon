@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  overlayTally,
   loadSettings,
   saveSettings,
   overlayUrl,
@@ -150,5 +151,24 @@ describe('status bar wording', () => {
     expect(obsHint('disconnected')).not.toBe(obsHint('unreachable'));
     // Nothing retries on its own: the reconnection rides on keyboard reports.
     expect(obsHint('disconnected')).toMatch(/key/i);
+  });
+});
+
+describe('overlayTally', () => {
+  it('says nobody has reported in', () => {
+    expect(overlayTally({ inObs: 0, inBrowser: 0 })).toMatch(/no overlay/i);
+  });
+
+  it('names the one that matters on its own', () => {
+    // The overlay in OBS is the one on air. It is the figure someone is looking
+    // for, so it comes first and it is never folded into a total.
+    expect(overlayTally({ inObs: 1, inBrowser: 0 })).toBe('1 overlay in OBS');
+    expect(overlayTally({ inObs: 2, inBrowser: 0 })).toBe('2 overlays in OBS');
+  });
+
+  it('counts a tab apart, since opening one is how the count got useless', () => {
+    expect(overlayTally({ inObs: 0, inBrowser: 1 })).toBe('1 overlay in a browser');
+    expect(overlayTally({ inObs: 1, inBrowser: 1 })).toBe('1 overlay in OBS · 1 in a browser');
+    expect(overlayTally({ inObs: 2, inBrowser: 3 })).toBe('2 overlays in OBS · 3 in a browser');
   });
 });

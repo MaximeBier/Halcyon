@@ -1,3 +1,4 @@
+import { PROTOCOL_VERSION } from '../protocol/messages';
 import { describe, it, expect, vi } from 'vitest';
 import { createConfigBroadcaster } from './broadcast';
 import { createOverlayRegistry } from './overlays';
@@ -20,10 +21,13 @@ describe('createConfigBroadcaster', () => {
   it('answers a hello with the resolved configuration', () => {
     const { broadcaster, broadcast } = setup();
 
-    broadcaster.onOverlayMessage({ v: 1, t: 'hello', id: 'a' }, 1000);
+    broadcaster.onOverlayMessage(
+      { v: PROTOCOL_VERSION, t: 'hello', id: 'a', browser: false },
+      1000,
+    );
 
     expect(broadcast).toHaveBeenCalledWith({
-      v: 1,
+      v: PROTOCOL_VERSION,
       t: 'config',
       config: expect.objectContaining({ unit: 72, gap: 8, keys: [] }),
     });
@@ -45,7 +49,10 @@ describe('createConfigBroadcaster', () => {
     });
     set(config);
 
-    broadcaster.onOverlayMessage({ v: 1, t: 'hello', id: 'a' }, 1000);
+    broadcaster.onOverlayMessage(
+      { v: PROTOCOL_VERSION, t: 'hello', id: 'a', browser: false },
+      1000,
+    );
 
     const sent = broadcast.mock.calls[0]![0];
     if (sent.t !== 'config') throw new Error('expected a config message');
@@ -56,15 +63,15 @@ describe('createConfigBroadcaster', () => {
   it('registers the overlay that announces itself', () => {
     const { broadcaster, registry } = setup();
 
-    broadcaster.onOverlayMessage({ v: 1, t: 'beat', id: 'a' }, 1000);
+    broadcaster.onOverlayMessage({ v: PROTOCOL_VERSION, t: 'beat', id: 'a', browser: false }, 1000);
 
-    expect(registry.count(1000)).toBe(1);
+    expect(registry.counts(1000).inObs).toBe(1);
   });
 
   it('does not resend the configuration on every beat', () => {
     const { broadcaster, broadcast } = setup();
 
-    broadcaster.onOverlayMessage({ v: 1, t: 'beat', id: 'a' }, 1000);
+    broadcaster.onOverlayMessage({ v: PROTOCOL_VERSION, t: 'beat', id: 'a', browser: false }, 1000);
 
     expect(broadcast).not.toHaveBeenCalled();
   });
@@ -88,7 +95,7 @@ describe('createConfigBroadcaster', () => {
   it('ignores the messages that do not concern the capture page', () => {
     const { broadcaster, broadcast } = setup();
 
-    broadcaster.onOverlayMessage({ v: 1, t: 'frame', k: [[1, 2, 0]] }, 1000);
+    broadcaster.onOverlayMessage({ v: PROTOCOL_VERSION, t: 'frame', k: [[1, 2, 0]] }, 1000);
 
     expect(broadcast).not.toHaveBeenCalled();
   });
@@ -97,19 +104,25 @@ describe('createConfigBroadcaster', () => {
 describe('createConfigBroadcaster - an overlay that leaves', () => {
   it('stops counting an overlay that said goodbye', () => {
     const { broadcaster, registry } = setup();
-    broadcaster.onOverlayMessage({ v: 1, t: 'hello', id: 'a' }, 1000);
+    broadcaster.onOverlayMessage(
+      { v: PROTOCOL_VERSION, t: 'hello', id: 'a', browser: false },
+      1000,
+    );
 
-    broadcaster.onOverlayMessage({ v: 1, t: 'bye', id: 'a' }, 1100);
+    broadcaster.onOverlayMessage({ v: PROTOCOL_VERSION, t: 'bye', id: 'a' }, 1100);
 
-    expect(registry.count(1100)).toBe(0);
+    expect(registry.counts(1100).inObs).toBe(0);
   });
 
   it('sends nothing on a goodbye: there is nobody left to send it to', () => {
     const { broadcaster, broadcast } = setup();
-    broadcaster.onOverlayMessage({ v: 1, t: 'hello', id: 'a' }, 1000);
+    broadcaster.onOverlayMessage(
+      { v: PROTOCOL_VERSION, t: 'hello', id: 'a', browser: false },
+      1000,
+    );
     broadcast.mockClear();
 
-    broadcaster.onOverlayMessage({ v: 1, t: 'bye', id: 'a' }, 1100);
+    broadcaster.onOverlayMessage({ v: PROTOCOL_VERSION, t: 'bye', id: 'a' }, 1100);
 
     expect(broadcast).not.toHaveBeenCalled();
   });
@@ -118,11 +131,17 @@ describe('createConfigBroadcaster - an overlay that leaves', () => {
     // A reload is a goodbye then a hello under a fresh name. The new page holds
     // nothing, so it needs the configuration resent, not deduplicated away.
     const { broadcaster, broadcast } = setup();
-    broadcaster.onOverlayMessage({ v: 1, t: 'hello', id: 'first' }, 1000);
-    broadcaster.onOverlayMessage({ v: 1, t: 'bye', id: 'first' }, 1100);
+    broadcaster.onOverlayMessage(
+      { v: PROTOCOL_VERSION, t: 'hello', id: 'first', browser: false },
+      1000,
+    );
+    broadcaster.onOverlayMessage({ v: PROTOCOL_VERSION, t: 'bye', id: 'first' }, 1100);
     broadcast.mockClear();
 
-    broadcaster.onOverlayMessage({ v: 1, t: 'hello', id: 'second' }, 1200);
+    broadcaster.onOverlayMessage(
+      { v: PROTOCOL_VERSION, t: 'hello', id: 'second', browser: false },
+      1200,
+    );
 
     expect(broadcast).toHaveBeenCalledTimes(1);
   });
