@@ -6,6 +6,16 @@ import { DEFAULT_STYLE, type ResolvedConfig } from '../config/schema';
 
 afterEach(cleanup);
 
+/**
+ * The markup, with the per-instance clip ids normalised away.
+ *
+ * Two views on one page must not share a clip id, so the id is unique per
+ * component and **deliberately** not the same twice. What has to be identical
+ * for the same input is the *drawing* — geometry, colour, order — and the
+ * identity of a definition is not part of it.
+ */
+const drawing = (html: string) => html.replace(/(id="|url\(#)[^"')]+/g, '$1clip');
+
 const config: ResolvedConfig = {
   version: 1,
   unit: 100,
@@ -110,7 +120,7 @@ describe('KeyboardView - what OBS sees and what the editor sees', () => {
     cleanup();
     const second = render(KeyboardView, { props: { config, frame: [[174, 400, 0] as const] } });
 
-    expect(second.container.innerHTML).toBe(html);
+    expect(drawing(second.container.innerHTML)).toBe(drawing(html));
   });
 
   it('adds decorations without touching anything the broadcast shows', () => {
@@ -133,6 +143,76 @@ describe('KeyboardView - what OBS sees and what the editor sees', () => {
       .replace(/<text[^>]*>AXIS<[/]text>/, '')
       .replace(/ stroke-dasharray="[^"]*"/, '');
 
-    expect(stripped).toBe(broadcastHtml);
+    expect(drawing(stripped)).toBe(drawing(broadcastHtml));
+  });
+});
+
+describe('KeyboardView - the fill stays inside the key', () => {
+  /** A tenth of the travel, filling left to right: a narrow bar on the edge. */
+  const sliver: ResolvedConfig = {
+    ...config,
+    keys: [{ ...config.keys[0]!, style: { ...config.keys[0]!.style, fillDirection: 'right' } }],
+  };
+
+  it('rounds the fill by the key’s own radius, never by one of its own', () => {
+    // The requirement, stated as an equality rather than as a number: whatever
+    // radius the key is drawn with, the fill is bounded by *that* one. A value
+    // nothing else uses, so a hard-coded default could not pass by luck.
+    const round: ResolvedConfig = {
+      ...config,
+      keys: [{ ...config.keys[0]!, style: { ...config.keys[0]!.style, radius: 17 } }],
+    };
+    const { container } = render(KeyboardView, { props: { config: round, frame: [[174, 60, 0]] } });
+    const rects = container.querySelectorAll('rect');
+    const fill = rects[1]!;
+    const id = fill.getAttribute('clip-path')!.match(/^url\(#(.+)\)$/)![1];
+    const clip = container.querySelector(`clipPath#${id} rect`)!;
+
+    // The key's own radius, the clip's radius, and the box they share.
+    expect(rects[0]!.getAttribute('rx')).toBe('17');
+    expect(clip.getAttribute('rx')).toBe(rects[0]!.getAttribute('rx'));
+    expect(clip.getAttribute('x')).toBe(rects[0]!.getAttribute('x'));
+    expect(clip.getAttribute('y')).toBe(rects[0]!.getAttribute('y'));
+    expect(clip.getAttribute('width')).toBe(rects[0]!.getAttribute('width'));
+    expect(clip.getAttribute('height')).toBe(rects[0]!.getAttribute('height'));
+  });
+
+  it('clips the fill to the rounded box of the key it belongs to', () => {
+    // Found on screen: a barely-started fill escaped through the corners. SVG
+    // clamps `rx` to half the width, so a 6 px bar was rounded by 3 where the
+    // key was rounded by 4 — its corners stood outside the key's. No radius on
+    // the fill can fix that, because the fill is not the shape being rounded.
+    const { container } = render(KeyboardView, {
+      props: { config: sliver, frame: [[174, 60, 0]] },
+    });
+    const fill = container.querySelectorAll('rect')[1]!;
+    const id = fill.getAttribute('clip-path')?.match(/^url\(#(.+)\)$/)?.[1];
+
+    expect(id).toBeTruthy();
+    const clip = container.querySelector(`clipPath#${id} rect`)!;
+    expect(clip.getAttribute('rx')).toBe('4');
+    expect(clip.getAttribute('width')).toBe('90');
+    expect(clip.getAttribute('height')).toBe('90');
+  });
+
+  it('gives the fill no radius of its own', () => {
+    // The clip does the corners, and only where the key actually has them: a
+    // half-filled key must be square where the fill stops in mid-key, which a
+    // radius on the fill drew as a notch.
+    const { container } = render(KeyboardView, { props: { config, frame: [[174, 512, 0]] } });
+
+    expect(container.querySelectorAll('rect')[1]!.getAttribute('rx')).toBeNull();
+  });
+
+  it('never shares a clip between two views on the same page', () => {
+    // The capture page is meant to show the editor and a packed preview side by
+    // side. A fixed id would make the second view's fills clip against the
+    // first view's key — which is only ever right by accident.
+    const first = render(KeyboardView, { props: { config, frame: [] } });
+    const second = render(KeyboardView, { props: { config, frame: [] } });
+    const idOf = (view: typeof first) =>
+      view.container.querySelector('clipPath')!.getAttribute('id');
+
+    expect(idOf(first)).not.toBe(idOf(second));
   });
 });

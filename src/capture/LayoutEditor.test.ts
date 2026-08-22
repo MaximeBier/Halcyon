@@ -928,3 +928,26 @@ describe('LayoutEditor - resizing a key by its edge', () => {
     expect(handles[0]!.style.width).toBe(`${2 * DEFAULT_STYLE.unit - DEFAULT_STYLE.gap}px`);
   });
 });
+
+describe('LayoutEditor - the outlines follow the key they outline', () => {
+  it('rounds a handle by the radius its key is drawn with', () => {
+    // The handle carries the hover outline and the selection halo, and it sits
+    // exactly on the key's own box — so a fixed 4 px left both drawn squarer
+    // than the key they belong to, and visibly beside it at any larger radius.
+    const config = twoKeys();
+    config.style.radius = 17;
+
+    const { handles } = editor(config);
+
+    expect(handles[0]!.style.borderRadius).toBe('17px');
+  });
+
+  it('follows a radius overridden on the key alone', () => {
+    const config = setKeyStyle(twoKeys(), [1], 'radius', 11);
+
+    const { handles } = editor(config);
+
+    expect(handles[0]!.style.borderRadius).toBe('11px');
+    expect(handles[1]!.style.borderRadius).toBe(`${DEFAULT_STYLE.radius}px`);
+  });
+});

@@ -149,6 +149,16 @@
    * configuration.
    */
   const scene = $derived(onSurface(resolved, surface));
+
+  /**
+   * The radius a key is drawn with, for the outlines drawn on top of it.
+   *
+   * The handle sits exactly on the key's own box and carries the hover outline
+   * and the selection halo, so a radius of its own would draw them beside the
+   * thing they belong to. Read from the resolved style, because the radius is
+   * overridable per key.
+   */
+  const radiusOf = (id: number) => resolved.keys.find((key) => key.id === id)?.style.radius ?? 0;
   const selection = $derived(shown.keys.filter((key) => selectedIds.includes(key.id)));
 
   /**
@@ -575,6 +585,7 @@
           style:top={`${acrossY(key.y) + gap / 2}px`}
           style:width={`${Math.max(0, key.w * unit - gap)}px`}
           style:height={`${Math.max(0, key.h * unit - gap)}px`}
+          style:border-radius={`${radiusOf(key.id)}px`}
           onpointerdown={(event) => onPointerDown(event, key.id)}
           onclick={(event) => onClick(event, key.id)}
           ondblclick={() => open(key.id)}
