@@ -1,7 +1,12 @@
 <script lang="ts">
   import { setGlobalStyle } from '../config/edit';
   import { PRESETS, presetFor, withPreset } from './presets';
-  import { RADIUS_BOUNDS, type FillDirection, type OverlayConfig } from '../config/schema';
+  import {
+    BORDER_WIDTH_BOUNDS,
+    RADIUS_BOUNDS,
+    type FillDirection,
+    type OverlayConfig,
+  } from '../config/schema';
 
   /**
    * Global appearance, and nothing else.
@@ -46,6 +51,7 @@
     gap: { min: 0, max: 40 },
     // Shared with the popover's own radius field, so the two cannot drift.
     radius: RADIUS_BOUNDS,
+    borderWidth: BORDER_WIDTH_BOUNDS,
   } as const;
 
   /**
@@ -62,7 +68,7 @@
    * and `Number('e')` is `NaN`, and someone clearing a field to retype it has
    * not asked for anything yet.
    */
-  function size(property: 'unit' | 'gap' | 'radius', input: HTMLInputElement) {
+  function size(property: 'unit' | 'gap' | 'radius' | 'borderWidth', input: HTMLInputElement) {
     const { min, max } = BOUNDS[property];
     const typed = Number(input.value);
 
@@ -161,6 +167,40 @@
         <option {value}>{label}</option>
       {/each}
     </select>
+  </div>
+
+  <!--
+    The outline of a key: its colour, and how thick it is.
+
+    Not in the lot, and it earned its place the hard way — with the rest
+    background switched off, the border *is* the key, and one pixel of very dark
+    grey over an arbitrary video is a key nobody can see. Both are global: this
+    is the outline of the overlay, not an argument each key has with the theme.
+  -->
+  <div class="row">
+    <label for="global-borderColor">Border</label>
+    <div class="value">
+      <code>{config.style.borderColor}</code>
+      <input
+        id="global-borderColor"
+        name="borderColor"
+        type="color"
+        value={config.style.borderColor}
+        onchange={(event) =>
+          onChange(setGlobalStyle(config, 'borderColor', event.currentTarget.value))}
+      />
+      <input
+        id="global-borderWidth"
+        name="borderWidth"
+        type="number"
+        min={BOUNDS.borderWidth.min}
+        max={BOUNDS.borderWidth.max}
+        value={config.style.borderWidth}
+        aria-label="Border width"
+        onchange={(event) => size('borderWidth', event.currentTarget)}
+      />
+      <span class="unit">px</span>
+    </div>
   </div>
 
   <!-- After the fill direction, where the lot of 2026-08-21 puts it. A style

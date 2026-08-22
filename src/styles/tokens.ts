@@ -9,6 +9,8 @@
 export const OVERLAY_TOKENS = {
   keyRest: '#151823',
   keyBorder: '#232838',
+  /** One pixel, as the mockup draws it — and now the starting point of a setting. */
+  keyBorderWidth: 1,
   keyActive: '#7C9EFF',
   keyFill: '#3D4A78',
   keyLabel: '#DDE1E9',

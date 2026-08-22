@@ -60,6 +60,8 @@ export function resolve(config: OverlayConfig): ResolvedConfig {
     unit: config.style.unit,
     gap: config.style.gap,
     restFilled: config.style.restFilled,
+    borderColor: config.style.borderColor,
+    borderWidth: config.style.borderWidth,
     keys: config.keys.map((key) => ({
       id: key.id,
       usage: key.usage,

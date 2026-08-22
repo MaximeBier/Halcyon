@@ -50,7 +50,8 @@ export function isStyleValue(property: string, value: unknown): boolean {
   // A unit of zero collapses the scene, a negative one produces an invalid SVG
   // width that browsers discard: a blank overlay, on air, in silence.
   if (property === 'unit') return (value as number) > 0;
-  if (property === 'gap' || property === 'radius') return (value as number) >= 0;
+  if (property === 'gap' || property === 'radius' || property === 'borderWidth')
+    return (value as number) >= 0;
   return true;
 }
 
@@ -137,6 +138,8 @@ export function isResolvedConfig(value: unknown): value is ResolvedConfig {
     isExtent(config.unit) &&
     isNonNegative(config.gap) &&
     typeof config.restFilled === 'boolean' &&
+    HEX_COLOR.test(config.borderColor as string) &&
+    isNonNegative(config.borderWidth) &&
     Array.isArray(config.keys) &&
     config.keys.every(isResolvedKey)
   );

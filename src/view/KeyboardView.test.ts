@@ -21,6 +21,8 @@ const config: ResolvedConfig = {
   unit: 100,
   gap: 10,
   restFilled: true,
+  borderColor: DEFAULT_STYLE.borderColor,
+  borderWidth: DEFAULT_STYLE.borderWidth,
   keys: [
     {
       id: 174,
@@ -214,5 +216,20 @@ describe('KeyboardView - the fill stays inside the key', () => {
       view.container.querySelector('clipPath')!.getAttribute('id');
 
     expect(idOf(first)).not.toBe(idOf(second));
+  });
+});
+
+describe('KeyboardView - the border it was given', () => {
+  it('draws the stroke at the width and inset the scene computed', () => {
+    // Without the attribute the stroke silently falls back to one pixel, which
+    // looks like the setting doing nothing — and the inset would then be wrong
+    // in the other direction.
+    const thick: ResolvedConfig = { ...config, borderWidth: 4, borderColor: '#ff00aa' };
+    const { container } = render(KeyboardView, { props: { config: thick, frame: [] } });
+    const border = container.querySelectorAll('rect')[2]!;
+
+    expect(border.getAttribute('stroke-width')).toBe('4');
+    expect(border.getAttribute('stroke')).toBe('#ff00aa');
+    expect(border.getAttribute('x')).toBe('7'); // the key box starts at 5, inset by half of 4
   });
 });

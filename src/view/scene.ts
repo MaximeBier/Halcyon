@@ -20,6 +20,24 @@ export interface SceneFill {
   color: string;
 }
 
+/**
+ * The outline of a key, as a rectangle rather than as a colour.
+ *
+ * A stroke straddles the path it follows, so a border of width `w` drawn on the
+ * key's own box hangs half of itself outside it — over the neighbour, and past
+ * the clip that holds the fill in. The inset is therefore part of the geometry,
+ * and geometry belongs here with everything else the renderer must not compute
+ * for itself (spec §5.2).
+ */
+export interface SceneBorder {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  width: number;
+  color: string;
+}
+
 export interface SceneKey {
   id: number;
   label: string;
@@ -29,7 +47,7 @@ export interface SceneKey {
   h: number;
   radius: number;
   baseFill: string;
-  borderColor: string;
+  border: SceneBorder;
   fill: SceneFill;
   /**
    * One colour, whatever moves behind it.
@@ -111,7 +129,7 @@ export function buildScene(
   frame: readonly FrameKey[],
   { pack = false }: SceneOptions = {},
 ): Scene {
-  const { unit, gap, restFilled } = config;
+  const { unit, gap, restFilled, borderColor, borderWidth } = config;
   const states = new Map(frame.map(([id, travel, active]) => [id, { travel, active }]));
 
   let width = 0;
@@ -186,12 +204,21 @@ export function buildScene(
       h,
       radius: key.style.radius,
       baseFill,
-      // The second actuation signal. Swapping the fill colours makes a key at
-      // full travel that never fired and a key that fired at zero travel both
-      // render as one flat fill colour; the border separates them, and it
-      // reads at any travel — including none, which is where a low actuation
-      // point puts it.
-      borderColor: actuated ? key.style.activeColor : OVERLAY_TOKENS.keyBorder,
+      border: {
+        // Inset by half the stroke, so the whole of it lands inside the key.
+        x: x + borderWidth / 2,
+        y: y + borderWidth / 2,
+        w: Math.max(0, w - borderWidth),
+        h: Math.max(0, h - borderWidth),
+        width: borderWidth,
+        // The second actuation signal. Swapping the fill colours makes a key at
+        // full travel that never fired and a key that fired at zero travel both
+        // render as one flat fill colour; the border separates them, and it
+        // reads at any travel — including none, which is where a low actuation
+        // point puts it. So the resting colour is the theme's, and the actuated
+        // one is the key's.
+        color: actuated ? key.style.activeColor : borderColor,
+      },
       fill: { ...fillRect(x, y, w, h, ratio, key.style.fillDirection), color: fillColor },
       labelFill: OVERLAY_TOKENS.keyLabel,
       labelOutline: OVERLAY_TOKENS.keyLabelOutline,

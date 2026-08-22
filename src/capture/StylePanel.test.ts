@@ -265,3 +265,57 @@ describe('StylePanel - whether a resting key has a background at all', () => {
     expect(box().swatch.disabled).toBe(false);
   });
 });
+
+describe('StylePanel - the outline of a key', () => {
+  const field = (container: Element, name: string) =>
+    container.querySelector<HTMLInputElement>(`input[name="${name}"]`)!;
+
+  it('sets the resting border colour, which nothing could reach', () => {
+    // It left `KeyStyle` a day ago because a border around a filled key is a
+    // detail. It is back, global, because a key with no background *is* its
+    // border — and one pixel of very dark grey over a video is nothing anyone
+    // can see.
+    const { container, onChange } = panel();
+
+    change(field(container, 'borderColor'), '#ff00aa');
+
+    expect(onChange.mock.calls[0]![0].style.borderColor).toBe('#ff00aa');
+  });
+
+  it('sets the border width', () => {
+    const { container, onChange } = panel();
+    const input = field(container, 'borderWidth');
+
+    input.value = '3';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(onChange.mock.calls[0]![0].style.borderWidth).toBe(3);
+  });
+
+  it('accepts zero, which is a key with no outline', () => {
+    const { container, onChange } = panel();
+    const input = field(container, 'borderWidth');
+
+    input.value = '0';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(onChange.mock.calls[0]![0].style.borderWidth).toBe(0);
+  });
+
+  it('refuses a negative width, which is an SVG error and not a thin border', () => {
+    const { container, onChange } = panel();
+    const input = field(container, 'borderWidth');
+
+    input.value = '-2';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(onChange.mock.calls[0]![0].style.borderWidth).toBe(0);
+  });
+
+  it('shows what the configuration holds', () => {
+    const config = defaultConfig();
+    config.style.borderWidth = 5;
+
+    expect(field(panel(config).container, 'borderWidth').value).toBe('5');
+  });
+});

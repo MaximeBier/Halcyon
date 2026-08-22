@@ -54,10 +54,10 @@ describe('default values', () => {
   // in the style but missing from the list would silently stop being
   // inheritable — an override the editor accepts and the renderer ignores.
   it('leaves nothing out of the inheritable list but what is global by nature', () => {
-    // The two sizes, and the switch that says whether a resting key has a
-    // background at all: that one is a decision about the whole overlay, not a
-    // property a single key argues with.
-    const globalOnly = ['unit', 'gap', 'restFilled'];
+    // The two sizes, and everything that describes the overlay rather than a
+    // key: whether a resting key has a background, and the outline it wears.
+    // A key argues with the theme about its colours, not about these.
+    const globalOnly = ['unit', 'gap', 'restFilled', 'borderColor', 'borderWidth'];
     const inheritable = Object.keys(DEFAULT_STYLE).filter((key) => !globalOnly.includes(key));
 
     expect([...STYLE_KEYS].sort()).toEqual(inheritable.sort());

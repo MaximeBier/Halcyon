@@ -56,14 +56,18 @@
         fill={key.fill.color}
         clip-path={`url(#${uid}-${key.id})`}
       />
+      <!-- The inset and the width come from the scene: a stroke straddles its
+           path, so a border drawn on the key box would hang half of itself
+           outside the key. Geometry is not the renderer's to compute. -->
       <rect
-        x={key.x + 0.5}
-        y={key.y + 0.5}
-        width={Math.max(0, key.w - 1)}
-        height={Math.max(0, key.h - 1)}
+        x={key.border.x}
+        y={key.border.y}
+        width={key.border.w}
+        height={key.border.h}
         rx={key.radius}
         fill="none"
-        stroke={key.borderColor}
+        stroke={key.border.color}
+        stroke-width={key.border.width}
         stroke-dasharray={decorations && key.axis ? '3 2' : undefined}
       />
       <!-- `paint-order` puts the outline under the glyph rather than over it,

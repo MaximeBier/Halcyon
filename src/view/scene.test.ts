@@ -33,6 +33,8 @@ const config = (...keys: ResolvedKey[]): ResolvedConfig => ({
   unit: 100,
   gap: 10,
   restFilled: true,
+  borderColor: DEFAULT_STYLE.borderColor,
+  borderWidth: DEFAULT_STYLE.borderWidth,
   keys,
 });
 
@@ -154,7 +156,7 @@ describe('buildScene', () => {
   });
 
   it('gives every key a border: without it the key vanishes on a dark background', () => {
-    expect(buildScene(config(key()), []).keys[0]?.borderColor).toBe(OVERLAY_TOKENS.keyBorder);
+    expect(buildScene(config(key()), []).keys[0]?.border.color).toBe(DEFAULT_STYLE.borderColor);
   });
 
   it('sizes the label to the key height, not in fixed pixels', () => {
@@ -172,6 +174,58 @@ describe('buildScene', () => {
 
   it('renders an empty scene when no key is configured', () => {
     expect(buildScene(config(), [])).toEqual({ width: 0, height: 0, keys: [] });
+  });
+});
+
+describe('buildScene - the border, which may be all there is to see', () => {
+  // Switch the rest background off and the border *is* the key. One pixel of a
+  // very dark grey, over an arbitrary video, is not a key anyone can see — so
+  // both its colour and its width are settings now (task 38).
+  it('takes its resting colour from the style, not from a token', () => {
+    const scene = buildScene({ ...config(key()), borderColor: '#ff00aa' }, []);
+
+    expect(scene.keys[0]?.border.color).toBe('#ff00aa');
+  });
+
+  it('still turns to the active colour on actuation', () => {
+    // The second signal of §7.4, and the whole reason the border is not simply
+    // one colour: without it, a key at full travel that never fired and a key
+    // that fires at zero travel draw identically.
+    const scene = buildScene({ ...config(key()), borderColor: '#ff00aa' }, [[174, 300, 1]]);
+
+    expect(scene.keys[0]?.border.color).toBe(style.activeColor);
+  });
+
+  it('insets the stroke by half its width, so it stays inside the key', () => {
+    // A stroke straddles the path it follows. At one pixel the old `+ 0.5` hid
+    // that; at four it would hang two pixels outside the key, over the
+    // neighbour and past the clip that holds the fill in.
+    const scene = buildScene({ ...config(key()), borderWidth: 4 }, []);
+    const border = scene.keys[0]!.border;
+    const box = scene.keys[0]!;
+
+    expect(border.width).toBe(4);
+    expect(border.x).toBe(box.x + 2);
+    expect(border.y).toBe(box.y + 2);
+    expect(border.w).toBe(box.w - 4);
+    expect(border.h).toBe(box.h - 4);
+  });
+
+  it('draws no border at all at zero width', () => {
+    const scene = buildScene({ ...config(key()), borderWidth: 0 }, []);
+    const border = scene.keys[0]!.border;
+
+    expect(border.width).toBe(0);
+    expect(border.w).toBe(scene.keys[0]!.w);
+  });
+
+  it('never gives the border a negative size, however wide it is set', () => {
+    // A rect with a negative width is an SVG error rather than a thick border,
+    // and the width is the user's to set.
+    const scene = buildScene({ ...config(key()), borderWidth: 400 }, []);
+
+    expect(scene.keys[0]!.border.w).toBe(0);
+    expect(scene.keys[0]!.border.h).toBe(0);
   });
 });
 
@@ -196,7 +250,7 @@ describe('buildScene - a key that may have no background at all', () => {
   it('leaves the border, which is the whole point of an outline overlay', () => {
     const scene = buildScene({ ...config(key()), restFilled: false }, []);
 
-    expect(scene.keys[0]?.borderColor).toBe(OVERLAY_TOKENS.keyBorder);
+    expect(scene.keys[0]?.border.color).toBe(DEFAULT_STYLE.borderColor);
   });
 });
 
@@ -221,7 +275,15 @@ describe('buildScene - geometry that must never reach the SVG', () => {
     // A rect with a negative width is an SVG error, and the gap is the user's
     // to set.
     const scene = buildScene(
-      { version: 1, unit: 20, gap: 40, restFilled: true, keys: [key({ w: 0.25 })] },
+      {
+        version: 1,
+        unit: 20,
+        gap: 40,
+        restFilled: true,
+        borderColor: DEFAULT_STYLE.borderColor,
+        borderWidth: DEFAULT_STYLE.borderWidth,
+        keys: [key({ w: 0.25 })],
+      },
       [],
     );
 
@@ -272,21 +334,21 @@ describe('the border says the key fired', () => {
     const fired = buildScene(config(key()), [[174, 10, 1]]);
     const pressed = buildScene(config(key()), [[174, 1023, 0]]);
 
-    expect(fired.keys[0]?.borderColor).toBe(style.activeColor);
-    expect(pressed.keys[0]?.borderColor).toBe(OVERLAY_TOKENS.keyBorder);
+    expect(fired.keys[0]?.border.color).toBe(style.activeColor);
+    expect(pressed.keys[0]?.border.color).toBe(DEFAULT_STYLE.borderColor);
   });
 
   it('tells apart the two states that would otherwise look the same', () => {
     const remapped = buildScene(config(key()), [[174, 1023, 0]]);
     const barelyFired = buildScene(config(key()), [[174, 5, 1]]);
 
-    expect(remapped.keys[0]?.borderColor).not.toBe(barelyFired.keys[0]?.borderColor);
+    expect(remapped.keys[0]?.border.color).not.toBe(barelyFired.keys[0]?.border.color);
   });
 
   it('leaves an axis-mode key its own border: it never claims to fire', () => {
     const scene = buildScene(config(key({ mode: 'axis' })), [[174, 1023, 1]]);
 
-    expect(scene.keys[0]?.borderColor).toBe(OVERLAY_TOKENS.keyBorder);
+    expect(scene.keys[0]?.border.color).toBe(DEFAULT_STYLE.borderColor);
   });
 });
 

@@ -58,6 +58,23 @@ export interface KeyStyle {
 
 export interface GlobalStyle extends KeyStyle {
   /**
+   * The outline of a resting key: its colour, and how thick it is.
+   *
+   * `borderColor` **left `KeyStyle` on 2026-08-22** and comes back here a day
+   * later, and the two decisions do not contradict each other. It went because
+   * a border around a filled key is a detail nobody needs to set. It is back
+   * because a key with no background at all *is* its border, and one pixel of
+   * `#232838` over an arbitrary video is a key nobody can see.
+   *
+   * Here rather than in `KeyStyle`, so it is the outline of the overlay and not
+   * an argument each key has with the theme. The **actuated** border stays
+   * `activeColor`, which is per key: that asymmetry is §7.4 asking for it — the
+   * second actuation signal has to follow the key that fired.
+   */
+  borderColor: string;
+  /** In pixels. Zero draws no border at all, which is a choice. */
+  borderWidth: number;
+  /**
    * Whether a key at rest has a background at all.
    *
    * A switch, not a colour value: switched off, `restColor` is untouched and
@@ -119,6 +136,8 @@ export interface ResolvedConfig {
   gap: number;
   /** Global only, like the two above: see `GlobalStyle.restFilled`. */
   restFilled: boolean;
+  borderColor: string;
+  borderWidth: number;
   keys: ResolvedKey[];
 }
 
@@ -158,12 +177,24 @@ export const STYLE_KEYS = Object.keys(INHERITABLE) as readonly (keyof KeyStyle)[
 export const RADIUS_BOUNDS = { min: 0, max: 100 } as const;
 
 /**
+ * What a border width may be, in pixels.
+ *
+ * The floor matters and is exact: a negative stroke width is an SVG error, and
+ * zero is the legitimate “no border”. The ceiling is a practical cap and not a
+ * derived one — past a dozen pixels a border is a frame, and the geometry
+ * clamps on its own anyway, since a rect cannot be narrower than nothing.
+ */
+export const BORDER_WIDTH_BOUNDS = { min: 0, max: 16 } as const;
+
+/**
  * Values from the mockup (spec §16.2). They live in `src/styles/tokens.ts`;
  * they are the same values, not placeholders.
  */
 export const DEFAULT_STYLE: GlobalStyle = {
   restColor: OVERLAY_TOKENS.keyRest,
   restFilled: true,
+  borderColor: OVERLAY_TOKENS.keyBorder,
+  borderWidth: OVERLAY_TOKENS.keyBorderWidth,
   activeColor: OVERLAY_TOKENS.keyActive,
   fillColor: OVERLAY_TOKENS.keyFill,
   fillDirection: 'up',
