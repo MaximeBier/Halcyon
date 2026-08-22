@@ -334,8 +334,8 @@ describe('KeyPopover - the Style block', () => {
     c.querySelector<HTMLElement>(`[data-style-row="${property}"]`)!;
   const swatch = (c: Element, property: string) =>
     row(c, property).querySelector<HTMLInputElement>('input')!;
-  const tag = (c: Element, property: string) =>
-    row(c, property).querySelector<HTMLElement>('[data-tag]')!;
+  const marker = (c: Element, property: string) =>
+    row(c, property).querySelector<HTMLElement>('[data-marker]');
 
   it('overrides the travel fill, which nothing could reach before', () => {
     // `KeyStyle` has carried nine properties since task 13 and the popover
@@ -374,12 +374,15 @@ describe('KeyPopover - the Style block', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it('says of every line whether it is overridden or inherited', () => {
+  it('marks the overridden lines and says nothing about the others', () => {
+    // A column of six labels reading `global` is six statements that nothing
+    // has happened. Only the exception is worth a mark, and the mark is the
+    // same amber dot the rest of the page uses for "customized".
     const { container } = popover(setKeyStyle(twoKeys(), [1], 'fillColor', '#123456'));
 
-    expect(tag(container, 'fillColor').textContent).toMatch(/override/i);
-    expect(tag(container, 'restColor').textContent).toMatch(/global/i);
-    expect(tag(container, 'activeColor').textContent).toMatch(/global/i);
+    expect(marker(container, 'fillColor')).not.toBeNull();
+    expect(marker(container, 'restColor')).toBeNull();
+    expect(marker(container, 'activeColor')).toBeNull();
   });
 
   it('counts the overrides in the header of the fold', () => {
@@ -410,11 +413,11 @@ describe('KeyPopover - the Style block', () => {
     expect(onChange.mock.calls[0]![0].keys[0].style).toBeUndefined();
   });
 
-  it('hands one line back from its own tag', () => {
-    // The plate draws a tag, not a button, on each line. Making the tag itself
-    // the way back costs no space and keeps what the single-property reset
-    // could do before this block existed: return one colour without returning
-    // the four beside it.
+  it('hands one line back from its own marker', () => {
+    // The mark is next to the name, and it is also the way back for that line:
+    // it keeps what the single-property reset could do before this block
+    // existed — return one value without returning the four beside it — and
+    // the dot is exactly where one would click to undo it.
     const twice = setKeyStyle(
       setKeyStyle(twoKeys(), [1], 'fillColor', '#123456'),
       [1],
@@ -423,7 +426,7 @@ describe('KeyPopover - the Style block', () => {
     );
     const { container, onChange } = popover(twice);
 
-    tag(container, 'radius').click();
+    marker(container, 'radius')!.click();
 
     expect(onChange.mock.calls[0]![0].keys[0].style).toEqual({ fillColor: '#123456' });
   });

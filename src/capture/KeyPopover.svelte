@@ -121,24 +121,33 @@
 </script>
 
 <!--
-  `override` or `global`, on every line of the block — and the overridden one is
-  a button, because the tag is exactly where one would click to undo it.
+  The name of a property, and a dot beside it when this key overrides it.
+
+  **Only the exception is marked.** A column of labels reading `global` is a
+  column of statements that nothing has happened, in a panel 284 px wide — and
+  the word `override` in full weighed more than the value it described.
+
+  The dot is the same amber the rest of the page uses for "customized", and it
+  is also the way back for its line: it keeps what the per-property reset could
+  do before this block existed — return one value without returning the four
+  beside it — and it is exactly where one would click to undo it. Padded well
+  past its six pixels, so the target is a target.
 -->
-{#snippet inheritance(property: keyof KeyStyle)}
-  {#if overridden.includes(property)}
-    <button
-      type="button"
-      class="tag over"
-      data-tag
-      data-reset={property}
-      title="Reset to global"
-      onclick={() => onChange(clearKeyStyle(config, selectedIds, property))}
-    >
-      override
-    </button>
-  {:else}
-    <span class="tag" data-tag>global</span>
-  {/if}
+{#snippet named(property: keyof KeyStyle, label: string, control: string)}
+  <span class="name">
+    <label for={control}>{label}</label>
+    {#if overridden.includes(property)}
+      <button
+        type="button"
+        class="mark"
+        data-marker
+        data-reset={property}
+        title="Reset to global"
+        aria-label={`${label}: reset to global`}
+        onclick={() => onChange(clearKeyStyle(config, selectedIds, property))}
+      ></button>
+    {/if}
+  </span>
 {/snippet}
 
 {#if lead && effective}
@@ -223,7 +232,7 @@
       >
         {#each COLORS as [property, label] (property)}
           <div class="row" data-style-row={property}>
-            <label for={`key-${property}`}>{label}</label>
+            {@render named(property, label, `key-${property}`)}
             <div class="value">
               <input
                 id={`key-${property}`}
@@ -232,13 +241,12 @@
                 value={effective[property]}
                 onchange={(event) => apply(property, event.currentTarget.value)}
               />
-              {@render inheritance(property)}
             </div>
           </div>
         {/each}
 
         <div class="row" data-style-row="fillDirection">
-          <span class="label" id="key-fillDirection">Fill direction</span>
+          {@render named('fillDirection', 'Fill direction', 'key-fillDirection')}
           <div class="value">
             <div class="segmented small" role="group" aria-labelledby="key-fillDirection">
               {#each DIRECTIONS as [value, glyph] (value)}
@@ -254,12 +262,11 @@
                 </button>
               {/each}
             </div>
-            {@render inheritance('fillDirection')}
           </div>
         </div>
 
         <div class="row" data-style-row="radius">
-          <label for="key-radius">Radius</label>
+          {@render named('radius', 'Radius', 'key-radius')}
           <div class="value">
             <input
               id="key-radius"
@@ -275,7 +282,6 @@
               }}
             />
             <span class="unit">px</span>
-            {@render inheritance('radius')}
           </div>
         </div>
 
@@ -448,32 +454,39 @@
     display: grid;
     gap: 10px;
   }
-  /**
-   * `override` or `global`, at the end of every line of the Style block.
-   *
-   * Quiet on purpose: the amber says "this one differs", and everything else is
-   * the faintest text on the panel — a column of six labels shouting `global`
-   * would read as six problems. The overridden one is a button, so it carries
-   * the pointer cursor that says it can be undone.
-   */
-  .tag {
-    font-size: var(--he-size-xs, 14px);
-    color: var(--he-text-ghost, #4a4f60);
-    background: none;
-    border: none;
-    padding: 0;
-    font-family: inherit;
+  .name {
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
-  .tag.over {
-    color: var(--he-override, #d9a05b);
+  /**
+   * Six amber pixels beside the name, and nothing at all when the value is
+   * inherited — the same dot the folds use for "customized".
+   *
+   * A button, because it is also how one line goes back to the global. The box
+   * is padded to a real target while the dot stays six pixels: a negative
+   * margin keeps the row's height from following the padding.
+   */
+  .mark {
+    /* Six pixels of dot, eighteen of target: the padding is the click area and
+       the background is clipped to the content box, so only the dot is drawn.
+       The negative margin keeps the row's height off the padding. */
+    inline-size: 6px;
+    block-size: 6px;
+    box-sizing: content-box;
+    padding: 6px;
+    margin: -6px;
+    border: none;
+    border-radius: 50%;
+    background: var(--he-override, #d9a05b) content-box;
     cursor: pointer;
   }
-  .tag.over:hover {
-    text-decoration: underline;
+  .mark:hover {
+    background-color: var(--he-text, #dde1e9);
   }
-  .tag.over:focus-visible {
+  .mark:focus-visible {
     outline: 2px solid var(--he-accent, #7c9eff);
-    outline-offset: 2px;
+    outline-offset: 1px;
   }
   .unit {
     font-size: var(--he-size-xs, 14px);
