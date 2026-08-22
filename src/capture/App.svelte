@@ -30,6 +30,7 @@
   import Diagnostics from './Diagnostics.svelte';
   import Collapsible from './Collapsible.svelte';
   import Gated from './Gated.svelte';
+  import Unsupported from './Unsupported.svelte';
   import { copyToClipboard } from './clipboard';
   import { createJournal, describeAnomaly, hexDump, type JournalEntry } from './journal';
   import { createStreamProbe, type StreamReading } from './probe';
@@ -628,6 +629,10 @@
       onImport={importProfile}
     />
   </header>
+
+  <!-- Above the setup card, and outside the panels: what cannot work here is
+       the page, not one of its sections. It shows itself or nothing. -->
+  <Unsupported keyboard={keyboardStatus} />
 
   <div class="split">
     <main class="stage">
