@@ -694,4 +694,113 @@ describe('LayoutEditor - the popover stays inside the stage', () => {
       `${ORIGIN.x + DEFAULT_STYLE.unit}px`,
     );
   });
+
+  /**
+   * The panel's height, stubbed on the prototype.
+   *
+   * `offsetHeight` rather than `clientHeight`, which `laidOut` already uses
+   * for the stage: two measurements that must stay independent, or a test
+   * could not give the stage one size and the panel another.
+   */
+  const tall = (height: number) =>
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+      value: height,
+      configurable: true,
+    });
+
+  afterEach(() => Reflect.deleteProperty(HTMLElement.prototype, 'offsetHeight'));
+
+  /** In key units, from the top of the stage. */
+  const openAt = async (y: number, height: number) => {
+    const config = twoKeys();
+    config.keys[0]!.y = y;
+    const { container, handles } = editor(config);
+    tall(height);
+
+    handles[0]!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    await tick();
+    // A second flush: the height is measured after the panel is in the
+    // document, and the anchor only moves on the render that follows.
+    await tick();
+
+    return Number.parseFloat(container.querySelector<HTMLElement>('.anchor')!.style.top);
+  };
+
+  it('stays below the selection when there is room for it there', async () => {
+    const below = ORIGIN.y + DEFAULT_STYLE.unit + DEFAULT_STYLE.gap;
+
+    expect(await openAt(0, 200)).toBe(below);
+  });
+
+  it('flips above the selection rather than off the bottom edge', async () => {
+    // The vertical half of the defect fixed sideways at milestone 6, and the
+    // reason it needed its own answer: the panel's width is a token, its
+    // height is whatever its contents come to.
+    const key = { y: 4, height: 300 };
+    const above = ORIGIN.y + key.y * DEFAULT_STYLE.unit - DEFAULT_STYLE.gap - key.height;
+
+    expect(await openAt(key.y, key.height)).toBe(above);
+  });
+
+  it('pins the popover to the top when it fits neither above nor below', async () => {
+    // Half a panel on screen beats none, and the half worth keeping is the
+    // header — so it is the top edge it is pinned to, never the bottom.
+    expect(await openAt(4, 700)).toBe(STAGE.height - 700);
+    // Taller than the stage itself, where pinning the bottom edge would put
+    // the whole panel above the top of the screen.
+    expect(await openAt(4, STAGE.height + 80)).toBe(0);
+  });
+
+  it('measures the panel again when its contents change', async () => {
+    // Its height is not fixed: accepting the axis suggestion takes a row
+    // away while the panel is open. Measured once at mount, the anchor would
+    // then be placed against a height the panel no longer has.
+    let height = 200;
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+      get: () => height,
+      configurable: true,
+    });
+
+    const config = twoKeys();
+    config.keys[0]!.y = 4;
+    const { container, handles, rerender } = editor(config);
+    handles[0]!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    await tick();
+    await tick();
+
+    const anchor = container.querySelector<HTMLElement>('.anchor')!;
+    const before = anchor.style.top;
+
+    height = 60;
+    // The selection travels with it: rerender restores every prop it is not
+    // given, and an emptied selection closes the panel — which would leave
+    // this measuring nothing and passing for it.
+    await rerender({
+      config: { ...config, keys: [{ ...config.keys[0]!, label: 'W' }] },
+      selectedIds: [1],
+    });
+    await tick();
+    await tick();
+
+    expect(anchor.style.top).not.toBe(before);
+    expect(anchor.style.top).toBe(
+      `${ORIGIN.y + 4 * DEFAULT_STYLE.unit - DEFAULT_STYLE.gap - 60}px`,
+    );
+  });
+
+  it('leaves the anchor alone while the panel has not been measured', async () => {
+    // The first frame, before the panel is in the document — and jsdom, for
+    // ever. With no height there is no telling whether it fits, and moving it
+    // by an unmeasured amount is worse than leaving it under the key.
+    const config = twoKeys();
+    config.keys[0]!.y = 4;
+    const { container, handles } = editor(config);
+
+    handles[0]!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    await tick();
+    await tick();
+
+    const top = container.querySelector<HTMLElement>('.anchor')!.style.top;
+    expect(top).toBe(`${ORIGIN.y + 5 * DEFAULT_STYLE.unit + DEFAULT_STYLE.gap}px`);
+  });
 });

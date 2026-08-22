@@ -147,27 +147,68 @@
 
   const POPOVER_WIDTH = Number.parseInt(UI_TOKENS.popoverWidth, 10);
 
+  let panel = $state<HTMLElement | null>(null);
   /**
-   * Below the selection's bounding box, in stage pixels — and never past the
-   * right edge.
+   * How tall the popover currently is, in pixels.
    *
-   * Anchored to a key near the edge, the popover used to run outside the
-   * visible stage — and instead of the panel moving, a horizontal scrollbar
-   * appeared and half the controls sat off-screen. Clamped against the
-   * *visible* window rather than the content, so it still lands correctly if
-   * the stage ever is scrolled.
+   * Measured rather than read from a token, because unlike its width it is
+   * not fixed: a group selection loses the *Label* and *Position* rows, and
+   * the axis suggestion adds one. Re-measured on anything that changes what
+   * the panel holds — the effect reads them for that reason alone.
+   *
+   * Zero when the panel is not on screen, which is also what jsdom reports:
+   * both mean "no measurement", and the clamp below leaves the anchor alone.
+   */
+  let panelHeight = $state(0);
+  $effect(() => {
+    void shown;
+    void selectedIds;
+    void suggestAxis;
+    panelHeight = panel?.offsetHeight ?? 0;
+  });
+
+  /**
+   * Where the popover goes, in stage pixels: under the selection, and inside
+   * the stage on both axes.
+   *
+   * Anchored to a key near an edge, the panel used to run outside the visible
+   * stage — and instead of moving, it grew a scrollbar and put half its
+   * controls off-screen. Clamped against the *visible* window rather than the
+   * content, so it still lands correctly if the stage ever is scrolled.
+   *
+   * The two axes do not get the same treatment. Sideways the panel slides,
+   * because sliding costs nothing. Downwards it **flips above** the selection
+   * instead, because sliding up means covering the keys being edited at the
+   * one moment they are being looked at (spec §16.5).
    */
   const anchor = $derived.by(() => {
     const left = acrossX(Math.min(...selection.map((key) => key.x)));
-    const y = acrossY(Math.max(...selection.map((key) => key.y + key.h)));
+    const under = acrossY(Math.max(...selection.map((key) => key.y + key.h))) + gap;
+    const over = acrossY(Math.min(...selection.map((key) => key.y))) - gap - panelHeight;
 
+    return { x: slid(left), y: flipped(under, over) };
+  });
+
+  function slid(left: number): number {
     const room = stageBox.width;
-    if (room === 0) return { x: left, y };
+    if (room === 0) return left;
 
     const from = stage?.scrollLeft ?? 0;
-    const limit = Math.max(from, from + room - POPOVER_WIDTH - gap);
-    return { x: Math.min(left, limit), y };
-  });
+    return Math.min(left, Math.max(from, from + room - POPOVER_WIDTH - gap));
+  }
+
+  function flipped(under: number, over: number): number {
+    const room = stageBox.height;
+    if (room === 0 || panelHeight === 0) return under;
+
+    const from = stage?.scrollTop ?? 0;
+    const bottom = from + room;
+    if (under + panelHeight <= bottom) return under;
+    // Above the selection when the panel fits there, and against the top edge
+    // when it fits neither way: a panel half on screen beats one entirely off
+    // it, and its header is the half worth keeping.
+    return over >= from ? over : Math.max(from, bottom - panelHeight);
+  }
 
   function open(id: number) {
     if (!selectedIds.includes(id)) selectedIds = [id];
@@ -462,7 +503,12 @@
       {/if}
 
       {#if popoverVisible}
-        <div class="anchor" style:left={`${anchor.x}px`} style:top={`${anchor.y + gap}px`}>
+        <div
+          class="anchor"
+          bind:this={panel}
+          style:left={`${anchor.x}px`}
+          style:top={`${anchor.y}px`}
+        >
           <KeyPopover
             {config}
             {selectedIds}
