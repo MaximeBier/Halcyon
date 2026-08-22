@@ -563,21 +563,24 @@
     border-radius: var(--he-radius, 4px);
   }
   /**
-   * The window onto the work surface — and the same size as it, so in normal
-   * use nothing scrolls and no bar appears.
+   * The work surface itself, and **it does not scroll**.
    *
-   * `auto` rather than `hidden` all the same: a profile imported with far-off
-   * coordinates, or a window shrunk after the fact, puts a key past the edge,
-   * and a scrollbar is then the difference between a key that can be reached
-   * and one that is simply gone.
+   * `surfaceOf` makes one promise — the edge of the work surface is the edge of
+   * the screen — and a scrollbar was the exception that broke it. With one,
+   * "off the surface" no longer meant "out of sight", so the boundary had two
+   * readings; every pointer coordinate had to add back a scroll offset; and a
+   * key past the edge was reachable in one direction only, since nothing
+   * scrolls towards negative coordinates.
+   *
+   * It was there to rescue a key that had ended up outside. That job now
+   * belongs to the sidebar list, which says which keys they are — and can say
+   * it whichever side they went out of.
    */
   .stage {
     flex: 1;
     position: relative;
-    overflow: auto;
+    overflow: hidden;
     background: var(--he-stage, #0b0d11);
-    scrollbar-width: thin;
-    scrollbar-color: var(--he-border-control, #232838) transparent;
     /* A drag across the keys used to select the SVG labels as if they were a
        paragraph, leaving a blue smear over the layout. Nothing here is text
        anyone means to copy. */

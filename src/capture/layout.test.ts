@@ -1,10 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import {
   GRID,
+  keysOutside,
   keysWithin,
   moveKey,
   moveKeysBy,
   normalizeRect,
+  ontoSurface,
   pixelsToUnits,
   resizeKeys,
   setMode,
@@ -334,5 +336,59 @@ describe('normalizeRect', () => {
 
   it('handles the two mixed directions too', () => {
     expect(normalizeRect({ x: 4, y: 2 }, { x: 1, y: 6 })).toEqual({ x: 1, y: 2, w: 3, h: 4 });
+  });
+});
+
+describe('keysOutside', () => {
+  it('says nothing while every key is on the surface', () => {
+    expect(keysOutside(pair(), SURFACE)).toEqual([]);
+  });
+
+  it('names a key whose far edge hangs over, not only one whose corner does', () => {
+    // "Outside" is a box that is not *entirely* in: a key left half over the
+    // edge is half unreachable, and a sliver of it is not something one grabs
+    // with a mouse.
+    const base = config();
+    base.keys.push({ id: 2, usage: 0x16, mode: 'key', label: 'S', x: 9.5, y: 0, w: 1, h: 1 });
+
+    expect(keysOutside(base, SURFACE)).toEqual([2]);
+  });
+
+  it('counts a key flush against the edge as in', () => {
+    // Not pedantry: `ontoSurface` puts a clamped key exactly here, so the
+    // stricter reading would report every dragged key as lost the moment it
+    // touched an edge.
+    const base = config();
+    base.keys.push({ id: 2, usage: 0x16, mode: 'key', label: 'S', x: 9, y: 4, w: 1, h: 1 });
+
+    expect(keysOutside(base, SURFACE)).toEqual([]);
+  });
+
+  it('agrees with the clamp, whatever the size of the key', () => {
+    // The two have to answer the same question the same way, or the editor
+    // reports a key as lost in the very spot it just placed it.
+    const base = config();
+    const wide = ontoSurface({ x: 999, y: -999 }, 4, 2, SURFACE);
+    base.keys.push({ id: 2, usage: 0x16, mode: 'key', label: 'S', ...wide, w: 4, h: 2 });
+
+    expect(keysOutside(base, SURFACE)).toEqual([]);
+  });
+
+  it('looks at both axes', () => {
+    const base = config();
+    base.keys.push({ id: 2, usage: 0x16, mode: 'key', label: 'S', x: 0, y: -8, w: 1, h: 1 });
+
+    expect(keysOutside(base, SURFACE)).toEqual([2]);
+  });
+
+  it('ignores an overhang far below a pixel', () => {
+    // A key a millionth of a unit over the edge is not a key anyone lost, and
+    // marking it would send someone hunting for a difference they cannot see.
+    // It is also where the arithmetic lands: the clamp writes `edge - w`, and
+    // adding `w` back is not obliged to return `edge` exactly.
+    const base = config();
+    base.keys.push({ id: 2, usage: 0x16, mode: 'key', label: 'S', x: 9 + 1e-12, y: 0, w: 1, h: 1 });
+
+    expect(keysOutside(base, SURFACE)).toEqual([]);
   });
 });

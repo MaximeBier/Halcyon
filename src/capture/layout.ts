@@ -115,6 +115,44 @@ export function onSurface(config: ResolvedConfig, surface: Rect): ResolvedConfig
   };
 }
 
+/**
+ * How far a span may hang over an edge before anyone is told about it.
+ *
+ * A millionth of a key unit is some seven millionths of a pixel: not a key
+ * anyone lost. It is also where the arithmetic lands — `ontoSurface` writes
+ * `edge - w`, and adding `w` back is not obliged to return `edge` exactly.
+ * Grid-aligned sizes never trip it, but an imported profile is under no
+ * obligation to be grid-aligned, and the consequence would be a key marked as
+ * lost in the very spot the editor just placed it.
+ */
+const SLACK = 1e-9;
+
+const within = (at: number, extent: number, from: number, span: number) =>
+  at >= from - SLACK && at + extent <= from + span + SLACK;
+
+/**
+ * The keys that are not on the work surface, in configuration order.
+ *
+ * **Not entirely in** is the test, not "its corner is out": a key half over
+ * the edge is half unreachable, and a two-pixel sliver is not something one
+ * grabs with a mouse.
+ *
+ * `ontoSurface` prevents a key from being *placed* out here, and says nothing
+ * about what happens next. Three ways in need no mistake at all: shrinking the
+ * window, raising `unit` — the surface is measured in key units, so it shrinks
+ * too — and importing a profile with distant coordinates. The stage does not
+ * scroll, so a key out here is not merely awkward to reach: it is invisible,
+ * and the sidebar list is the only thing that can say it exists.
+ */
+export function keysOutside(config: OverlayConfig, surface: Rect): number[] {
+  return config.keys
+    .filter(
+      (key) =>
+        !within(key.x, key.w, surface.x, surface.w) || !within(key.y, key.h, surface.y, surface.h),
+    )
+    .map((key) => key.id);
+}
+
 export function moveKey(
   config: OverlayConfig,
   id: number,

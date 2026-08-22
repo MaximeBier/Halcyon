@@ -637,6 +637,15 @@ describe('LayoutEditor - the drawing and the handles agree', () => {
     expect(editorSource).toMatch(/\.canvas\s*\{[^}]*block-size:\s*100%/);
   });
 
+  it('never scrolls, so the surface really is everything there is', () => {
+    // `surfaceOf` makes one promise: the edge of the work surface is the edge
+    // of the screen. A scrollbar was the exception that broke it — with one,
+    // "off the surface" stopped meaning "out of sight", and every pointer
+    // coordinate depended on how far someone had happened to scroll. Read from
+    // the source, like the canvas rule above: jsdom resolves no styles.
+    expect(editorSource).toMatch(/\.stage\s*\{[^}]*overflow:\s*hidden/);
+  });
+
   it('measures again when the window changes size', async () => {
     // The surface *is* the stage, so a window that changed size and a surface
     // that did not means an origin off centre and a boundary in the wrong

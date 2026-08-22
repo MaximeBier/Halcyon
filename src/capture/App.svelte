@@ -14,7 +14,7 @@
   import { createOverlayRegistry } from './overlays';
   import { createConfigBroadcaster } from './broadcast';
   import { addLearnedKey, pickLearned, removeKey, removeKeys } from './learn';
-  import { surfaceOf } from './layout';
+  import { keysOutside, surfaceOf } from './layout';
   import { loadLayoutMap, resolveLayout, type LayoutMapLike } from '../keyboard/labels';
   import { setLayoutOverride } from '../config/edit';
   import { createAxisSuggester } from './suggest';
@@ -113,6 +113,26 @@
   // The packed size, which is the only one worth quoting: the raw box has an
   // empty top and left by construction (spec §5.4).
   const size = $derived(recommendedSize(resolve(config)));
+
+  /**
+   * The keys that are off the work surface, and therefore off the screen.
+   *
+   * The stage does not scroll, so the surface is all there is: a key out here
+   * is drawn nowhere, and **this list is the only thing that can say it
+   * exists**. Three ways out need no mistake at all — shrinking the window,
+   * raising `unit` (the surface is measured in key units, so it shrinks too),
+   * importing a profile with distant coordinates.
+   *
+   * Nothing is claimed before the stage has been measured: unmeasured, the
+   * surface falls back to its 12 × 8 floor, which most layouts overflow, and
+   * every load would mark half the keys on its first frame. The honest answer
+   * then is that nothing is known yet.
+   */
+  const offscreen = $derived(
+    stageBox.width > 0 && stageBox.height > 0
+      ? keysOutside(config, surfaceOf(stageBox, config.style.unit))
+      : [],
+  );
 
   const suggester = createAxisSuggester();
 
@@ -761,6 +781,16 @@
                 <li class:selected={selectedIds.includes(key.id)}>
                   <span class="label">{key.label}</span>
                   <span class="mode">{key.mode}</span>
+                  {#if offscreen.includes(key.id)}
+                    <!-- Before the override tag: this one says the key cannot
+                         be seen at all, which outranks how it is painted. -->
+                    <span
+                      class="offscreen"
+                      title="Not on the work surface: widen the window, or lower the key size in the global style"
+                    >
+                      off screen
+                    </span>
+                  {/if}
                   {#if hasOverrides(key)}<span class="override">override</span>{/if}
                   <button
                     class="trash"
@@ -1082,6 +1112,14 @@
   .override {
     font-size: var(--he-size-xs, 14px);
     color: var(--he-override, #d9a05b);
+  }
+  /* Red where the override tag is amber: an override is a choice, and this is
+     a key nobody can see. */
+  .offscreen {
+    font-size: var(--he-size-xs, 14px);
+    font-weight: 600;
+    color: var(--he-danger, #e06c5b);
+    white-space: nowrap;
   }
   .trash {
     all: unset;
