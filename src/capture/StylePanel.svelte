@@ -1,5 +1,6 @@
 <script lang="ts">
   import { setGlobalStyle } from '../config/edit';
+  import { PRESETS, presetFor, withPreset } from './presets';
   import { RADIUS_BOUNDS, type FillDirection, type OverlayConfig } from '../config/schema';
 
   /**
@@ -28,6 +29,9 @@
     ['fillColor', 'Travel fill'],
     ['restColor', 'Rest'],
   ];
+
+  /** The preset the three colours currently spell, or null once one has moved. */
+  const worn = $derived(presetFor(config.style));
 
   const DIRECTIONS: [FillDirection, string][] = [
     ['up', '↑ Up'],
@@ -77,6 +81,31 @@
 
 <section aria-label="Global style">
   <h2>Global style</h2>
+
+  <!--
+    At the head of the panel, as the lot of 2026-08-21 has it, and drawn as one
+    swatch per preset carrying its three colours in bands. Three settings behind
+    one dot needs a caption, hence the line below: someone who clicks a colour
+    expecting a colour would otherwise find two others changed.
+  -->
+  <div class="presets">
+    <div class="swatches" role="group" aria-label="Presets">
+      {#each PRESETS as preset (preset.name)}
+        <button
+          type="button"
+          class="preset"
+          data-preset={preset.name}
+          class:on={worn === preset}
+          aria-pressed={worn === preset}
+          aria-label={`Preset: ${preset.name}`}
+          title={preset.name}
+          style:background={`linear-gradient(180deg, ${preset.activeColor} 0 46%, ${preset.fillColor} 46% 76%, ${preset.restColor} 76% 100%)`}
+          onclick={() => onChange(withPreset(config, preset))}
+        ></button>
+      {/each}
+    </div>
+    <span class="caption">Presets · sets active, travel fill &amp; rest together</span>
+  </div>
 
   {#each COLORS as [property, label] (property)}
     <div class="row">
@@ -201,6 +230,44 @@
     letter-spacing: 0.05em;
     text-transform: uppercase;
     color: var(--he-text-muted, #8b90a0);
+  }
+  .presets {
+    display: grid;
+    gap: 6px;
+  }
+  .swatches {
+    display: flex;
+    gap: 7px;
+  }
+  /**
+   * One swatch, three colours, in the bands of the lot: active on top, travel
+   * fill in the middle, rest at the foot.
+   *
+   * It shows what it will do rather than naming it — six names would be six
+   * words nobody can check against the layout, and the gradient *is* the trio.
+   */
+  .preset {
+    inline-size: 24px;
+    block-size: 24px;
+    padding: 0;
+    border: 1px solid var(--he-border-popover, #262b3a);
+    border-radius: var(--he-radius, 4px);
+    cursor: pointer;
+  }
+  /* An outline rather than a border: a border would eat a pixel of the colours
+     it is marking, and on the darkest preset that pixel is the whole rest
+     band. */
+  .preset.on {
+    outline: 2px solid var(--he-text, #dde1e9);
+    outline-offset: 1px;
+  }
+  .preset:focus-visible {
+    outline: 2px solid var(--he-accent, #7c9eff);
+    outline-offset: 1px;
+  }
+  .caption {
+    font-size: var(--he-size-xs, 14px);
+    color: var(--he-text-faint, #5a5f70);
   }
   .row {
     display: flex;

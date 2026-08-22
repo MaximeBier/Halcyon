@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, cleanup } from '@testing-library/svelte';
 import StylePanel from './StylePanel.svelte';
 import { defaultConfig, type OverlayConfig } from '../config/schema';
+import { PRESETS } from './presets';
 
 afterEach(cleanup);
 
@@ -153,5 +154,58 @@ describe('StylePanel - the corner radius', () => {
     config.style.radius = 9;
 
     expect(radius(config).input.value).toBe('9');
+  });
+});
+
+describe('StylePanel - the presets', () => {
+  const swatches = (container: Element) => [
+    ...container.querySelectorAll<HTMLButtonElement>('[data-preset]'),
+  ];
+
+  it('offers the six of the lot, at the head of the panel', () => {
+    // What makes this panel usable without being a colourist, and what §9.2
+    // asks of the defaults — six of them rather than one.
+    const { container } = panel();
+
+    expect(swatches(container)).toHaveLength(PRESETS.length);
+  });
+
+  it('sets the three colours in one write', () => {
+    // One write, so one undo. Three would leave two intermediate states on the
+    // wire and in local storage, each a trio nobody chose.
+    const { container, onChange } = panel();
+
+    swatches(container)[2]!.click();
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0]![0].style).toMatchObject({
+      activeColor: PRESETS[2]!.activeColor,
+      fillColor: PRESETS[2]!.fillColor,
+      restColor: PRESETS[2]!.restColor,
+    });
+  });
+
+  it('marks the one the style is wearing', () => {
+    const { container } = panel();
+
+    expect(swatches(container)[0]!.getAttribute('aria-pressed')).toBe('true');
+    expect(swatches(container)[1]!.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('marks none once a colour has been changed by hand', () => {
+    // Two of three is not a preset, and a swatch that goes on claiming the trio
+    // describes a layout that is no longer on screen.
+    const config = defaultConfig();
+    config.style.restColor = '#010203';
+
+    expect(
+      swatches(panel(config).container).every(
+        (swatch) => swatch.getAttribute('aria-pressed') === 'false',
+      ),
+    ).toBe(true);
+  });
+
+  it('says what a preset touches, since it is three settings behind one dot', () => {
+    expect(panel().container.textContent).toContain('active, travel fill & rest');
   });
 });
