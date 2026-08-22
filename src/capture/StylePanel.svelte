@@ -36,8 +36,19 @@
     ['right', '→ Right'],
   ];
 
-  /** What each size may hold. `min` and `max` bind the spinner, not the keyboard. */
-  const BOUNDS = { unit: { min: 16, max: 200 }, gap: { min: 0, max: 40 } } as const;
+  /**
+   * What each size may hold. `min` and `max` bind the spinner, not the keyboard.
+   *
+   * The radius ceiling is derived rather than picked: SVG clamps `rx` to half
+   * the shorter side, so half of the largest key a unit can be is the point
+   * past which no radius changes anything on any key. Its floor is zero — a
+   * square key is a choice, not a missing value.
+   */
+  const BOUNDS = {
+    unit: { min: 16, max: 200 },
+    gap: { min: 0, max: 40 },
+    radius: { min: 0, max: 100 },
+  } as const;
 
   /**
    * Reads a size field, and refuses to let it out of range.
@@ -53,7 +64,7 @@
    * and `Number('e')` is `NaN`, and someone clearing a field to retype it has
    * not asked for anything yet.
    */
-  function size(property: 'unit' | 'gap', input: HTMLInputElement) {
+  function size(property: 'unit' | 'gap' | 'radius', input: HTMLInputElement) {
     const { min, max } = BOUNDS[property];
     const typed = Number(input.value);
 
@@ -105,6 +116,25 @@
         <option {value}>{label}</option>
       {/each}
     </select>
+  </div>
+
+  <!-- After the fill direction, where the lot of 2026-08-21 puts it. A style
+       property `KeyStyle` has carried since task 13, that the renderer has
+       always applied, and that nothing could set. -->
+  <div class="row">
+    <label for="global-radius">Radius</label>
+    <div class="value">
+      <input
+        id="global-radius"
+        name="radius"
+        type="number"
+        min={BOUNDS.radius.min}
+        max={BOUNDS.radius.max}
+        value={config.style.radius}
+        onchange={(event) => size('radius', event.currentTarget)}
+      />
+      <span class="unit">px</span>
+    </div>
   </div>
 
   <div class="row">

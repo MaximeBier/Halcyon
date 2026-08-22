@@ -106,3 +106,52 @@ describe('StylePanel - a size the renderer can survive', () => {
     expect(input.value).toBe(String(defaultConfig().style.unit));
   });
 });
+
+describe('StylePanel - the corner radius', () => {
+  const radius = (config: OverlayConfig = defaultConfig()) => {
+    const view = panel(config);
+    return {
+      ...view,
+      input: view.container.querySelector<HTMLInputElement>('input[name="radius"]')!,
+    };
+  };
+
+  it('writes the global radius', () => {
+    // The one style property the panel never offered: `KeyStyle` has carried it
+    // since task 13, the renderer applies it, and nothing could set it.
+    const { input, onChange } = radius();
+
+    input.value = '12';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0]![0].style.radius).toBe(12);
+  });
+
+  it('accepts zero, which is a square key and not a missing value', () => {
+    const { input, onChange } = radius();
+
+    input.value = '0';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(onChange.mock.calls[0]![0].style.radius).toBe(0);
+  });
+
+  it('refuses a negative radius', () => {
+    // `rx="-5"` is an SVG error rather than a square corner, and what survives
+    // it is up to the browser (spec §8.8, `isStyleValue`).
+    const { input, onChange } = radius();
+
+    input.value = '-5';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(onChange.mock.calls[0]![0].style.radius).toBe(0);
+  });
+
+  it('shows the radius the configuration holds', () => {
+    const config = defaultConfig();
+    config.style.radius = 9;
+
+    expect(radius(config).input.value).toBe('9');
+  });
+});
