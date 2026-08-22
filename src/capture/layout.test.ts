@@ -9,9 +9,11 @@ import {
   ontoSurface,
   pixelsToUnits,
   resizeKeys,
+  resizeKeyTo,
   setMode,
   snap,
   surfaceOf,
+  type Edge,
 } from './layout';
 import { DEFAULT_STYLE, defaultConfig, type OverlayConfig } from '../config/schema';
 
@@ -435,5 +437,84 @@ describe('keysOutside', () => {
     base.keys.push({ id: 2, usage: 0x16, mode: 'key', label: 'S', x: 9 + 1e-12, y: 0, w: 1, h: 1 });
 
     expect(keysOutside(base, SURFACE)).toEqual([]);
+  });
+});
+
+describe('resizeKeyTo', () => {
+  /** The geometry recorded when the gesture starts: one key, one unit square. */
+  const ORIGIN = { x: 0, y: 0, w: 1, h: 1 };
+  const sized = (edge: Edge, dx: number, dy: number, surface = SURFACE) =>
+    resizeKeyTo(config(), 1, edge, ORIGIN, dx, dy, surface).keys[0]!;
+
+  it('grows a far edge without moving the key', () => {
+    expect(sized('e', 2, 0)).toMatchObject({ x: 0, w: 3 });
+  });
+
+  it('moves a near edge and the position together', () => {
+    // `x` and `w` are two properties and one gesture: pulling the left edge
+    // left must widen the key *and* start it further left, or the edge under
+    // the pointer is the one that does not move.
+    expect(sized('w', -1, 0)).toMatchObject({ x: -1, w: 2 });
+  });
+
+  it('snaps the offset, not the result', () => {
+    // The same rule as a drag, and for the same reason: a key deliberately
+    // off-grid keeps its alignment, since what lands on the grid is the amount
+    // it moved.
+    expect(sized('e', 0.13, 0)).toMatchObject({ w: 1.25 });
+  });
+
+  it('touches only the axis its edge names', () => {
+    // Eight handles, and the diagonal ones are the only two-axis gesture. A
+    // side handle that quietly changed the other axis would make a wide key
+    // impossible to keep.
+    expect(sized('e', 2, 5)).toMatchObject({ y: 0, h: 1 });
+    expect(sized('n', 5, -2)).toMatchObject({ x: 0, w: 1, y: -2, h: 3 });
+  });
+
+  it('moves both axes from a corner', () => {
+    expect(sized('se', 1, 1)).toMatchObject({ x: 0, y: 0, w: 2, h: 2 });
+  });
+
+  it('never shrinks a key below a quarter of a key', () => {
+    // A width of zero is an invisible key, and a negative one is an SVG error
+    // rather than a small key.
+    expect(sized('se', -10, -10)).toMatchObject({ x: 0, y: 0, w: GRID, h: GRID });
+  });
+
+  it('collapses a near edge against the far one, never past it', () => {
+    // Dragging the left edge rightwards past the right edge would invert the
+    // key: the position would end up beyond its own far side.
+    expect(sized('w', 10, 0)).toMatchObject({ x: 1 - GRID, w: GRID });
+  });
+
+  it('stops a far edge at the work surface', () => {
+    // Resizing was the one way left to put a key off the screen: `resizeKeys`
+    // has no bound, so a key grown at the edge came back marked "off screen"
+    // by a gesture that had done nothing wrong.
+    const key = sized('e', 1000, 0);
+
+    expect(key.x + key.w).toBe(SURFACE.x + SURFACE.w);
+  });
+
+  it('stops a near edge at the work surface', () => {
+    expect(sized('w', -1000, 0)).toMatchObject({ x: SURFACE.x, w: 1 - SURFACE.x });
+  });
+
+  it('leaves the key on the grid against an edge that is not on it', () => {
+    // 1002 px at the default unit puts the far edge at 6.958333333333333, and
+    // a key grown into it would take the dust with it — the defect of task 36,
+    // by a new route.
+    const key = sized('se', 1000, 1000, ODD);
+
+    expect([key.x, key.y, key.w, key.h].every(onGrid)).toBe(true);
+    expect(key.x + key.w).toBeLessThanOrEqual(ODD.x + ODD.w);
+    expect(key.y + key.h).toBeLessThanOrEqual(ODD.y + ODD.h);
+  });
+
+  it('ignores an unknown id', () => {
+    const before = config();
+
+    expect(resizeKeyTo(before, 99, 'e', ORIGIN, 2, 0, SURFACE)).toEqual(before);
   });
 });

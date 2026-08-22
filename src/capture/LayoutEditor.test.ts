@@ -67,17 +67,17 @@ afterEach(() =>
   ),
 );
 
-function editor(config = twoKeys(), box = STAGE) {
+function editor(config = twoKeys(), box = STAGE, selectedIds: number[] = []) {
   laidOut(box);
   const onChange = vi.fn();
   const view = render(LayoutEditor, {
-    props: { config, frame: [], selectedIds: [], stageBox: { ...box }, onChange },
+    props: { config, frame: [], selectedIds, stageBox: { ...box }, onChange },
   });
   const handles = [...view.container.querySelectorAll('button.handle')] as HTMLElement[];
   // jsdom has no pointer capture; the editor only ever asks for it.
-  for (const handle of handles) {
-    handle.setPointerCapture = () => {};
-    handle.releasePointerCapture = () => {};
+  for (const target of [...handles, ...view.container.querySelectorAll('.grip')]) {
+    (target as HTMLElement).setPointerCapture = () => {};
+    (target as HTMLElement).releasePointerCapture = () => {};
   }
   // The canvas is what carries the layout and the bare-surface handler; the
   // stage is only the window onto it, and what scrolls.
@@ -811,5 +811,120 @@ describe('LayoutEditor - the popover stays inside the stage', () => {
 
     const top = container.querySelector<HTMLElement>('.anchor')!.style.top;
     expect(top).toBe(`${ORIGIN.y + 5 * DEFAULT_STYLE.unit + DEFAULT_STYLE.gap}px`);
+  });
+});
+
+describe('LayoutEditor - resizing a key by its edge', () => {
+  const grips = (container: HTMLElement) => [...container.querySelectorAll('.grip')];
+  const grip = (container: HTMLElement, edge: string) =>
+    container.querySelector<HTMLElement>(`.grip[data-edge="${edge}"]`)!;
+
+  const written = (onChange: ReturnType<typeof vi.fn>) =>
+    (onChange.mock.calls[0]![0] as OverlayConfig).keys[0]!;
+
+  it('offers nothing until exactly one key is selected', () => {
+    // The same rule as the Position fields: a handle pulled on a group would
+    // have to mean something for every key in it, and giving them all one size
+    // is not what pulling an edge looks like.
+    expect(grips(editor().container)).toHaveLength(0);
+    expect(grips(editor(twoKeys(), STAGE, [1, 2]).container)).toHaveLength(0);
+  });
+
+  it('offers eight of them on the one selected key', () => {
+    expect(grips(editor(twoKeys(), STAGE, [1]).container)).toHaveLength(8);
+  });
+
+  it('widens the key on a drag of its right edge, and writes once', () => {
+    const { container, onChange } = editor(twoKeys(), STAGE, [1]);
+
+    press(grip(container, 'e'), { clientX: 0, clientY: 0 });
+    move(container.querySelector('.stage')!, { clientX: TWO_KEYS_ACROSS, clientY: 0 });
+    window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }));
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(written(onChange)).toMatchObject({ x: 0, w: 3 });
+  });
+
+  it('never arms a move from a grip: the key stays where it is', () => {
+    // The grip sits on top of the key's own handle, so without a
+    // `stopPropagation` the press would start both gestures at once — the key
+    // sliding under the pointer while its edge is being pulled.
+    const { container, onChange } = editor(twoKeys(), STAGE, [1]);
+
+    press(grip(container, 'e'), { clientX: 0, clientY: 0 });
+    move(container.querySelector('.stage')!, { clientX: DEFAULT_STYLE.unit, clientY: 0 });
+    window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }));
+
+    expect(written(onChange)).toMatchObject({ x: 0, y: 0, w: 2 });
+  });
+
+  it('moves the position too when the left edge is the one pulled', () => {
+    const { container, onChange } = editor(twoKeys(), STAGE, [1]);
+
+    press(grip(container, 'w'), { clientX: 0, clientY: 0 });
+    move(container.querySelector('.stage')!, { clientX: -DEFAULT_STYLE.unit, clientY: 0 });
+    window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }));
+
+    expect(written(onChange)).toMatchObject({ x: -1, w: 2 });
+  });
+
+  it('writes nothing when the gesture changed no size', () => {
+    const { container, onChange } = editor(twoKeys(), STAGE, [1]);
+
+    press(grip(container, 'e'), { clientX: 0, clientY: 0 });
+    move(container.querySelector('.stage')!, { clientX: 1, clientY: 0 });
+    window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }));
+
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('abandons a resize on Escape instead of leaving it armed', async () => {
+    const { container, onChange, handles } = editor(twoKeys(), STAGE, [1]);
+    const before = handles[0]!.style.width;
+
+    press(grip(container, 'e'), { clientX: 0, clientY: 0 });
+    move(container.querySelector('.stage')!, { clientX: TWO_KEYS_ACROSS, clientY: 0 });
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await tick();
+
+    expect(handles[0]!.style.width).toBe(before);
+
+    window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }));
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('stops resizing when the button is no longer held', async () => {
+    const { container, handles } = editor(twoKeys(), STAGE, [1]);
+    const before = handles[0]!.style.width;
+
+    press(grip(container, 'e'), { clientX: 0, clientY: 0 });
+    move(container.querySelector('.stage')!, { clientX: TWO_KEYS_ACROSS, buttons: 0 });
+    await tick();
+
+    expect(handles[0]!.style.width).toBe(before);
+  });
+
+  it('ignores a right-click on a grip, which the context menu would swallow', () => {
+    // The same trap as the drag: the release is eaten by the menu, and the
+    // gesture stays armed on plain mouse movement afterwards.
+    const { container, onChange } = editor(twoKeys(), STAGE, [1]);
+
+    press(grip(container, 'e'), { button: 2, clientX: 0, clientY: 0 });
+    move(container.querySelector('.stage')!, { clientX: TWO_KEYS_ACROSS, clientY: 0 });
+    window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }));
+
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('shows the new size while the edge is being pulled', async () => {
+    // The draft, like a drag: waiting for the release to see the size would
+    // make the gesture something one aims blind.
+    const { container, handles } = editor(twoKeys(), STAGE, [1]);
+
+    press(grip(container, 'e'), { clientX: 0, clientY: 0 });
+    move(container.querySelector('.stage')!, { clientX: DEFAULT_STYLE.unit, clientY: 0 });
+    await tick();
+
+    expect(handles[0]!.style.width).toBe(`${2 * DEFAULT_STYLE.unit - DEFAULT_STYLE.gap}px`);
   });
 });

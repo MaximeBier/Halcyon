@@ -10,7 +10,9 @@
     normalizeRect,
     onSurface,
     pixelsToUnits,
+    resizeKeyTo,
     surfaceOf,
+    type Edge,
     type Point,
   } from './layout';
   import { removeKeys } from './learn';
@@ -91,6 +93,32 @@
   let lasso = $state<{ from: Point; to: Point; base: number[] } | null>(null);
   let stage = $state<HTMLElement | null>(null);
 
+  /**
+   * The resize in progress, or `null` when none is.
+   *
+   * Kept apart from `drag` rather than folded into it: the two gestures start
+   * from different presses, and one variable holding either would need a tag
+   * to say which — at which point they are two variables with extra steps. The
+   * *draft* is shared, so everything downstream of it, the popover and the
+   * quoted source size included, follows a resize exactly as it follows a move.
+   */
+  let sizing = $state<{
+    id: number;
+    edge: Edge;
+    startX: number;
+    startY: number;
+    origin: { x: number; y: number; w: number; h: number };
+  } | null>(null);
+
+  /**
+   * The eight handles, and why there are eight rather than three.
+   *
+   * Pulling a near edge — left or top — has to write the position *and* the
+   * size, since `x` and `w` are two properties and one gesture. That is the
+   * whole cost of the other five, and `resizeKeyTo` pays it in one place.
+   */
+  const EDGES: readonly Edge[] = ['n', 'e', 's', 'w', 'ne', 'se', 'sw', 'nw'];
+
   /** In key units, the two corners the right way round. */
   const lassoRect = $derived(lasso === null ? null : normalizeRect(lasso.from, lasso.to));
 
@@ -122,6 +150,18 @@
    */
   const scene = $derived(onSurface(resolved, surface));
   const selection = $derived(shown.keys.filter((key) => selectedIds.includes(key.id)));
+
+  /**
+   * The key the grips belong to, or `null` when they are not offered.
+   *
+   * Single selection only, like the Position fields: an edge pulled on a group
+   * would have to mean something for every key in it, and `resizeKeys` giving
+   * them all one size is not what pulling an edge looks like.
+   *
+   * Read from `shown`, so the grips follow the draft while the edge is being
+   * pulled instead of staying on the size it started from.
+   */
+  const sizable = $derived(selection.length === 1 ? selection[0]! : null);
   /**
    * What the OBS browser source has to be, in pixels — and the reason it is
    * here rather than tucked in a panel.
@@ -329,7 +369,50 @@
     (event.currentTarget as Element).setPointerCapture(event.pointerId);
   }
 
+  /**
+   * Arms a resize, and **only** a resize.
+   *
+   * The grip sits on top of the key's own handle, so without stopping the
+   * propagation the press would start both gestures: the key sliding under the
+   * pointer while its edge is being pulled.
+   */
+  function onGripPointerDown(event: PointerEvent, edge: Edge) {
+    if (event.button !== 0) return;
+    if (!sizable) return;
+    event.stopPropagation();
+
+    draft = config;
+    sizing = {
+      id: sizable.id,
+      edge,
+      startX: event.clientX,
+      startY: event.clientY,
+      origin: { x: sizable.x, y: sizable.y, w: sizable.w, h: sizable.h },
+    };
+    (event.currentTarget as Element).setPointerCapture(event.pointerId);
+  }
+
   function onPointerMove(event: PointerEvent) {
+    if (sizing && draft) {
+      // Same guard as the drag: a release we never saw would leave the edge
+      // following the pointer with nothing held down.
+      if (event.buttons === 0) {
+        abandon();
+        return;
+      }
+
+      draft = resizeKeyTo(
+        config,
+        sizing.id,
+        sizing.edge,
+        sizing.origin,
+        pixelsToUnits(event.clientX - sizing.startX, config.style.unit),
+        pixelsToUnits(event.clientY - sizing.startY, config.style.unit),
+        surface,
+      );
+      return;
+    }
+
     if (lasso) {
       // Same guard as the drag: a release we never saw would leave the
       // marquee following the pointer with nothing held down.
@@ -364,6 +447,7 @@
   /** Drops the gesture without writing anything. */
   function abandon() {
     drag = null;
+    sizing = null;
     draft = null;
     // The selection the marquee built is kept: it is what one was aiming at,
     // and Escape clears it on the next press anyway.
@@ -371,6 +455,20 @@
   }
 
   function onPointerUp() {
+    if (sizing && draft) {
+      // Compared against the origin, like the drag: a press that wobbles by a
+      // pixel lands back on the same grid cell, and writing there costs a
+      // stringify into local storage and a broadcast for nothing.
+      const key = draft.keys.find((other) => other.id === sizing!.id);
+      const origin = sizing.origin;
+      const resized = key ? key.w !== origin.w || key.h !== origin.h : false;
+      const next = draft;
+
+      abandon();
+      if (resized) onChange(next);
+      return;
+    }
+
     if (lasso) {
       lasso = null;
       return;
@@ -492,6 +590,34 @@
         ></button>
       {/each}
 
+      {#if sizable}
+        <!-- After the key handles in the DOM, so they paint over the one they
+             belong to; the press stops here and never reaches it. One box on
+             the key, and the eight bands placed inside it by the stylesheet:
+             the geometry is written once, in pixels the key already gave. -->
+        <div
+          class="grips"
+          style:left={`${acrossX(sizable.x) + gap / 2}px`}
+          style:top={`${acrossY(sizable.y) + gap / 2}px`}
+          style:width={`${Math.max(0, sizable.w * unit - gap)}px`}
+          style:height={`${Math.max(0, sizable.h * unit - gap)}px`}
+        >
+          <!-- Plain elements rather than buttons, and hidden from assistive
+               technology on purpose: there is nothing to activate, and the
+               keyboard path to a size is the popover's Size fields. -->
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          {#each EDGES as edge (edge)}
+            <div
+              class="grip"
+              class:corner={edge.length === 2}
+              data-edge={edge}
+              aria-hidden="true"
+              onpointerdown={(event) => onGripPointerDown(event, edge)}
+            ></div>
+          {/each}
+        </div>
+      {/if}
+
       {#if lassoRect}
         <div
           class="lasso"
@@ -555,6 +681,85 @@
   }
   /* Drawn over the keys and under nothing that is clickable: the marquee is
      feedback, and the pointer must keep reaching the stage beneath it. */
+  /**
+   * The resize grips, on the selected key only.
+   *
+   * The box itself is inert — it covers the whole key, and catching a press
+   * there would take the click that selects and the drag that moves. Only the
+   * eight bands inside it listen, each a few pixels straddling its edge: enough
+   * to aim at, little enough that the key stays the thing one grabs to move it.
+   *
+   * The corners are drawn, the sides are not. A square at each corner is the
+   * affordance everyone already knows; four visible bands around a key would
+   * read as a second selection outline.
+   */
+  .grips {
+    position: absolute;
+    pointer-events: none;
+  }
+  .grip {
+    position: absolute;
+    pointer-events: auto;
+    /* The browser must not turn a drag into a scroll: it would cancel the
+       pointer mid-gesture. */
+    touch-action: none;
+  }
+  .grip[data-edge='n'],
+  .grip[data-edge='s'] {
+    inset-inline: 0;
+    block-size: 7px;
+    cursor: ns-resize;
+  }
+  .grip[data-edge='n'] {
+    inset-block-start: -3px;
+  }
+  .grip[data-edge='s'] {
+    inset-block-end: -3px;
+  }
+  .grip[data-edge='w'],
+  .grip[data-edge='e'] {
+    inset-block: 0;
+    inline-size: 7px;
+    cursor: ew-resize;
+  }
+  .grip[data-edge='w'] {
+    inset-inline-start: -3px;
+  }
+  .grip[data-edge='e'] {
+    inset-inline-end: -3px;
+  }
+  /* Last in the DOM order, so a corner wins over the two sides it meets. */
+  .grip.corner {
+    inline-size: 8px;
+    block-size: 8px;
+    background: var(--he-accent, #7c9eff);
+    border-radius: 1px;
+  }
+  .grip[data-edge='nw'],
+  .grip[data-edge='ne'] {
+    inset-block-start: -4px;
+  }
+  .grip[data-edge='sw'],
+  .grip[data-edge='se'] {
+    inset-block-end: -4px;
+  }
+  .grip[data-edge='nw'],
+  .grip[data-edge='sw'] {
+    inset-inline-start: -4px;
+  }
+  .grip[data-edge='ne'],
+  .grip[data-edge='se'] {
+    inset-inline-end: -4px;
+  }
+  .grip[data-edge='nw'],
+  .grip[data-edge='se'] {
+    cursor: nwse-resize;
+  }
+  .grip[data-edge='ne'],
+  .grip[data-edge='sw'] {
+    cursor: nesw-resize;
+  }
+
   .lasso {
     position: absolute;
     pointer-events: none;

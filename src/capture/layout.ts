@@ -248,6 +248,96 @@ export function moveKeysBy(
   };
 }
 
+/**
+ * Which sides a resize gesture moves, by compass point.
+ *
+ * Compass rather than `left` / `top`, because the diagonals need a name too and
+ * `bottom-right` eight times over reads worse than `se`. The four letters never
+ * collide, so a side is tested by asking whether the name contains it.
+ */
+export type Edge = 'n' | 'e' | 's' | 'w' | 'ne' | 'se' | 'sw' | 'nw';
+
+/**
+ * One axis of a resize: where the span starts, and how long it is.
+ *
+ * The two edges are not symmetrical. A **far** edge only changes the extent,
+ * which is why it is the easy half. A **near** edge changes *both* — `x` and
+ * `w` are two properties and one gesture — and getting that wrong leaves the
+ * edge under the pointer standing still while the opposite one moves.
+ *
+ * Both bounds round towards the inside of the surface (task 36) and, when they
+ * cross, **the minimum size wins**: a span of zero is an invisible key and a
+ * negative one is an SVG error, whereas a key slightly off the surface is
+ * merely marked as such in the sidebar list.
+ */
+function sizeAxis(
+  at: number,
+  extent: number,
+  delta: number,
+  near: boolean,
+  far: boolean,
+  from: number,
+  span: number,
+): { at: number; extent: number } {
+  if (far) {
+    const edge = Math.max(at + GRID, Math.min(at + extent + delta, gridDown(from + span)));
+    return { at, extent: edge - at };
+  }
+  if (near) {
+    const edge = Math.min(at + extent - GRID, Math.max(at + delta, gridUp(from)));
+    return { at: edge, extent: at + extent - edge };
+  }
+  return { at, extent };
+}
+
+/**
+ * A key resized by one of its edges, from the geometry the gesture started on.
+ *
+ * `origin` is recorded on press, like a drag's, so the answer never depends on
+ * the path taken to get there — and it is the **offset** that is snapped, not
+ * the result, so a key deliberately off the grid keeps its alignment.
+ *
+ * This is also the bound `resizeKeys` never had: growing a key at the edge of
+ * the surface used to push it off the screen, which a gesture that did nothing
+ * wrong has no business doing.
+ */
+export function resizeKeyTo(
+  config: OverlayConfig,
+  id: number,
+  edge: Edge,
+  origin: { x: number; y: number; w: number; h: number },
+  dx: number,
+  dy: number,
+  surface: Rect,
+): OverlayConfig {
+  const across = sizeAxis(
+    origin.x,
+    origin.w,
+    snap(dx),
+    edge.includes('w'),
+    edge.includes('e'),
+    surface.x,
+    surface.w,
+  );
+  const down = sizeAxis(
+    origin.y,
+    origin.h,
+    snap(dy),
+    edge.includes('n'),
+    edge.includes('s'),
+    surface.y,
+    surface.h,
+  );
+
+  return patchKey(config, id, (key) => ({
+    ...key,
+    x: across.at,
+    w: across.extent,
+    y: down.at,
+    h: down.extent,
+  }));
+}
+
 export function resizeKeys(
   config: OverlayConfig,
   ids: readonly number[],
