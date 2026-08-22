@@ -20,6 +20,7 @@ const config: ResolvedConfig = {
   version: 1,
   unit: 100,
   gap: 10,
+  restFilled: true,
   keys: [
     {
       id: 174,
@@ -32,7 +33,6 @@ const config: ResolvedConfig = {
       h: 1,
       style: {
         restColor: '#111111',
-        borderColor: '#232838',
         activeColor: '#00ff00',
         fillColor: '#ffffff',
         fillDirection: 'up',

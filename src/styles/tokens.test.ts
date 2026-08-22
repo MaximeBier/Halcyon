@@ -19,7 +19,6 @@ describe('tokens', () => {
     expect(DEFAULT_STYLE.restColor).toBe(OVERLAY_TOKENS.keyRest);
     expect(DEFAULT_STYLE.activeColor).toBe(OVERLAY_TOKENS.keyActive);
     expect(DEFAULT_STYLE.fillColor).toBe(OVERLAY_TOKENS.keyFill);
-    expect(DEFAULT_STYLE.borderColor).toBe(OVERLAY_TOKENS.keyBorder);
     expect(DEFAULT_STYLE.radius).toBe(OVERLAY_TOKENS.keyRadius);
     expect(DEFAULT_STYLE.opacity).toBe(OVERLAY_TOKENS.keyOpacity);
     expect(DEFAULT_STYLE.fontFamily).toBe(OVERLAY_TOKENS.keyFontFamily);

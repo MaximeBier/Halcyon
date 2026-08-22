@@ -111,12 +111,34 @@
     <div class="row">
       <label for={`global-${property}`}>{label}</label>
       <div class="value">
+        {#if property === 'restColor'}
+          <!--
+            Whether a resting key has a background at all, on the line of the
+            colour it governs — a switch beside its own value, not a setting
+            somewhere else that reaches over to it.
+
+            A switch and **not** a colour value: `restColor` is left untouched
+            while it is off, so switching back on returns the colour that was
+            there rather than a default nobody chose. It also keeps the colour
+            rule pure — a colour is always a hex colour, never a keyword.
+          -->
+          <input
+            name="restFilled"
+            type="checkbox"
+            checked={config.style.restFilled}
+            title="Give resting keys a background"
+            aria-label="Give resting keys a background"
+            onchange={(event) =>
+              onChange(setGlobalStyle(config, 'restFilled', event.currentTarget.checked))}
+          />
+        {/if}
         <code>{config.style[property]}</code>
         <input
           id={`global-${property}`}
           name={property}
           type="color"
           value={config.style[property]}
+          disabled={property === 'restColor' && !config.style.restFilled}
           onchange={(event) =>
             onChange(setGlobalStyle(config, property, event.currentTarget.value))}
         />
@@ -291,6 +313,13 @@
   .unit {
     font-size: var(--he-size-xs, 14px);
     color: var(--he-text-ghost, #4a4f60);
+  }
+  /* Out of use, and saying so: while there is no background, the control that
+     colours it does nothing. Dimmed-but-clickable would let someone pick a
+     colour and watch nothing happen. */
+  input[type='color']:disabled {
+    opacity: 0.35;
+    cursor: default;
   }
   input[type='color'] {
     /* The native swatch keeps its own chrome in every engine; a fixed box and

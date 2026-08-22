@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, cleanup } from '@testing-library/svelte';
 import StylePanel from './StylePanel.svelte';
-import { defaultConfig, type OverlayConfig } from '../config/schema';
+import { DEFAULT_STYLE, defaultConfig, type OverlayConfig } from '../config/schema';
 import { PRESETS } from './presets';
 
 afterEach(cleanup);
@@ -207,5 +207,61 @@ describe('StylePanel - the presets', () => {
 
   it('says what a preset touches, since it is three settings behind one dot', () => {
     expect(panel().container.textContent).toContain('active, travel fill & rest');
+  });
+});
+
+describe('StylePanel - whether a resting key has a background at all', () => {
+  const box = (config: OverlayConfig = defaultConfig()) => {
+    const view = panel(config);
+    return {
+      ...view,
+      input: view.container.querySelector<HTMLInputElement>('input[name="restFilled"]')!,
+      swatch: view.container.querySelector<HTMLInputElement>('input[name="restColor"]')!,
+    };
+  };
+
+  const toggle = (input: HTMLInputElement, checked: boolean) => {
+    input.checked = checked;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+
+  it('switches the background off without touching the colour', () => {
+    // The whole reason it is a switch and not a colour value: the colour stays
+    // where it was, so switching back on returns what was there rather than a
+    // default nobody chose.
+    const { input, onChange } = box();
+
+    toggle(input, false);
+
+    expect(onChange.mock.calls[0]![0].style.restFilled).toBe(false);
+    expect(onChange.mock.calls[0]![0].style.restColor).toBe(DEFAULT_STYLE.restColor);
+  });
+
+  it('switches it back on, to the colour that was waiting', () => {
+    const config = defaultConfig();
+    config.style.restFilled = false;
+    config.style.restColor = '#334455';
+    const { input, onChange } = box(config);
+
+    toggle(input, true);
+
+    expect(onChange.mock.calls[0]![0].style).toMatchObject({
+      restFilled: true,
+      restColor: '#334455',
+    });
+  });
+
+  it('starts on, since a key with no background is the exception', () => {
+    expect(box().input.checked).toBe(true);
+  });
+
+  it('takes the swatch out of use while there is no background to colour', () => {
+    // Not dimmed-but-clickable: picking a colour that changes nothing on screen
+    // is worse than a control that plainly says it is not in use.
+    const config = defaultConfig();
+    config.style.restFilled = false;
+
+    expect(box(config).swatch.disabled).toBe(true);
+    expect(box().swatch.disabled).toBe(false);
   });
 });

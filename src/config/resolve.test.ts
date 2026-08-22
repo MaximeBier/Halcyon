@@ -30,7 +30,6 @@ describe('resolve', () => {
 
     expect(keys[0]?.style).toEqual({
       restColor: DEFAULT_STYLE.restColor,
-      borderColor: DEFAULT_STYLE.borderColor,
       activeColor: DEFAULT_STYLE.activeColor,
       fillColor: DEFAULT_STYLE.fillColor,
       fillDirection: DEFAULT_STYLE.fillDirection,

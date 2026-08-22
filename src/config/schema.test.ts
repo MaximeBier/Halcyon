@@ -39,7 +39,6 @@ describe('default values', () => {
     expect([...STYLE_KEYS].sort()).toEqual(
       [
         'activeColor',
-        'borderColor',
         'fillColor',
         'fillDirection',
         'fontFamily',
@@ -54,8 +53,11 @@ describe('default values', () => {
   // STYLE_KEYS drives inheritance resolution in task 13, so a property present
   // in the style but missing from the list would silently stop being
   // inheritable — an override the editor accepts and the renderer ignores.
-  it('leaves nothing out of the inheritable list but the two global-only sizes', () => {
-    const globalOnly = ['unit', 'gap'];
+  it('leaves nothing out of the inheritable list but what is global by nature', () => {
+    // The two sizes, and the switch that says whether a resting key has a
+    // background at all: that one is a decision about the whole overlay, not a
+    // property a single key argues with.
+    const globalOnly = ['unit', 'gap', 'restFilled'];
     const inheritable = Object.keys(DEFAULT_STYLE).filter((key) => !globalOnly.includes(key));
 
     expect([...STYLE_KEYS].sort()).toEqual(inheritable.sort());

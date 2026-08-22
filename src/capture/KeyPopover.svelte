@@ -211,9 +211,10 @@
 
     <!--
       Every appearance property a key may hold, behind one fold (lot of
-      2026-08-21). Five of the nine: opacity and the two font properties stay
-      global — two typefaces in one overlay serve no real case — and
-      `borderColor` is on its way out of the model entirely.
+      2026-08-21). Five of the eight: opacity and the two font properties stay
+      global — two typefaces in one overlay serve no real case. `borderColor`
+      used to be a sixth; it left the model on 2026-08-22, the resting border
+      being the `keyBorder` token again and the actuated one `activeColor`.
 
       The tag on each line **is** the way back for that line. The plate draws a
       tag and a single "Reset to global" at the foot; a tag that resets keeps

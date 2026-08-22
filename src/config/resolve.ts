@@ -59,6 +59,7 @@ export function resolve(config: OverlayConfig): ResolvedConfig {
     version: config.version,
     unit: config.style.unit,
     gap: config.style.gap,
+    restFilled: config.style.restFilled,
     keys: config.keys.map((key) => ({
       id: key.id,
       usage: key.usage,

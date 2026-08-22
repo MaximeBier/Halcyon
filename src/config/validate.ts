@@ -12,7 +12,21 @@ type Loose = Record<string, unknown>;
  */
 export const FILL_DIRECTIONS: readonly string[] = ['up', 'down', 'left', 'right'];
 
-/** The only colour syntax the scene's `luminance` knows how to read. */
+/**
+ * The one colour syntax accepted.
+ *
+ * Not because the renderer could not paint `rebeccapurple` — it hands the
+ * string straight to an SVG `fill` — but because "whatever the browser accepts"
+ * is not a rule this side of the wire can check. A named colour one engine
+ * knows and another does not would arrive as a key painted black on half the
+ * machines, with nothing here able to say so.
+ *
+ * *This used to read "the only syntax the scene's `luminance` knows how to
+ * read". That function computed the label colour from the background, and has
+ * been gone since the label took a fixed colour and an outline: the rule
+ * outlived its first reason. Found on 2026-08-22, while adding an exception
+ * beside it that was then dropped.*
+ */
 export const HEX_COLOR = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 
 /** Property names ending in `Color`, resolved once against the style shape. */
@@ -122,6 +136,7 @@ export function isResolvedConfig(value: unknown): value is ResolvedConfig {
     Number.isFinite(config.version) &&
     isExtent(config.unit) &&
     isNonNegative(config.gap) &&
+    typeof config.restFilled === 'boolean' &&
     Array.isArray(config.keys) &&
     config.keys.every(isResolvedKey)
   );

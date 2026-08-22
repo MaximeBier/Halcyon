@@ -37,7 +37,6 @@ export type FillDirection = 'up' | 'down' | 'left' | 'right';
 /** Appearance properties, the only ones subject to inheritance (spec §8.2). */
 export interface KeyStyle {
   restColor: string;
-  borderColor: string;
   activeColor: string;
   /**
    * Color of the progressive fill in "key" mode. Has no effect in "axis"
@@ -58,6 +57,19 @@ export interface KeyStyle {
 }
 
 export interface GlobalStyle extends KeyStyle {
+  /**
+   * Whether a key at rest has a background at all.
+   *
+   * A switch, not a colour value: switched off, `restColor` is untouched and
+   * waiting, so switching back on returns the colour that was there rather
+   * than a default nobody chose. It also keeps the colour rule pure — a colour
+   * is always a hex colour, never a keyword.
+   *
+   * Global only, deliberately. "Does a resting key have a background" is a
+   * decision about the whole overlay; a single outlined key among filled ones
+   * is a look nobody has asked for, and adding it later costs one field.
+   */
+  restFilled: boolean;
   /** Pixels per key unit. */
   unit: number;
   /** Gap between keys, in pixels. */
@@ -105,6 +117,8 @@ export interface ResolvedConfig {
   version: number;
   unit: number;
   gap: number;
+  /** Global only, like the two above: see `GlobalStyle.restFilled`. */
+  restFilled: boolean;
   keys: ResolvedKey[];
 }
 
@@ -120,7 +134,6 @@ export interface ResolvedConfig {
  */
 const INHERITABLE: Record<keyof KeyStyle, true> = {
   restColor: true,
-  borderColor: true,
   activeColor: true,
   fillColor: true,
   fillDirection: true,
@@ -133,11 +146,6 @@ const INHERITABLE: Record<keyof KeyStyle, true> = {
 export const STYLE_KEYS = Object.keys(INHERITABLE) as readonly (keyof KeyStyle)[];
 
 /**
- * Values from the mockup (spec §16.2). They get recentralized in
- * `src/styles/tokens.ts` in task 14b; they are the same values, not
- * placeholders.
- */
-/**
  * What a corner radius may be, in pixels — here rather than in one of the two
  * panels that offer it, so the global field and the per-key field cannot drift.
  *
@@ -149,9 +157,13 @@ export const STYLE_KEYS = Object.keys(INHERITABLE) as readonly (keyof KeyStyle)[
  */
 export const RADIUS_BOUNDS = { min: 0, max: 100 } as const;
 
+/**
+ * Values from the mockup (spec §16.2). They live in `src/styles/tokens.ts`;
+ * they are the same values, not placeholders.
+ */
 export const DEFAULT_STYLE: GlobalStyle = {
   restColor: OVERLAY_TOKENS.keyRest,
-  borderColor: OVERLAY_TOKENS.keyBorder,
+  restFilled: true,
   activeColor: OVERLAY_TOKENS.keyActive,
   fillColor: OVERLAY_TOKENS.keyFill,
   fillDirection: 'up',

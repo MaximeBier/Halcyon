@@ -112,14 +112,19 @@ describe('isResolvedConfig - rules that must match the import side', () => {
   };
 
   it('refuses a colour the renderer cannot read', () => {
-    // `luminance` understands #rgb and #rrggbb and nothing else. A CSS name
-    // passes typeof, reaches contrastingLabel, returns null, and the label
-    // stays light — white text on a white key. migrate refuses these; the wire
-    // has to refuse them too, or the rule only holds on one side.
+    // Hex only, because "whatever the browser accepts" is not a rule this side
+    // of the wire can check: a named colour one engine knows and another does
+    // not would arrive as a key painted black on half the machines. migrate
+    // refuses these; the wire has to refuse them too, or the rule holds on one
+    // side only.
+    //
+    // (This comment used to explain the rule through `luminance` and
+    // `contrastingLabel`, gone since the label took a fixed colour and an
+    // outline. The rule outlived its first reason.)
     expect(styled({ restColor: 'white' })).toBe(false);
     expect(styled({ activeColor: 'rgb(255,0,0)' })).toBe(false);
     expect(styled({ fillColor: '#f0a' })).toBe(true);
-    expect(styled({ borderColor: '#FF00AA' })).toBe(true);
+    expect(styled({ restColor: '#FF00AA' })).toBe(true);
   });
 
   it('refuses a negative corner radius', () => {

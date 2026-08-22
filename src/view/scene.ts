@@ -111,7 +111,7 @@ export function buildScene(
   frame: readonly FrameKey[],
   { pack = false }: SceneOptions = {},
 ): Scene {
-  const { unit, gap } = config;
+  const { unit, gap, restFilled } = config;
   const states = new Map(frame.map(([id, travel, active]) => [id, { travel, active }]));
 
   let width = 0;
@@ -165,7 +165,14 @@ export function buildScene(
     // fill color behind it.
     const actuated = key.mode === 'key' && state.active === 1;
     const fillColor = actuated || key.mode === 'axis' ? key.style.activeColor : key.style.fillColor;
-    const baseFill = actuated ? key.style.fillColor : key.style.restColor;
+    // Switched off, a resting key has no background at all — an overlay of
+    // outlines, where the keys appear as the fingers travel. What an actuated
+    // key paints is untouched: that is the signal, not the backdrop.
+    const baseFill = actuated
+      ? key.style.fillColor
+      : restFilled
+        ? key.style.restColor
+        : 'transparent';
 
     width = Math.max(width, (key.x - originX + key.w) * unit);
     height = Math.max(height, (key.y - originY + key.h) * unit);
@@ -184,7 +191,7 @@ export function buildScene(
       // render as one flat fill colour; the border separates them, and it
       // reads at any travel — including none, which is where a low actuation
       // point puts it.
-      borderColor: actuated ? key.style.activeColor : key.style.borderColor,
+      borderColor: actuated ? key.style.activeColor : OVERLAY_TOKENS.keyBorder,
       fill: { ...fillRect(x, y, w, h, ratio, key.style.fillDirection), color: fillColor },
       labelFill: OVERLAY_TOKENS.keyLabel,
       labelOutline: OVERLAY_TOKENS.keyLabelOutline,

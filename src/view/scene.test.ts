@@ -6,7 +6,6 @@ import type { FrameKey } from '../protocol/messages';
 
 const style = {
   restColor: DEFAULT_STYLE.restColor,
-  borderColor: DEFAULT_STYLE.borderColor,
   activeColor: DEFAULT_STYLE.activeColor,
   fillColor: DEFAULT_STYLE.fillColor,
   fillDirection: DEFAULT_STYLE.fillDirection,
@@ -33,6 +32,7 @@ const config = (...keys: ResolvedKey[]): ResolvedConfig => ({
   version: 1,
   unit: 100,
   gap: 10,
+  restFilled: true,
   keys,
 });
 
@@ -154,7 +154,7 @@ describe('buildScene', () => {
   });
 
   it('gives every key a border: without it the key vanishes on a dark background', () => {
-    expect(buildScene(config(key()), []).keys[0]?.borderColor).toBe(style.borderColor);
+    expect(buildScene(config(key()), []).keys[0]?.borderColor).toBe(OVERLAY_TOKENS.keyBorder);
   });
 
   it('sizes the label to the key height, not in fixed pixels', () => {
@@ -172,6 +172,31 @@ describe('buildScene', () => {
 
   it('renders an empty scene when no key is configured', () => {
     expect(buildScene(config(), [])).toEqual({ width: 0, height: 0, keys: [] });
+  });
+});
+
+describe('buildScene - a key that may have no background at all', () => {
+  it('paints nothing at rest when the background is switched off', () => {
+    // An overlay of outlines: the keys appear as the fingers travel and leave
+    // nothing behind. A switch rather than a colour value, so **the colour
+    // survives being switched off** — it is still in the style, waiting.
+    const scene = buildScene({ ...config(key()), restFilled: false }, []);
+
+    expect(scene.keys[0]?.baseFill).toBe('transparent');
+  });
+
+  it('still swaps to the fill colour when the key fires', () => {
+    // The switch is about the *rest* background. What an actuated key paints is
+    // the actuation, and taking that away would be taking away the signal.
+    const scene = buildScene({ ...config(key()), restFilled: false }, [[174, 300, 1]]);
+
+    expect(scene.keys[0]?.baseFill).toBe(style.fillColor);
+  });
+
+  it('leaves the border, which is the whole point of an outline overlay', () => {
+    const scene = buildScene({ ...config(key()), restFilled: false }, []);
+
+    expect(scene.keys[0]?.borderColor).toBe(OVERLAY_TOKENS.keyBorder);
   });
 });
 
@@ -195,7 +220,10 @@ describe('buildScene - geometry that must never reach the SVG', () => {
   it('never gives a key a negative size, however wide the gap', () => {
     // A rect with a negative width is an SVG error, and the gap is the user's
     // to set.
-    const scene = buildScene({ version: 1, unit: 20, gap: 40, keys: [key({ w: 0.25 })] }, []);
+    const scene = buildScene(
+      { version: 1, unit: 20, gap: 40, restFilled: true, keys: [key({ w: 0.25 })] },
+      [],
+    );
 
     expect(scene.keys[0]?.w).toBe(0);
     expect(scene.keys[0]?.h).toBe(0);
@@ -245,7 +273,7 @@ describe('the border says the key fired', () => {
     const pressed = buildScene(config(key()), [[174, 1023, 0]]);
 
     expect(fired.keys[0]?.borderColor).toBe(style.activeColor);
-    expect(pressed.keys[0]?.borderColor).toBe(style.borderColor);
+    expect(pressed.keys[0]?.borderColor).toBe(OVERLAY_TOKENS.keyBorder);
   });
 
   it('tells apart the two states that would otherwise look the same', () => {
@@ -258,7 +286,7 @@ describe('the border says the key fired', () => {
   it('leaves an axis-mode key its own border: it never claims to fire', () => {
     const scene = buildScene(config(key({ mode: 'axis' })), [[174, 1023, 1]]);
 
-    expect(scene.keys[0]?.borderColor).toBe(style.borderColor);
+    expect(scene.keys[0]?.borderColor).toBe(OVERLAY_TOKENS.keyBorder);
   });
 });
 
