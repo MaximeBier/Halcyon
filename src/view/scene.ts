@@ -34,6 +34,19 @@ export interface SceneBorder {
   y: number;
   w: number;
   h: number;
+  /**
+   * The radius of the key **less the inset**, so the two curves are concentric.
+   *
+   * Keeping the key's own radius was wrong in a way that showed only in the
+   * corners: two arcs of equal radius whose centres sit `d` apart are `d` apart
+   * along the straight edges and `d√2` apart on the diagonal — 41 % more,
+   * exactly where the background was seen peeking out from behind the border.
+   *
+   * Reduced by the inset, the stroke's outer edge lands on an arc of radius
+   * `(r - d) + d = r`, centred where the key's own arc is centred. The same
+   * curve, so nothing shows.
+   */
+  radius: number;
   width: number;
   color: string;
 }
@@ -210,6 +223,10 @@ export function buildScene(
         y: y + borderWidth / 2,
         w: Math.max(0, w - borderWidth),
         h: Math.max(0, h - borderWidth),
+        // Never below zero: a border thicker than twice the radius would ask
+        // for a negative one, which SVG discards — leaving the square corner
+        // the reduction exists to avoid.
+        radius: Math.max(0, key.style.radius - borderWidth / 2),
         width: borderWidth,
         // The second actuation signal. Swapping the fill colours makes a key at
         // full travel that never fired and a key that fired at zero travel both

@@ -12,8 +12,13 @@
     config: ResolvedConfig;
     frame: readonly FrameKey[];
     /**
-     * Cues reserved for the editor: dashed border and AXIS label.
-     * False by default - the overlay must never display them (spec 16.3).
+     * The AXIS label, which only the editor shows. False by default: the
+     * overlay must never display it (spec §16.3).
+     *
+     * It used to bring a dashed border with it. That went on 2026-08-23 — the
+     * tag says it, and a second mark for the same fact is a second mark to keep
+     * true. It had also stopped meaning what it looked like the day the border
+     * became a setting: a 4 px outline someone chose, rendered as dashes.
      */
     decorations?: boolean;
     /**
@@ -64,11 +69,10 @@
         y={key.border.y}
         width={key.border.w}
         height={key.border.h}
-        rx={key.radius}
+        rx={key.border.radius}
         fill="none"
         stroke={key.border.color}
         stroke-width={key.border.width}
-        stroke-dasharray={decorations && key.axis ? '3 2' : undefined}
       />
       <!-- `paint-order` puts the outline under the glyph rather than over it,
            so the stroke thickens the letter outward instead of eating into it.

@@ -572,8 +572,8 @@
 />
 
 <div class="editor">
-  <!-- The one place the dashed outline and the AXIS tag appear: the broadcast
-       never shows them (spec §16.3). -->
+  <!-- The one place the AXIS tag appears: the broadcast never shows it
+       (spec §16.3). A dashed outline used to come with it, gone 2026-08-23. -->
   <!-- The stage is a surface, not a control, and it needs no keyboard path of
        its own: Escape already clears the selection from anywhere. -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->

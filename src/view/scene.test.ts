@@ -211,6 +211,36 @@ describe('buildScene - the border, which may be all there is to see', () => {
     expect(border.h).toBe(box.h - 4);
   });
 
+  it('shrinks the corner radius by the inset, so the two curves are concentric', () => {
+    // Found on screen: the background peeked out around the border, worst in
+    // the corners. The border is inset by half its width, but it kept the
+    // *same* radius — and two arcs of equal radius whose centres are `d` apart
+    // are not concentric. Their gap is `d` along the straight edges and
+    // `d√2` on the diagonal: 41 % more, exactly where it showed.
+    //
+    // Reduced by the inset, the stroke's outer edge — its path grown by half
+    // its width — lands on an arc of radius `(r - d) + d = r` centred where the
+    // key's own arc is centred. The same curve, so nothing peeks.
+    const scene = buildScene(
+      { ...config(key({ style: { ...style, radius: 8 } })), borderWidth: 4 },
+      [],
+    );
+
+    expect(scene.keys[0]!.border.radius).toBe(6);
+  });
+
+  it('never asks for a negative radius, however thick the border', () => {
+    // A border thicker than twice the corner radius: the reduction would go
+    // below zero, which SVG discards — leaving the very square corner the
+    // reduction exists to avoid.
+    const scene = buildScene(
+      { ...config(key({ style: { ...style, radius: 1 } })), borderWidth: 8 },
+      [],
+    );
+
+    expect(scene.keys[0]!.border.radius).toBe(0);
+  });
+
   it('draws no border at all at zero width', () => {
     const scene = buildScene({ ...config(key()), borderWidth: 0 }, []);
     const border = scene.keys[0]!.border;
