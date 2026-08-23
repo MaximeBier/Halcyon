@@ -156,3 +156,17 @@ export function captureWarning(another: boolean): string | null {
   if (!another) return null;
   return 'Other capture pages are open. Close them, then reload this page.';
 }
+
+/**
+ * What the "OBS browser source" fold says about who is listening.
+ *
+ * The green half is `inObs` alone, and that is the whole point: this fold
+ * exists to prove the source was pasted into OBS, and a tab opened to check
+ * the overlay works used to turn it green. The middle case is the one worth
+ * wording — it is the exact confusion, and it says which half is missing.
+ */
+export function sourceState(counts: { inObs: number; inBrowser: number }): string {
+  if (counts.inObs > 0) return 'Overlay connected in OBS · receiving frames';
+  if (counts.inBrowser > 0) return 'Only a browser tab is listening · no source in OBS yet';
+  return 'No overlay has reported in yet';
+}

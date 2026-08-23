@@ -21,7 +21,15 @@ export type WizardStatus = 'open' | 'skipped' | 'done';
 export interface SetupState {
   keyboard: KeyboardStatus;
   obs: ObsStatus;
-  overlays: number;
+  /**
+   * Overlays reporting in **from inside OBS**, and not the total.
+   *
+   * Named for the half it needs rather than for the thing it counts: the
+   * caller holds two figures since task 30, and the field was called
+   * `overlays` while the wizard was handed their sum. A tab opened to check
+   * the overlay works then cleared this step permanently.
+   */
+  overlaysInObs: number;
   keyCount: number;
 }
 
@@ -38,7 +46,7 @@ export function nextStep(state: SetupState): WizardStep {
   // The socket is the easy half. The half that fails in silence is the browser
   // source: a correct URL never pasted into OBS looks exactly like a wrong one.
   // Step 2 is not cleared until something on the other side reports in.
-  if (state.obs !== 'identified' || state.overlays === 0) return 'obs';
+  if (state.obs !== 'identified' || state.overlaysInObs === 0) return 'obs';
   if (state.keyCount === 0) return 'keys';
   return 'done';
 }

@@ -9,8 +9,18 @@ import {
   type SetupState,
 } from './wizard';
 
-const nothing: SetupState = { keyboard: 'disconnected', obs: 'idle', overlays: 0, keyCount: 0 };
-const ready: SetupState = { keyboard: 'connected', obs: 'identified', overlays: 1, keyCount: 0 };
+const nothing: SetupState = {
+  keyboard: 'disconnected',
+  obs: 'idle',
+  overlaysInObs: 0,
+  keyCount: 0,
+};
+const ready: SetupState = {
+  keyboard: 'connected',
+  obs: 'identified',
+  overlaysInObs: 1,
+  keyCount: 0,
+};
 
 describe('what is left to do', () => {
   it('starts at the keyboard, since nothing else can be tried without one', () => {
@@ -26,6 +36,18 @@ describe('what is left to do', () => {
     // source: a correct URL never pasted into OBS looks exactly like a wrong
     // one, and the whole point of the step is to prove otherwise (spec §9.1).
     expect(nextStep({ ...nothing, keyboard: 'connected', obs: 'identified' })).toBe('obs');
+  });
+
+  // Only the one in OBS proves anything. Opening `overlay.html` in a tab to
+  // check that it works is an overlay too, and it used to clear this step —
+  // which the page then remembered as done, for ever, while OBS still had no
+  // source at all. The count was split for exactly this (task 30); the wizard
+  // had gone on reading the total.
+  it('is not satisfied by an overlay open in a browser tab', () => {
+    const inTabOnly = { ...nothing, keyboard: 'connected' as const, obs: 'identified' as const };
+
+    expect(nextStep({ ...inTabOnly, overlaysInObs: 0 })).toBe('obs');
+    expect(nextStep({ ...inTabOnly, overlaysInObs: 1 })).toBe('keys');
   });
 
   it('asks for keys once something is actually on screen in OBS', () => {

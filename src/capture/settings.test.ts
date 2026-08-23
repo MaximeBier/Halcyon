@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   overlayTally,
   captureWarning,
+  sourceState,
   loadSettings,
   saveSettings,
   overlayUrl,
@@ -198,5 +199,22 @@ describe('captureWarning', () => {
   // carried by the instruction, which is right for one page and for five.
   it('quotes no figure it cannot stand behind', () => {
     expect(captureWarning(true)).not.toMatch(/\d/);
+  });
+});
+
+describe('sourceState', () => {
+  it('confirms the source only when it is in OBS', () => {
+    expect(sourceState({ inObs: 1, inBrowser: 0 })).toMatch(/connected in OBS/);
+    expect(sourceState({ inObs: 1, inBrowser: 3 })).toMatch(/connected in OBS/);
+  });
+
+  // The step exists to prove the URL reached OBS, and this is the state that
+  // used to read as success: a tab opened to check the overlay works.
+  it('says which half is missing when only a tab answers', () => {
+    expect(sourceState({ inObs: 0, inBrowser: 1 })).toMatch(/no source in OBS yet/);
+  });
+
+  it('says nothing has reported in when nothing has', () => {
+    expect(sourceState({ inObs: 0, inBrowser: 0 })).toMatch(/No overlay/);
   });
 });

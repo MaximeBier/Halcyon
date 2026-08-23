@@ -10,7 +10,14 @@
     type ObsStatus,
   } from '../transport/obs';
   import { createCaptureSession } from './session';
-  import { loadSettings, saveSettings, overlayUrl, browserStorage, keyboardHint } from './settings';
+  import {
+    loadSettings,
+    saveSettings,
+    overlayUrl,
+    browserStorage,
+    keyboardHint,
+    sourceState,
+  } from './settings';
   import { createOverlayRegistry } from './overlays';
   import { createConfigBroadcaster } from './broadcast';
   import { newPageId } from '../protocol/identity';
@@ -171,7 +178,6 @@
    * whether the one in OBS was among them (spec §16.7).
    */
   let listeners = $state({ inObs: 0, inBrowser: 0 });
-  const overlayCount = $derived(listeners.inObs + listeners.inBrowser);
 
   /**
    * This page's own name, signed onto every `config` and every `frame` it
@@ -290,7 +296,7 @@
     nextStep({
       keyboard: keyboardStatus,
       obs: obsStatus,
-      overlays: overlayCount,
+      overlaysInObs: listeners.inObs,
       keyCount: config.keys.length,
     }),
   );
@@ -750,10 +756,13 @@
       <!-- Before the style panel, as the lot of 2026-08-21 has it: while
            nothing works yet, the overlay URL is what one comes here for. -->
       <section class="block">
+        <!-- The note counts only the overlays in OBS: this fold is about the
+             browser source, and a tab opened to check the overlay works
+             answers a different question. -->
         <Collapsible
           id="obs"
           title="OBS browser source"
-          note={overlayCount > 0 ? `${overlayCount} overlay` : null}
+          note={listeners.inObs > 0 ? `${listeners.inObs} in OBS` : null}
           defaultOpen
           {storage}
         >
@@ -773,10 +782,8 @@
             {/if}
 
             <p class="state">
-              <span class="dot" data-live={overlayCount > 0} aria-hidden="true"></span>
-              {overlayCount > 0
-                ? 'Overlay connected · receiving frames'
-                : 'No overlay has reported in yet'}
+              <span class="dot" data-live={listeners.inObs > 0} aria-hidden="true"></span>
+              {sourceState(listeners)}
             </p>
           </Gated>
 
