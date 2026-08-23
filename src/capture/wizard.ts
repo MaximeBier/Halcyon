@@ -85,3 +85,37 @@ export function saveStatus(storage: Pick<Storage, 'setItem'>, status: WizardStat
     // the wizard reappearing on the next reload, not the page failing to load.
   }
 }
+
+/**
+ * What the setup card's OBS row admits to, while the step is current.
+ *
+ * Three different failures used to share one "waiting…": a refused password,
+ * a server that never answered, and a URL never pasted into OBS. The header
+ * pill distinguished them all along, but the person mid-setup is looking at
+ * the card — the correction has to appear where the mistake was typed.
+ *
+ * Short fragments rather than `obsHint`'s full sentences, on purpose: the
+ * note sits on the right edge of a row inside a 470 px card, where a sentence
+ * wraps and buries the verdict. The hint keeps the paragraph; the row gets
+ * the diagnosis and the one gesture that moves it.
+ */
+export function obsNote(status: ObsStatus, overlaysInObs: number): string {
+  switch (status) {
+    case 'identified':
+      // The socket is the easy half (see nextStep): once it is up, the only
+      // thing left to say is which half of the step is still missing.
+      return overlaysInObs > 0 ? 'connected' : 'connected · waiting for the browser source';
+    case 'connecting':
+      return 'connecting…';
+    case 'auth-failed':
+      return 'password refused · check it above';
+    case 'unreachable':
+      // The retry rides on keyboard reports (spec §2.2): with step 1 behind,
+      // a keystroke is always available — and nothing moves without one.
+      return 'not answering · press a key to retry';
+    case 'disconnected':
+      return 'connection closed · press a key to reconnect';
+    case 'idle':
+      return 'waiting…';
+  }
+}

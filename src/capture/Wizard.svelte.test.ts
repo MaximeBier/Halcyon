@@ -4,6 +4,7 @@ import { tick } from 'svelte';
 import Wizard from './Wizard.svelte';
 import type { WizardStep } from './wizard';
 import type { KeyboardStatus } from '../keyboard/device';
+import type { ObsStatus } from '../transport/obs';
 
 afterEach(cleanup);
 
@@ -13,6 +14,8 @@ function wizard(step: WizardStep, overrides: Record<string, unknown> = {}) {
     step,
     keyboard: 'disconnected' as KeyboardStatus,
     device: null,
+    obs: 'idle' as ObsStatus,
+    overlaysInObs: 0,
     settings: { port: 4455, password: 'hunter2' },
     url: 'https://he-overlay.example/overlay.html?port=4455#password=hunter2',
     learning: false,
@@ -119,6 +122,8 @@ describe('arming the capture', () => {
         step: 'obs' as WizardStep,
         keyboard: 'connected' as KeyboardStatus,
         device: 'Wooting 60HE',
+        obs: 'identified' as ObsStatus,
+        overlaysInObs: 1,
         settings: { port: 4455, password: '' },
         url: 'https://he-overlay.example/overlay.html?port=4455',
         get learning() {
@@ -152,6 +157,8 @@ describe('arming the capture', () => {
         step: 'keys' as WizardStep,
         keyboard: 'connected' as KeyboardStatus,
         device: 'Wooting 60HE',
+        obs: 'identified' as ObsStatus,
+        overlaysInObs: 1,
         settings: { port: 4455, password: '' },
         url: 'https://he-overlay.example/overlay.html?port=4455',
         get learning() {
@@ -190,6 +197,8 @@ describe('putting the setup aside', () => {
         step: 'keys' as WizardStep,
         keyboard: 'connected' as KeyboardStatus,
         device: 'Wooting 60HE',
+        obs: 'identified' as ObsStatus,
+        overlaysInObs: 1,
         settings: { port: 4455, password: '' },
         url: 'https://he-overlay.example/overlay.html?port=4455',
         get learning() {
@@ -212,5 +221,33 @@ describe('putting the setup aside', () => {
     await tick();
 
     expect(value).toBe(false);
+  });
+});
+
+describe('the OBS row tells the truth', () => {
+  // Three failures used to share one "waiting…" while the header pill knew
+  // better — and the person mid-setup is looking at the card, not the header.
+  it('distinguishes a refused password from a silent server', () => {
+    const refused = wizard('obs', { keyboard: 'connected', obs: 'auth-failed' });
+    expect(row(refused.container, 'obs')!.textContent).toContain('password refused');
+
+    const silent = wizard('obs', { keyboard: 'connected', obs: 'unreachable' });
+    expect(row(silent.container, 'obs')!.textContent).toContain('press a key');
+  });
+
+  it('says the socket is up but nothing inside OBS listens yet', () => {
+    const { container } = wizard('obs', {
+      keyboard: 'connected',
+      obs: 'identified',
+      overlaysInObs: 0,
+    });
+
+    expect(row(container, 'obs')!.textContent).toContain('waiting for the browser source');
+  });
+
+  it('still waits quietly before anything was tried', () => {
+    const { container } = wizard('obs', { keyboard: 'connected' });
+
+    expect(row(container, 'obs')!.textContent).toContain('waiting…');
   });
 });

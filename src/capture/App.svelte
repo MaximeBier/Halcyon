@@ -727,6 +727,8 @@
             {step}
             keyboard={keyboardStatus}
             device={keyboardName}
+            obs={obsStatus}
+            overlaysInObs={listeners.inObs}
             {settings}
             {url}
             bind:learning

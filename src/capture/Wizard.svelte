@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { stepNumber, type WizardStep } from './wizard';
+  import { obsNote, stepNumber, type WizardStep } from './wizard';
   import type { ConnectionSettings } from './settings';
   import type { KeyboardStatus } from '../keyboard/device';
+  import type { ObsStatus } from '../transport/obs';
   import { copyToClipboard } from './clipboard';
 
   /**
@@ -18,6 +19,8 @@
     step,
     keyboard,
     device,
+    obs,
+    overlaysInObs,
     settings,
     url,
     learning = $bindable(false),
@@ -30,6 +33,9 @@
     keyboard: KeyboardStatus;
     /** The product name of the keyboard that answered, for the step 1 tick. */
     device: string | null;
+    /** For the step 2 note: which half of the step is missing, and why. */
+    obs: ObsStatus;
+    overlaysInObs: number;
     /** The live settings object: the same two fields the editor writes to. */
     settings: ConnectionSettings;
     url: string;
@@ -68,7 +74,7 @@
   /** What a row says on its right, and only while it is done or in progress. */
   function note(row: WizardStep): string | null {
     if (row === 'keyboard') return device ?? (rowState(row) === 'current' ? 'searching…' : null);
-    if (row === 'obs' && rowState(row) === 'current') return 'waiting…';
+    if (row === 'obs' && rowState(row) === 'current') return obsNote(obs, overlaysInObs);
     return null;
   }
 

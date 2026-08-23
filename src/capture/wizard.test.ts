@@ -6,6 +6,7 @@ import {
   showsResume,
   showsWizard,
   stepNumber,
+  obsNote,
   type SetupState,
 } from './wizard';
 
@@ -138,5 +139,40 @@ describe('remembering across reloads', () => {
     };
 
     expect(() => saveStatus(hostile, 'done')).not.toThrow();
+  });
+});
+
+describe('what the OBS row admits to', () => {
+  it('waits quietly before anything was tried', () => {
+    expect(obsNote('idle', 0)).toBe('waiting…');
+  });
+
+  it('shows the attempt while it runs', () => {
+    expect(obsNote('connecting', 0)).toBe('connecting…');
+  });
+
+  it('says the password was refused, from where it was typed', () => {
+    // The header pill said it all along, but the person mid-setup is looking
+    // at the card, right under the field they just filled. Three different
+    // failures used to share one "waiting…" — this is the one a retype fixes.
+    expect(obsNote('auth-failed', 0)).toContain('password refused');
+  });
+
+  it('names the keystroke that retries a silent server', () => {
+    // The retry rides on keyboard reports (spec §2.2): a screen nobody types
+    // at never moves, so the note must say what moves it.
+    expect(obsNote('unreachable', 0)).toContain('press a key');
+    expect(obsNote('disconnected', 0)).toContain('press a key');
+  });
+
+  it('splits the socket from the browser source once connected', () => {
+    // The socket is the easy half; the step is not cleared until something
+    // inside OBS reports in, and the note says which half is missing.
+    expect(obsNote('identified', 0)).toContain('connected');
+    expect(obsNote('identified', 0)).toContain('waiting for the browser source');
+  });
+
+  it('claims no more than connected once a source listens', () => {
+    expect(obsNote('identified', 1)).toBe('connected');
   });
 });
