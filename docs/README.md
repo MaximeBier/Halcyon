@@ -41,7 +41,10 @@ In OBS, add a **Browser** source and paste it.
 Two things to know here:
 
 - The first time, **Chrome asks for permission to access your local network.**
-  Say yes. If you refuse, the app looks exactly as if OBS were switched off.
+  Say yes. If you refuse, the app looks exactly as if OBS were switched off —
+  and Chrome does not ask twice. To undo a refusal, click the icon at the left
+  of the address bar, open **Site settings**, set **Local network access** to
+  **Allow**, then reload the page.
 - **Keep that URL off stream.** Your OBS password is in it, and it is also
   visible in the browser source properties.
 
