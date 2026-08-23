@@ -546,7 +546,7 @@
         onClose();
       }}
     >
-      Delete{selection.length > 1 ? ` ${selection.length} keys` : ''} · Suppr
+      Delete{selection.length > 1 ? ` ${selection.length} keys` : ''} · Del
     </button>
   </div>
 {/if}
