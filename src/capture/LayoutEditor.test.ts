@@ -5,6 +5,7 @@ import LayoutEditor from './LayoutEditor.svelte';
 import editorSource from './LayoutEditor.svelte?raw';
 import { DEFAULT_STYLE, defaultConfig, type OverlayConfig } from '../config/schema';
 import { surfaceOf } from './layout';
+import { resized } from '../test/resize-observer';
 import { setKeyStyle } from '../config/edit';
 
 afterEach(cleanup);
@@ -597,25 +598,56 @@ describe('LayoutEditor - the size OBS has to be told', () => {
   });
 });
 
-describe('LayoutEditor - the lasso follows the scroll', () => {
-  it('reads the pointer in the content, not in the visible box', async () => {
-    // The stage gained `overflow: auto` in this milestone, and the handles are
-    // positioned inside the box that scrolls. `getBoundingClientRect()` of a
-    // scroll container does *not* move when its own content scrolls, so the
-    // conversion has to add the scroll back — otherwise a layout scrolled by
-    // one key draws the lasso a key away from the pointer and selects the
-    // neighbours. jsdom scrolls nothing on its own, so the offset is set here.
-    const { container, canvas, stage } = editor();
-    stage.scrollLeft = ORIGIN.x + DEFAULT_STYLE.unit;
+describe('LayoutEditor - the stage tells the editor its own size', () => {
+  // The stage changes height without the window changing size, and this page
+  // has two ways of doing it: the warning about a second capture page takes a
+  // whole header line, the unsupported-browser banner is full width. Measured
+  // once at mount, `surfaceOf(stageBox)` would go on describing a strip that
+  // has been taken away — and that surface is what says whether a key is still
+  // reachable at all, the stage having no scrollbar to go and find it.
+  it('re-measures when the stage changes size, with no window resize', async () => {
+    const { container } = editor();
+    const handle = container.querySelector<HTMLElement>('button.handle')!;
+    const before = handle.style.top;
 
-    press(canvas, { clientX: 1, clientY: 1 });
-    move(canvas, { clientX: DEFAULT_STYLE.unit / 2, clientY: ORIGIN.y + DEFAULT_STYLE.unit / 2 });
+    laidOut({ width: STAGE.width, height: STAGE.height - 240 });
+    // Non-zero, or the component observed nothing and the assertion below would
+    // be measuring the stub rather than the editor.
+    expect(resized()).toBeGreaterThan(0);
     await tick();
 
-    const pressed = [...container.querySelectorAll('button.handle')].map((handle) =>
+    expect(handle.style.top).not.toBe(before);
+  });
+});
+
+describe('LayoutEditor - the stage does not scroll', () => {
+  // It gained `overflow: auto` in milestone 4 and lost it again to task 31,
+  // when the work surface moved into the coordinates. The pointer conversion
+  // went on adding `scrollLeft` for a day after that — a branch that reads zero
+  // in every browser, kept alive by the test that used to live here, which
+  // assigned `stage.scrollLeft` by hand. jsdom accepts that on a non-scrolling
+  // element; nothing else in the world produces it.
+  const lassoWith = async (scrollLeft: number) => {
+    const { container, canvas, stage } = editor();
+    stage.scrollLeft = scrollLeft;
+
+    press(canvas, from(1, 1));
+    move(canvas, from(TWO_KEYS_ACROSS, DEFAULT_STYLE.unit / 2));
+    await tick();
+
+    return [...container.querySelectorAll('button.handle')].map((handle) =>
       handle.getAttribute('aria-pressed'),
     );
-    expect(pressed).toEqual(['false', 'true']);
+  };
+
+  it('reads the pointer from the visible box, whatever scrollLeft says', async () => {
+    const still = await lassoWith(0);
+    const scrolled = await lassoWith(ORIGIN.x + DEFAULT_STYLE.unit);
+
+    // Non-trivial first: a gesture that selects nothing would make the
+    // comparison below true for the wrong reason.
+    expect(still).toContain('true');
+    expect(scrolled).toEqual(still);
   });
 });
 
@@ -776,9 +808,11 @@ describe('LayoutEditor - the popover stays inside the stage', () => {
   });
 
   it('measures the panel again when its contents change', async () => {
-    // Its height is not fixed: accepting the axis suggestion takes a row
-    // away while the panel is open. Measured once at mount, the anchor would
-    // then be placed against a height the panel no longer has.
+    // Its height is not fixed: accepting the axis suggestion takes a row away,
+    // the Style fold adds five, the icon grid two. The last two are held
+    // *inside* the panel, so no prop of this component changes when they do —
+    // which is why the height is observed rather than re-read on a prop, and
+    // why the trigger here is a resize notification rather than a rerender.
     let height = 200;
     Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
       get: () => height,
@@ -787,7 +821,7 @@ describe('LayoutEditor - the popover stays inside the stage', () => {
 
     const config = twoKeys();
     config.keys[0]!.y = 4;
-    const { container, handles, rerender } = editor(config);
+    const { container, handles } = editor(config);
     handles[0]!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
     await tick();
     await tick();
@@ -796,14 +830,9 @@ describe('LayoutEditor - the popover stays inside the stage', () => {
     const before = anchor.style.top;
 
     height = 60;
-    // The selection travels with it: rerender restores every prop it is not
-    // given, and an emptied selection closes the panel — which would leave
-    // this measuring nothing and passing for it.
-    await rerender({
-      config: { ...config, keys: [{ ...config.keys[0]!, label: 'W' }] },
-      selectedIds: [1],
-    });
-    await tick();
+    // Non-zero, so a component that observed nothing fails here rather than
+    // passing on the measurement it happened to take at mount.
+    expect(resized()).toBeGreaterThan(0);
     await tick();
 
     expect(anchor.style.top).not.toBe(before);

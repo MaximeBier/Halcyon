@@ -138,7 +138,29 @@
   function measure() {
     if (stage) stageBox = { width: stage.clientWidth, height: stage.clientHeight };
   }
-  $effect(measure);
+
+  /**
+   * Observed, not measured once at mount.
+   *
+   * The stage changes height without the window changing size, and this page
+   * grew two ways of doing it on 2026-08-23 alone: the warning about a second
+   * capture page takes a whole header line, and the unsupported-browser banner
+   * is full width. Both push the stage up while `onresize` never fires.
+   *
+   * A stale height is not cosmetic here. `surfaceOf(stageBox)` is what
+   * `keysOutside` compares against, and the list of keys off the surface is
+   * **the only thing that can say a key still exists** — the stage does not
+   * scroll, so a key in the strip that was taken away is drawn nowhere at all.
+   * Measured once, the editor would go on claiming the strip was still there.
+   */
+  $effect(() => {
+    if (!stage) return;
+    measure();
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(stage);
+    return () => observer.disconnect();
+  });
 
   const surface = $derived(surfaceOf(stageBox, unit));
 
@@ -209,18 +231,33 @@
    *
    * Measured rather than read from a token, because unlike its width it is
    * not fixed: a group selection loses the *Label* and *Position* rows, and
-   * the axis suggestion adds one. Re-measured on anything that changes what
-   * the panel holds — the effect reads them for that reason alone.
+   * the axis suggestion adds one.
+   *
+   * **Observed**, because the list of what changes it is not ours to keep. It
+   * used to be re-read on `shown`, `selectedIds` and `suggestAxis` — three
+   * props, all owned here — while the height came to be dominated by state
+   * held *inside* the panel: the Style fold opening five rows, the icon grid
+   * appearing under the label. Neither is visible from this side, so the
+   * anchor was computed against a height from before the fold opened, and the
+   * panel ran off a stage that does not scroll — which is the exact failure
+   * `flipped()` exists to prevent.
    *
    * Zero when the panel is not on screen, which is also what jsdom reports:
    * both mean "no measurement", and the clamp below leaves the anchor alone.
    */
   let panelHeight = $state(0);
   $effect(() => {
-    void shown;
-    void selectedIds;
-    void suggestAxis;
-    panelHeight = panel?.offsetHeight ?? 0;
+    if (!panel) {
+      panelHeight = 0;
+      return;
+    }
+
+    const read = () => (panelHeight = panel?.offsetHeight ?? 0);
+    read();
+
+    const observer = new ResizeObserver(read);
+    observer.observe(panel);
+    return () => observer.disconnect();
   });
 
   /**
@@ -245,25 +282,27 @@
     return { x: slid(left), y: flipped(under, over) };
   });
 
+  // The stage is `overflow: hidden` since task 31 — the work surface moved into
+  // the coordinates, and the element stopped scrolling. Both clamps used to add
+  // `scrollLeft` / `scrollTop`, which have read zero ever since: a dead branch,
+  // kept alive by a test that assigned `stage.scrollLeft` by hand, which jsdom
+  // accepts on a non-scrolling element and no browser ever produces.
   function slid(left: number): number {
     const room = stageBox.width;
     if (room === 0) return left;
 
-    const from = stage?.scrollLeft ?? 0;
-    return Math.min(left, Math.max(from, from + room - POPOVER_WIDTH - gap));
+    return Math.min(left, Math.max(0, room - POPOVER_WIDTH - gap));
   }
 
   function flipped(under: number, over: number): number {
     const room = stageBox.height;
     if (room === 0 || panelHeight === 0) return under;
 
-    const from = stage?.scrollTop ?? 0;
-    const bottom = from + room;
-    if (under + panelHeight <= bottom) return under;
+    if (under + panelHeight <= room) return under;
     // Above the selection when the panel fits there, and against the top edge
     // when it fits neither way: a panel half on screen beats one entirely off
     // it, and its header is the half worth keeping.
-    return over >= from ? over : Math.max(from, bottom - panelHeight);
+    return over >= 0 ? over : Math.max(0, room - panelHeight);
   }
 
   function open(id: number) {
@@ -327,10 +366,10 @@
     return {
       // The surface origin comes back off: everything above works in canvas
       // pixels, and a lasso is compared against key coordinates.
-      x:
-        pixelsToUnits(event.clientX - (box?.left ?? 0) + (stage?.scrollLeft ?? 0), unit) +
-        surface.x,
-      y: pixelsToUnits(event.clientY - (box?.top ?? 0) + (stage?.scrollTop ?? 0), unit) + surface.y,
+      // No scroll offset: the stage is `overflow: hidden`, so the bounding
+      // rectangle already is the visible origin.
+      x: pixelsToUnits(event.clientX - (box?.left ?? 0), unit) + surface.x,
+      y: pixelsToUnits(event.clientY - (box?.top ?? 0), unit) + surface.y,
     };
   }
 
