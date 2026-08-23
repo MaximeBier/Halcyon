@@ -187,13 +187,10 @@ describe('buildScene - the border, which may be all there is to see', () => {
     expect(scene.keys[0]?.border.color).toBe('#ff00aa');
   });
 
-  it('still turns to the active colour on actuation', () => {
-    // The second signal of §7.4, and the whole reason the border is not simply
-    // one colour: without it, a key at full travel that never fired and a key
-    // that fires at zero travel draw identically.
+  it('keeps that colour when the key fires', () => {
     const scene = buildScene({ ...config(key()), borderColor: '#ff00aa' }, [[174, 300, 1]]);
 
-    expect(scene.keys[0]?.border.color).toBe(style.activeColor);
+    expect(scene.keys[0]?.border.color).toBe('#ff00aa');
   });
 
   it('insets the stroke by half its width, so it stays inside the key', () => {
@@ -355,27 +352,45 @@ describe('the label keeps one colour, whatever moves behind it', () => {
   });
 });
 
-describe('the border says the key fired', () => {
-  // Since actuation swaps the two colours, a key at full travel that never
-  // fired and a key that fired at zero travel both render as one flat
-  // fillColor. The border is the second signal, and it reads at any travel —
-  // including none, which is where a low actuation point puts it.
-  it('turns the border to the active colour on actuation', () => {
+describe('the border says nothing about actuation', () => {
+  // It used to: it turned to the active colour, as a second signal beside the
+  // colour swap. Dropped on 2026-08-23, on use. The active colour is also the
+  // fill colour of an actuated key, so the outline dissolved into the face it
+  // framed — and beside an axis key, whose border holds still, a mixed layout
+  // came apart under the fingers instead of a key announcing itself.
+  it('holds one colour through a press, whatever the key does', () => {
+    const fired = buildScene(config(key()), [[174, 10, 1]]);
+    const pressed = buildScene(config(key()), [[174, 1023, 0]]);
+    const still = buildScene(config(key()), []);
+
+    for (const scene of [fired, pressed, still]) {
+      expect(scene.keys[0]?.border.color).toBe(DEFAULT_STYLE.borderColor);
+    }
+  });
+
+  // What the border stopped reporting, the swap still reports — and this is the
+  // half Maxime asked to keep intact, so it is asserted here rather than left
+  // to the fill tests above.
+  it('leaves the colour swap to carry the signal alone', () => {
     const fired = buildScene(config(key()), [[174, 10, 1]]);
     const pressed = buildScene(config(key()), [[174, 1023, 0]]);
 
-    expect(fired.keys[0]?.border.color).toBe(style.activeColor);
-    expect(pressed.keys[0]?.border.color).toBe(DEFAULT_STYLE.borderColor);
+    expect(fired.keys[0]?.fill.color).toBe(style.activeColor);
+    expect(fired.keys[0]?.baseFill).toBe(style.fillColor);
+    expect(pressed.keys[0]?.fill.color).toBe(style.fillColor);
   });
 
-  it('tells apart the two states that would otherwise look the same', () => {
+  // The price of the removal, written down rather than discovered later: a key
+  // held at full travel that never fired and a key that fired at no travel now
+  // differ by their fill alone, and the two fills are the same two colours.
+  it('can no longer tell a remapped key from a barely fired one', () => {
     const remapped = buildScene(config(key()), [[174, 1023, 0]]);
     const barelyFired = buildScene(config(key()), [[174, 5, 1]]);
 
-    expect(remapped.keys[0]?.border.color).not.toBe(barelyFired.keys[0]?.border.color);
+    expect(remapped.keys[0]?.border.color).toBe(barelyFired.keys[0]?.border.color);
   });
 
-  it('leaves an axis-mode key its own border: it never claims to fire', () => {
+  it('leaves an axis-mode key its own border, as it always did', () => {
     const scene = buildScene(config(key({ mode: 'axis' })), [[174, 1023, 1]]);
 
     expect(scene.keys[0]?.border.color).toBe(DEFAULT_STYLE.borderColor);

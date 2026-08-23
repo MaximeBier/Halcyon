@@ -228,13 +228,17 @@ export function buildScene(
         // the reduction exists to avoid.
         radius: Math.max(0, key.style.radius - borderWidth / 2),
         width: borderWidth,
-        // The second actuation signal. Swapping the fill colours makes a key at
-        // full travel that never fired and a key that fired at zero travel both
-        // render as one flat fill colour; the border separates them, and it
-        // reads at any travel — including none, which is where a low actuation
-        // point puts it. So the resting colour is the theme's, and the actuated
-        // one is the key's.
-        color: actuated ? key.style.activeColor : borderColor,
+        // One colour, whatever the key is doing. It was the second actuation
+        // signal until 2026-08-23 — it turned to the active colour, which on an
+        // actuated key is also the fill colour, so the outline dissolved into
+        // the face it framed. Beside an axis key, whose border never moves, the
+        // effect was a layout that came apart under the fingers rather than a
+        // key that announced itself.
+        //
+        // What it cost: a key at full travel that never fired and a key that
+        // fired at zero travel now draw alike. The colour swap still reports
+        // every ordinary press.
+        color: borderColor,
       },
       fill: { ...fillRect(x, y, w, h, ratio, key.style.fillDirection), color: fillColor },
       labelFill: OVERLAY_TOKENS.keyLabel,
