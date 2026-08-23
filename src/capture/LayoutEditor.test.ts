@@ -995,3 +995,83 @@ describe('LayoutEditor - the outlines follow the key they outline', () => {
     expect(handles[1]!.style.borderRadius).toBe(`${DEFAULT_STYLE.radius}px`);
   });
 });
+
+describe('LayoutEditor - the popover takes the focus and gives it back', () => {
+  const anchor = (container: Element) => container.querySelector('.anchor')!;
+
+  it('moves the focus into the popover when it opens', async () => {
+    // Without this, someone who pressed Enter on a handle keeps their focus on
+    // that handle and has to tab through every other key in the layout before
+    // reaching the fields they just asked for — and a screen reader announces
+    // nothing at all about the dialog that appeared.
+    const { handles, container } = editor();
+
+    handles[0]!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    await tick();
+
+    expect(anchor(container).contains(document.activeElement)).toBe(true);
+  });
+
+  it('moves it on Enter too, the path that is all keyboard', async () => {
+    const { handles, container } = editor();
+
+    handles[0]!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await tick();
+
+    expect(anchor(container).contains(document.activeElement)).toBe(true);
+  });
+
+  it('does not steal the focus back when the popover returns after a drag', async () => {
+    // The panel coming back is a side effect of the drop, not a request to
+    // edit: the hand is on the pointer, and nothing should tear the focus
+    // away from where the browser put it.
+    const { handles, container } = editor();
+
+    handles[0]!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    await tick();
+
+    press(handles[0]!);
+    move(container.querySelector('.stage')!, { clientX: TWO_KEYS_ACROSS, clientY: 0 });
+    await tick();
+    window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }));
+    await tick();
+
+    expect(anchor(container).contains(document.activeElement)).toBe(false);
+  });
+
+  it('returns the focus to the key handle on Escape', async () => {
+    // Unmounting a dialog that holds the focus drops it on <body>: the next
+    // Tab starts from the top of the page, nowhere near the key being edited.
+    const { handles, container } = editor();
+
+    handles[0]!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    await tick();
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    // Two flushes: closePopover waits a tick of its own before it moves the
+    // focus, so the assertion has to sit one flush behind it.
+    await tick();
+    await tick();
+
+    expect(document.activeElement).toBe(handles[0]);
+  });
+
+  it('keeps the focus in the editor after the popover deletes its keys', async () => {
+    // The handle the focus would return to may no longer exist — the popover
+    // just deleted it. Wherever the focus lands, it must land inside the
+    // editor, never on a detached node or <body>.
+    const { handles, container } = editor();
+
+    handles[0]!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    await tick();
+
+    container.querySelector<HTMLElement>('[data-delete]')!.click();
+    // Same two flushes as the Escape test above: the focus moves one tick
+    // after the dialog goes.
+    await tick();
+    await tick();
+
+    expect(document.activeElement === document.body).toBe(false);
+    expect(container.contains(document.activeElement)).toBe(true);
+  });
+});

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import KeyboardView from '../view/KeyboardView.svelte';
   import KeyPopover from './KeyPopover.svelte';
   import { hasOverrides, resolve } from '../config/resolve';
@@ -308,6 +309,48 @@
   function open(id: number) {
     if (!selectedIds.includes(id)) selectedIds = [id];
     editingFor = [...selectedIds];
+    wantsFocus = true;
+  }
+
+  /**
+   * Whether the next popover render should take the focus.
+   *
+   * Raised by `open()` alone, deliberately. The popover also remounts when a
+   * drag ends — hidden for the gesture, back on the drop — and focusing there
+   * would tear the focus away from the pointer's work for a panel nobody just
+   * asked about. Only the deliberate gesture is a request to edit, and only a
+   * request to edit should move the focus.
+   */
+  let wantsFocus = $state(false);
+
+  // The dialog is `role="dialog"`, and a dialog that leaves the focus behind
+  // is silent: the screen reader announces nothing, and a keyboard user tabs
+  // through every remaining handle in the layout before reaching the fields
+  // they asked for — the panel is rendered after the whole key loop.
+  $effect(() => {
+    if (!panel || !wantsFocus) return;
+    wantsFocus = false;
+    panel.querySelector<HTMLElement>('button, input, select')?.focus();
+  });
+
+  /**
+   * Closes the popover and puts the focus back where the editing began.
+   *
+   * The dialog took the focus when it opened, so it has to hand it back:
+   * unmounting it otherwise drops the focus on `<body>`, and the next Tab
+   * starts from the top of the page. After the render, not before — the close
+   * can travel with a config change (the popover's own Delete), and the handle
+   * to return to may be gone once it lands. Whichever of the edited keys still
+   * has a handle takes it; the stage catches the case where none does.
+   */
+  async function closePopover() {
+    const ids = editingFor;
+    editingFor = [];
+    await tick();
+    const handle = ids
+      .map((id) => stage?.querySelector<HTMLElement>(`.handle[data-id="${id}"]`))
+      .find((found) => found);
+    (handle ?? stage)?.focus();
   }
 
   /**
@@ -572,7 +615,7 @@
       // One key, two things to undo, so they come off in the order they went
       // on. Clearing the selection first would leave the popover anchored to
       // nothing for the frame before it noticed.
-      if (editingFor.length > 0) editingFor = [];
+      if (editingFor.length > 0) closePopover();
       else {
         selectedIds = [];
         // And the focus with it. A handle keeps focus after a click, so
@@ -614,9 +657,11 @@
   <!-- The one place the AXIS tag appears: the broadcast never shows it
        (spec §16.3). A dashed outline used to come with it, gone 2026-08-23. -->
   <!-- The stage is a surface, not a control, and it needs no keyboard path of
-       its own: Escape already clears the selection from anywhere. -->
+       its own: Escape already clears the selection from anywhere. The -1 keeps
+       it out of the Tab order; it only lets a closing popover park the focus
+       somewhere real when the key it would return to has been deleted. -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="stage" bind:this={stage}>
+  <div class="stage" tabindex="-1" bind:this={stage}>
     <!-- The work surface. Its size comes from the stylesheet and never from a
          number: see `.canvas` below. -->
     <div class="canvas" onpointerdown={onStagePointerDown}>
@@ -624,6 +669,7 @@
       {#each shown.keys as key (key.id)}
         <button
           class="handle"
+          data-id={key.id}
           class:selected={selectedIds.includes(key.id)}
           class:overridden={hasOverrides(key)}
           style:left={`${acrossX(key.x) + gap / 2}px`}
@@ -700,7 +746,7 @@
             {layout}
             {suggestAxis}
             {onDismissSuggestion}
-            onClose={() => (editingFor = [])}
+            onClose={closePopover}
           />
         </div>
       {/if}
