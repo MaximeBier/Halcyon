@@ -14,6 +14,12 @@ export interface CaptureSessionOptions {
    * overlay two thousand — more than the keyboard can possibly send.
    */
   from: string;
+  /**
+   * The local preview — capped at the frame interval, not the report rate.
+   *
+   * See the preview emitter in `createCaptureSession` for why; `onEntries`
+   * below is the escape hatch for the one consumer that needs the raw stream.
+   */
   onKeys(keys: FrameKey[]): void;
   onAnomaly(anomaly: DecodeAnomaly): void;
   /** Identifiers of the configured keys, or `null` to carry them all. */
@@ -67,10 +73,29 @@ export interface CaptureSession {
 
 export function createCaptureSession(options: CaptureSessionOptions): CaptureSession {
   const emitter = createFrameEmitter();
+  /**
+   * The preview rides the same machinery as the broadcast, deliberately.
+   *
+   * It used to receive every report — up to a thousand a second, each one
+   * rebuilding the scene and touching the DOM of a background tab nobody was
+   * looking at, precisely while the same machine encodes the stream. A second
+   * emitter caps it at the same sixty a second, and carries over the
+   * guarantees that made the raw feed feel safe: actuation, rest and bottom
+   * all bypass the cap, so the preview can no more freeze half-pressed than
+   * the overlay can (spec §6.2). Timestamp-driven like everything else here:
+   * a background tab throttles timers and rAF, never the reports (spec §10).
+   */
+  const preview = createFrameEmitter();
   let current: FrameKey[] = [];
 
   const deliver = (frame: FrameKey[]) =>
     options.obs.broadcast({ v: PROTOCOL_VERSION, t: 'frame', from: options.from, k: frame });
+
+  /** Local delivery cannot fail, so the preview emitter never has to re-send. */
+  const show = (frame: FrameKey[]) => {
+    options.onKeys(frame);
+    return true;
+  };
 
   return {
     handleReport(data, timestamp) {
@@ -89,7 +114,7 @@ export function createCaptureSession(options: CaptureSessionOptions): CaptureSes
       // After the emission, not before: the preview and the rate are shown side
       // by side, and reading the rate first would always show the previous
       // frame's value — zero on the very first report.
-      options.onKeys(current);
+      preview.push(current, timestamp, show);
     },
     resend(now) {
       emitter.reset();
@@ -104,6 +129,8 @@ export function createCaptureSession(options: CaptureSessionOptions): CaptureSes
       // promised (a missing key means zero, but only when nothing is selected).
       current = buildFrame([], options.selectedIds?.() ?? null);
       emitter.push(current, now, deliver);
+      // The editor learns of the unplug the same instant the air does.
+      preview.push(current, now, show);
     },
     rateAt(now) {
       return emitter.rateAt(now);

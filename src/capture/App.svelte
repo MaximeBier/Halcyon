@@ -213,7 +213,9 @@
   /**
    * The live reading — a function, not a derived value.
    *
-   * It follows `frame`, which arrives up to sixty times a second. Passed as a
+   * It follows `frame`, which the session's preview emitter caps at sixty a
+   * second — a bound the session enforces, not a figure the keyboard happens
+   * to respect. Passed as a
    * function, it is only ever called from inside the fold's body, so a shut
    * fold reads no frame at all and the capture page never competes with its
    * own broadcast over a list nobody can see.
@@ -366,6 +368,10 @@
         // every two seconds; that is the clock this page is allowed to have,
         // because it arrives as an event rather than from a timer.
         rate = session.rateAt(performance.now());
+        // The probe's figure ages on the same clock. With the preview capped,
+        // a stream the configuration filters out entirely no longer calls
+        // `onKeys`, and the reading would sit still while the probe runs.
+        if (probing) probeReading = streamProbe.reading();
         // Spec §6: a fresh overlay holds nothing, and the emitter would
         // otherwise deduplicate its way to a blank page until the next
         // keystroke.
