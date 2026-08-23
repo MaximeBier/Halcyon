@@ -140,8 +140,10 @@ describe('status bar wording', () => {
     expect(keyboardHint('no-analog-interface')).toMatch(/analog/i);
     expect(obsHint('unreachable')).toMatch(/websocket server/i);
     // Chrome asks for local network access, and blocks until it is granted
-    // (spec §2.1, §11).
+    // (spec §2.1, §11). It asks exactly once: a refusal is permanent until
+    // site settings lift it, so the hint has to name the way back.
     expect(obsHint('unreachable')).toMatch(/local network/i);
+    expect(obsHint('unreachable')).toMatch(/site settings/i);
     expect(obsHint('auth-failed')).toMatch(/password/i);
   });
 
@@ -152,7 +154,10 @@ describe('status bar wording', () => {
   it('tells a server that never answered apart from one that went away', () => {
     expect(obsHint('disconnected')).not.toBe(obsHint('unreachable'));
     // Nothing retries on its own: the reconnection rides on keyboard reports.
+    // Both statuses say so — someone staring at a screen that only moves on a
+    // keystroke deserves to be told, whichever way the connection failed.
     expect(obsHint('disconnected')).toMatch(/key/i);
+    expect(obsHint('unreachable')).toMatch(/press a key/i);
   });
 });
 
