@@ -1,4 +1,5 @@
 import { OVERLAY_TOKENS } from '../styles/tokens';
+import type { LayoutOverride } from '../keyboard/labels';
 
 /**
  * Bumped when the stored shape changes in a way a migration has to repair —
@@ -25,11 +26,13 @@ export type KeyMode = 'key' | 'axis';
 export type KeyboardLayout = 'iso' | 'ansi';
 
 /**
- * **Logical** layout, the one that decides which character a position
- * produces — hence the label (spec §8.6, §16.5). `auto` trusts
- * `getLayoutMap()`; the other values are the fallback when it gets it wrong.
+ * **Logical** layout, re-exported from `keyboard/labels` where it is defined
+ * next to the fallback tables that consume it. The re-export keeps the stored
+ * shape naming all of its fields from one place; the definition stays on the
+ * keyboard side so the dependency between the two modules flows
+ * config → keyboard (spec §5.3), never the other way.
  */
-export type LayoutOverride = 'auto' | 'azerty' | 'qwerty' | 'qwertz';
+export type { LayoutOverride };
 
 /** Direction the fill progresses in. `up` = from the bottom upward. */
 export type FillDirection = 'up' | 'down' | 'left' | 'right';

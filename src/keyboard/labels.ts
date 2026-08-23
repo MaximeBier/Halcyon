@@ -1,7 +1,19 @@
 import { geometryFor } from './geometry';
-import type { LayoutOverride } from '../config/schema';
 
 export type LayoutMapLike = { get(code: string): string | undefined };
+
+/**
+ * **Logical** layout, the one that decides which character a position
+ * produces — hence the label (spec §8.6, §16.5). `auto` trusts
+ * `getLayoutMap()`; the other values are the fallback when it gets it wrong.
+ *
+ * Defined here and not in `config/schema`, although the configuration stores
+ * it: the dependency between the two modules flows config → keyboard
+ * (spec §5.3), and its consumers — `FALLBACK_LAYOUTS`, `resolveLayout` — live
+ * below. The schema re-exports it, so the stored shape still names every one
+ * of its fields itself.
+ */
+export type LayoutOverride = 'auto' | 'azerty' | 'qwerty' | 'qwertz';
 
 type KeyboardCapableNavigator = Navigator & {
   keyboard?: { getLayoutMap(): Promise<LayoutMapLike> };
