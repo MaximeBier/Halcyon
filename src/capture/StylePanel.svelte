@@ -85,9 +85,10 @@
   }
 </script>
 
+<!-- No heading of its own: this panel always sits inside the "Global style
+     · all keys" collapsible, and a second title directly under the first read
+     as two sections where there is one. The aria-label keeps the landmark. -->
 <section aria-label="Global style">
-  <h2>Global style</h2>
-
   <!--
     At the head of the panel, as the lot of 2026-08-21 has it, and drawn as one
     swatch per preset carrying its three colours in bands. Three settings behind
@@ -284,14 +285,6 @@
     background: var(--he-popover, #141722);
     border: 1px solid var(--he-border, #1b1e27);
     border-radius: var(--he-radius-panel, 6px);
-  }
-  h2 {
-    margin: 0;
-    font-size: var(--he-size-sm, 15px);
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    color: var(--he-text-muted, #8b90a0);
   }
   .presets {
     display: grid;
