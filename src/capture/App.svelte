@@ -26,13 +26,13 @@
   import { loadLayoutMap, resolveLayout, type LayoutMapLike } from '../keyboard/labels';
   import { setLayoutOverride } from '../config/edit';
   import { createAxisSuggester } from './suggest';
-  import { hasOverrides, resolve } from '../config/resolve';
+  import { hasGlobalOverrides, hasOverrides, resolve } from '../config/resolve';
   import { recommendedSize } from '../view/scene';
   import KeyLearner from './KeyLearner.svelte';
   import LayoutEditor from './LayoutEditor.svelte';
   import StylePanel from './StylePanel.svelte';
   import { createProfileStore, exportConfig, importConfig } from '../config/storage';
-  import { DEFAULT_STYLE, STYLE_KEYS, type OverlayConfig } from '../config/schema';
+  import type { OverlayConfig } from '../config/schema';
   import StatusBar from './StatusBar.svelte';
   import Wizard from './Wizard.svelte';
   import Diagnostics from './Diagnostics.svelte';
@@ -508,7 +508,7 @@
    * from the first minute and for ever. A marker that is always on says
    * nothing, and teaches people to stop reading markers.
    */
-  const styled = $derived(STYLE_KEYS.some((key) => config.style[key] !== DEFAULT_STYLE[key]));
+  const styled = $derived(hasGlobalOverrides(config.style));
 
   /** See `clipboard.ts`: the copy can silently not happen, and used to lie. */
   let urlCopied = $state<'idle' | 'done' | 'failed'>('idle');

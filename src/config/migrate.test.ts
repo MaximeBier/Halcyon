@@ -375,3 +375,47 @@ describe('migrate - a profile comes back normalised', () => {
     }
   });
 });
+
+describe('migrate - a key may not carry a global-only setting', () => {
+  // The list of what a key may hold used to be built by subtracting a
+  // hand-kept `['unit', 'gap']` from the global style. Three settings arrived
+  // on 2026-08-22 that no key can override — `restFilled`, `borderColor`,
+  // `borderWidth` — and none of them was added to it. Any profile written
+  // before that day could legitimately carry `keys[].style.borderColor`, since
+  // it *was* inheritable until then.
+  it('drops the three global-only settings from a key', () => {
+    const result = migrate({
+      version: 1,
+      layout: 'iso',
+      style: {},
+      keys: [
+        {
+          ...aKey,
+          style: { borderColor: '#ff00aa', borderWidth: 9, restFilled: false, opacity: 0.5 },
+        },
+      ],
+    });
+
+    expect(result.ok).toBe(true);
+    // The legitimate override survives; the three do not — so the file cannot
+    // hold a value the renderer ignores and no reset can reach.
+    if (result.ok) expect(result.config.keys[0]?.style).toEqual({ opacity: 0.5 });
+  });
+
+  it('leaves those three alone on the global style, where they belong', () => {
+    const result = migrate({
+      version: 1,
+      layout: 'iso',
+      style: { borderColor: '#ff00aa', borderWidth: 9, restFilled: false },
+      keys: [aKey],
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok)
+      expect(result.config.style).toMatchObject({
+        borderColor: '#ff00aa',
+        borderWidth: 9,
+        restFilled: false,
+      });
+  });
+});

@@ -1,4 +1,6 @@
 import {
+  DEFAULT_STYLE,
+  GLOBAL_STYLE_KEYS,
   STYLE_KEYS,
   type GlobalStyle,
   type KeyConfig,
@@ -52,6 +54,20 @@ export function overriddenKeys(key: KeyConfig): (keyof KeyStyle)[] {
  *  for why one key does not react like the others (spec §8.2). */
 export function hasOverrides(key: KeyConfig): boolean {
   return overriddenKeys(key).length > 0;
+}
+
+/**
+ * Whether anything in the global style differs from the shipped defaults —
+ * the marker on the "Global style" fold (spec §9.3).
+ *
+ * Over `GLOBAL_STYLE_KEYS` and not `STYLE_KEYS`: the five properties no key can
+ * override are settings like any other, and they are the ones with the widest
+ * reach. Switching the resting background off repaints every key on air, and
+ * for a day it lit nothing at all — the marker was reading the inheritable set,
+ * which is the one list those five are guaranteed *not* to be in.
+ */
+export function hasGlobalOverrides(style: GlobalStyle): boolean {
+  return GLOBAL_STYLE_KEYS.some((property) => style[property] !== DEFAULT_STYLE[property]);
 }
 
 export function resolve(config: OverlayConfig): ResolvedConfig {

@@ -1,9 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import { resolve, effectiveStyle, hasOverrides, overriddenKeys } from './resolve';
+import {
+  resolve,
+  effectiveStyle,
+  hasGlobalOverrides,
+  hasOverrides,
+  overriddenKeys,
+} from './resolve';
 import {
   defaultConfig,
   DEFAULT_STYLE,
   STYLE_KEYS,
+  GLOBAL_STYLE_KEYS,
+  type GlobalStyle,
   type KeyConfig,
   type OverlayConfig,
 } from './schema';
@@ -146,5 +154,41 @@ describe('overrides that came from imported JSON', () => {
   it('treats a null override as absent, on both sides', () => {
     expect(overriddenKeys(withNull())).toEqual([]);
     expect(effectiveStyle(DEFAULT_STYLE, withNull()).opacity).toBe(DEFAULT_STYLE.opacity);
+  });
+});
+
+/** Any value of the right type that is not the default one. */
+function other(property: keyof GlobalStyle): unknown {
+  const value = DEFAULT_STYLE[property];
+  if (typeof value === 'boolean') return !value;
+  if (typeof value === 'number') return value + 1;
+  return property === 'fillDirection' ? 'down' : `${value}-changed`;
+}
+
+describe('whether the global style has been touched', () => {
+  // The §9.3 marker on the "Global style" fold. It used to read `STYLE_KEYS`,
+  // which is the *inheritable* set — so the five properties a key cannot
+  // override were invisible to it: unit, gap, restFilled, borderColor,
+  // borderWidth. Turning the resting background off repaints every key on air
+  // and lit nothing at all; changing the border colour did light the dot until
+  // `borderColor` left `KeyStyle` on 2026-08-22, then quietly stopped.
+  it('says nothing has been touched on a fresh style', () => {
+    expect(hasGlobalOverrides(DEFAULT_STYLE)).toBe(false);
+  });
+
+  it('notices every property of the global style, inheritable or not', () => {
+    for (const property of GLOBAL_STYLE_KEYS) {
+      const changed = { ...DEFAULT_STYLE, [property]: other(property) } as GlobalStyle;
+
+      expect(hasGlobalOverrides(changed), `${property} went unnoticed`).toBe(true);
+    }
+  });
+
+  // The list is `Object.keys(DEFAULT_STYLE)`, and `DEFAULT_STYLE` is typed
+  // `GlobalStyle`, so TypeScript refuses to compile it incomplete. This holds
+  // the count as a second guard against someone replacing it with a literal.
+  it('covers the whole of GlobalStyle, and is kept honest by the type', () => {
+    expect(GLOBAL_STYLE_KEYS).toHaveLength(13);
+    expect(GLOBAL_STYLE_KEYS).toEqual(expect.arrayContaining([...STYLE_KEYS]));
   });
 });

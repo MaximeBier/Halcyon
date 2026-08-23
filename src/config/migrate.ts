@@ -1,6 +1,8 @@
 import {
   CONFIG_VERSION,
   DEFAULT_STYLE,
+  GLOBAL_STYLE_KEYS,
+  STYLE_KEYS,
   type GlobalStyle,
   type KeyConfig,
   type KeyStyle,
@@ -30,9 +32,6 @@ const MIGRATIONS: Record<number, (config: Loose) => Loose> = {
 };
 
 const LAYOUT_OVERRIDES: readonly string[] = ['auto', 'azerty', 'qwerty', 'qwertz'];
-/** Sizes that belong to the global style and that no key may carry. */
-const GLOBAL_ONLY: readonly (keyof GlobalStyle)[] = ['unit', 'gap'];
-const GLOBAL_STYLE_KEYS = Object.keys(DEFAULT_STYLE) as readonly (keyof GlobalStyle)[];
 
 /**
  * Keeps the style properties we know, at the type we expect.
@@ -70,8 +69,15 @@ function knownStyle(raw: unknown): Partial<GlobalStyle> {
  * the overlay throws inside a `$derived` and stops rendering for good.
  */
 function knownKeyStyle(raw: unknown): Partial<KeyStyle> {
-  const inheritable = GLOBAL_STYLE_KEYS.filter((property) => !GLOBAL_ONLY.includes(property));
-  return pickStyle(raw, inheritable) as Partial<KeyStyle>;
+  // `STYLE_KEYS` and nothing else. The list used to be built by subtracting a
+  // hand-kept `['unit', 'gap']`, which was right until three global-only
+  // settings arrived on 2026-08-22 — `restFilled`, `borderColor`, `borderWidth`
+  // then rode through on a key, were stored, were re-exported, and were ignored
+  // by `resolve()`. Invisible to `overriddenKeys`, so no reset could remove
+  // them: precisely the "stored by the editor, ignored by the renderer" the
+  // comment above says this exists to prevent. Derived from the inheritable set
+  // itself, the mistake has nowhere left to happen.
+  return pickStyle(raw, STYLE_KEYS) as Partial<KeyStyle>;
 }
 
 function isKeyConfig(value: unknown): value is KeyConfig {

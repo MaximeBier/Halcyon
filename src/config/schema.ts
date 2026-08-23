@@ -208,6 +208,20 @@ export const DEFAULT_STYLE: GlobalStyle = {
   gap: OVERLAY_TOKENS.keyGap,
 };
 
+/**
+ * Every property of the global style, inheritable or not.
+ *
+ * Read off `DEFAULT_STYLE`, which is typed `GlobalStyle` — so TypeScript
+ * refuses to compile a default missing, and this list cannot fall behind the
+ * interface. That is the whole reason it is derived rather than written out:
+ * the hand-kept version of it went stale twice on 2026-08-22, once in the
+ * fold's marker and once in the import filter, both times silently.
+ *
+ * `STYLE_KEYS` is the inheritable subset. The difference between the two is
+ * exactly what a key may not carry, and nothing needs to list that separately.
+ */
+export const GLOBAL_STYLE_KEYS = Object.keys(DEFAULT_STYLE) as readonly (keyof GlobalStyle)[];
+
 export function defaultConfig(): OverlayConfig {
   return {
     version: CONFIG_VERSION,
