@@ -283,6 +283,15 @@
   }
 
   /**
+   * Whether a drag, resize or lasso is underway — read by the page before it
+   * honours Ctrl+Z. Mid-gesture the draft still holds the old layout, and its
+   * commit on release would write right over whatever undo just restored.
+   */
+  export function gesturing(): boolean {
+    return draft !== null;
+  }
+
+  /**
    * Whether the next popover render should take the focus.
    *
    * Raised by `open()` alone, deliberately. The popover also remounts when a
@@ -606,7 +615,7 @@
 
     <p class="shortcuts">
       Click to select · Shift+click to add · Drag the background to lasso · Double-click to edit ·
-      Ctrl+A for all · Delete to remove
+      Ctrl+A for all · Delete to remove · Ctrl+Z to undo
     </p>
   </div>
 </div>

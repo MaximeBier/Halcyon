@@ -55,6 +55,7 @@
   import ProfileBar from './ProfileBar.svelte';
   import Toast from './Toast.svelte';
   import {
+    deletionToast,
     importToast,
     loadToast,
     profileStatus,
@@ -62,6 +63,7 @@
     type Health,
     type Notice,
   } from './notice';
+  import { createHistory } from './history';
   import type { DecodeAnomaly } from '../keyboard/decode';
   import type { FrameKey } from '../protocol/messages';
 
@@ -98,6 +100,23 @@
 
   /** The passing half. Replaced, never queued: the last thing said is the one that matters. */
   let toast = $state<Notice | null>(loadToast(opened.problem));
+
+  /**
+   * The pile behind the door (`history.ts`), mirrored into two flags because
+   * the pile is plain data: the two header buttons need to follow it, and
+   * nothing else here polls.
+   */
+  const history = createHistory<OverlayConfig>();
+  let canUndo = $state(false);
+  let canRedo = $state(false);
+  /**
+   * What the hidden status line beside the buttons reads out.
+   *
+   * A dedicated region rather than the toast: ten Ctrl+Z in a row would queue
+   * ten toasts, while this replaces itself in silence. Polite, never
+   * assertive — it follows, it does not interrupt (the KeyLearner rule).
+   */
+  let announced = $state('');
 
   let learning = $state(false);
   /** The label of the last key learned, which the wizard's third step confirms. */
@@ -449,12 +468,86 @@
   /**
    * The one door every configuration change goes through — learning, moving,
    * styling, mode. Persisting without broadcasting, or the reverse, is the
-   * failure this shape makes unwritable.
+   * failure this shape makes unwritable. The undo pile hangs on the same
+   * hinge, so no change can escape it either.
    */
   function updateConfig(next: OverlayConfig) {
+    // The reference is the contract: helpers hand back the same object to say
+    // "nothing changed", and what did not change deserves no undo entry, no
+    // write and no broadcast.
+    if (next === config) return;
+    // Read before the pile moves; the toast's Undo is the ordinary undo.
+    const deleted = deletionToast(config, next, undo);
+    history.push(config);
+    apply(next);
+    canUndo = history.canUndo();
+    canRedo = history.canRedo();
+    if (deleted) toast = deleted;
+  }
+
+  /** The door's second half, shared with undo and redo: write, save, broadcast. */
+  function apply(next: OverlayConfig) {
     config = next;
     profiles.save(profile, config);
     broadcaster.publish(config);
+  }
+
+  function undo() {
+    const previous = history.undo(config);
+    // Only the shortcut arrives here empty — the button is disabled — and the
+    // sighted answer (a greyed-out button) deserves its spoken counterpart.
+    if (previous === null) {
+      announced = 'Nothing to undo';
+      return;
+    }
+    restore(previous);
+    announced = 'Change undone';
+  }
+
+  function redo() {
+    const next = history.redo(config);
+    if (next === null) {
+      announced = 'Nothing to redo';
+      return;
+    }
+    restore(next);
+    announced = 'Change redone';
+  }
+
+  function restore(state: OverlayConfig) {
+    apply(state);
+    canUndo = history.canUndo();
+    canRedo = history.canRedo();
+    // Pruned, never guessed at: the popover already closes itself when its
+    // selection is gone, and a selection of keys that no longer exist would
+    // hand "Delete N selected keys" a set nobody chose.
+    selectedIds = selectedIds.filter((id) => config.keys.some((key) => key.id === id));
+  }
+
+  function onHistoryKey(event: KeyboardEvent) {
+    if (!(event.ctrlKey || event.metaKey)) return;
+    const key = event.key.toLowerCase();
+    const wantsUndo = key === 'z' && !event.shiftKey;
+    const wantsRedo = key === 'y' || (key === 'z' && event.shiftKey);
+    if (!wantsUndo && !wantsRedo) return;
+    // A field's own history comes first: Ctrl+Z over a half-typed label is the
+    // field's native undo, and no preventDefault either — the field must
+    // receive the keystroke untouched. (A value already committed on blur is
+    // undone by Ctrl+Z *outside* the field, which is the expected reading.)
+    const target = event.target;
+    if (
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      target instanceof HTMLSelectElement
+    ) {
+      return;
+    }
+    // Mid-gesture the draft still holds the old layout, and its commit on
+    // release would write right over whatever was just restored.
+    if (editor?.gesturing()) return;
+    event.preventDefault();
+    if (wantsUndo) undo();
+    else redo();
   }
 
   /** What the profile menu shows permanently, under the list (spec §16.6). */
@@ -481,6 +574,12 @@
     selectedIds = [];
     keysAnchor = null;
     lastKey = null;
+    // A pile that survived the switch would make Ctrl+Z rewrite a document
+    // that is no longer on screen — inside OBS. Renaming keeps it: the name
+    // changed, not the content this pile remembers.
+    history.clear();
+    canUndo = false;
+    canRedo = false;
     broadcaster.publish(config);
 
     return loadToast(next.problem);
@@ -724,6 +823,11 @@
   panel. Nothing here is a pile of collapsibles any more — the folds live in the
   panel's footer, where §9.3 still governs them.
 -->
+<!-- On the window, not the stage: the history covers the whole document —
+     styles and imports included — so the shortcut has to work wherever the
+     hands happen to be. -->
+<svelte:window onkeydown={onHistoryKey} />
+
 <div class="app">
   <header class="bar">
     <StatusBar
@@ -733,6 +837,18 @@
       overlays={listeners}
       {otherCapture}
     />
+
+    <!-- Document-level controls, next to the only other document control on
+         this bar — the profile menu. In the header because it is the one zone
+         visible in every state of the page: wizard up, folds shut, popover
+         gone — and the first need for undo comes when the selection has just
+         disappeared, so nothing anchored to it can carry the button. -->
+    <div class="edits">
+      <button aria-label="Undo" title="Undo · Ctrl+Z" disabled={!canUndo} onclick={undo}>↶</button>
+      <button aria-label="Redo" title="Redo · Ctrl+Y" disabled={!canRedo} onclick={redo}>↷</button>
+      <!-- The spoken half of the two buttons: it follows, it never interrupts. -->
+      <p class="sr" role="status">{announced}</p>
+    </div>
 
     {#if canResume}
       <!-- Amber, and in the header: findable long after the card was put
@@ -1052,6 +1168,42 @@
     flex: 1;
     background: none;
     padding: 0;
+  }
+  .edits {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .edits button {
+    inline-size: 28px;
+    block-size: 28px;
+    font: inherit;
+    font-size: var(--he-size-md, 16px);
+    color: var(--he-text, #dde1e9);
+    background: none;
+    border: 1px solid var(--he-border-popover, #262b3a);
+    border-radius: var(--he-radius-control, 5px);
+    cursor: pointer;
+  }
+  .edits button:disabled {
+    /* The same figure Gated dims with: one vocabulary for "not available". */
+    opacity: 0.4;
+    cursor: default;
+  }
+  .edits button:focus-visible {
+    outline: 2px solid var(--he-accent, #7c9eff);
+    outline-offset: 2px;
+  }
+  /* The KeyLearner recipe: present for the reader, absent from the layout. */
+  .sr {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
   .resume {
     display: inline-flex;

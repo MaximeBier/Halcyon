@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { importToast, loadToast, profileStatus, READ_FAILED } from './notice';
+import { deletionToast, importToast, loadToast, profileStatus, READ_FAILED } from './notice';
 import { defaultConfig } from '../config/schema';
 
 describe('what an import says, once', () => {
@@ -109,5 +109,78 @@ describe('what the profile menu says, permanently', () => {
     expect(profileStatus('Apex', 0, { problem: 'too-new', dropped: 0, from: 'load' })).toBe(
       'Apex · written by a newer version · started from the defaults',
     );
+  });
+});
+
+describe('what a deletion is recognised by', () => {
+  const undo = () => {};
+
+  /** A configured key, minimal but honest to the schema. */
+  const key = (id: number) => ({
+    id,
+    usage: id,
+    mode: 'key' as const,
+    label: `K${id}`,
+    x: 0,
+    y: 0,
+    w: 1,
+    h: 1,
+  });
+
+  const config = (keys: ReturnType<typeof key>[]) => ({
+    ...defaultConfig(),
+    keys,
+  });
+
+  it('offers an undo when several keys went away at once', () => {
+    const keys = [key(1), key(2), key(3)];
+    const before = config(keys);
+    const after = { ...before, keys: [keys[0]!] };
+
+    const notice = deletionToast(before, after, undo);
+
+    expect(notice).not.toBeNull();
+    expect(notice!.message).toBe('2 keys deleted');
+    expect(notice!.tone).toBe('success');
+    expect(notice!.action).toEqual({ label: 'Undo', run: undo });
+  });
+
+  it('says nothing for a single key', () => {
+    // The key disappears under the cursor: the feedback is the disappearance
+    // itself, and the header buttons stay for the regret.
+    const keys = [key(1), key(2)];
+    const before = config(keys);
+    const after = { ...before, keys: [keys[0]!] };
+
+    expect(deletionToast(before, after, undo)).toBeNull();
+  });
+
+  it('does not mistake an import for a deletion', () => {
+    // An import rebuilds every key object, so none of the survivors are the
+    // same references — that is the whole discriminator. Without it, importing
+    // a smaller profile would announce "keys deleted" over the import's own
+    // toast.
+    const before = config([key(1), key(2), key(3)]);
+    const after = config([key(1)]);
+
+    expect(deletionToast(before, after, undo)).toBeNull();
+  });
+
+  it('does not mistake a style or layout change for a deletion', () => {
+    const keys = [key(1), key(2), key(3)];
+    const before = config(keys);
+    const restyled = { ...before, style: { ...before.style }, keys: [keys[0]!] };
+    const relaid = { ...before, layoutOverride: 'azerty' as const, keys: [keys[0]!] };
+
+    expect(deletionToast(before, restyled, undo)).toBeNull();
+    expect(deletionToast(before, relaid, undo)).toBeNull();
+  });
+
+  it('says nothing when keys were added or merely kept', () => {
+    const keys = [key(1), key(2)];
+    const before = config(keys);
+
+    expect(deletionToast(before, { ...before, keys: [...keys, key(3)] }, undo)).toBeNull();
+    expect(deletionToast(before, { ...before, keys }, undo)).toBeNull();
   });
 });

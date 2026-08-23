@@ -74,3 +74,32 @@ describe('Toast', () => {
     expect(shown(container)!.textContent).toContain('Import failed');
   });
 });
+
+describe('a toast carrying a way back', () => {
+  it('offers the action as a real button and runs it on a click', async () => {
+    const run = vi.fn();
+    const { container, onDismiss } = toast({
+      tone: 'success',
+      message: '3 keys deleted',
+      action: { label: 'Undo', run },
+    });
+
+    const button = container.querySelector<HTMLButtonElement>('button');
+    expect(button).not.toBeNull();
+    expect(button!.textContent).toContain('Undo');
+
+    button!.click();
+    expect(run).toHaveBeenCalledTimes(1);
+    // Used, the toast has nothing left to say: waiting out the fade would
+    // leave "3 keys deleted" on screen after the keys came back.
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
+
+  it('stays free of controls when there is no action', () => {
+    // The invariant of the plain toast survives the action's existence: only
+    // a notice that asked for a button gets one.
+    const { container } = toast({ tone: 'success', message: 'Profile imported' });
+
+    expect(container.querySelectorAll('button')).toHaveLength(0);
+  });
+});

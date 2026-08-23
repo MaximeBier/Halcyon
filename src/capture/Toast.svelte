@@ -5,9 +5,11 @@
   /**
    * The passing half of spec §16.6: bottom centre, four seconds, three tones.
    *
-   * It never carries anything one has to act on. Whatever the profile is worth
-   * is written permanently in the profile menu, so missing this costs nothing —
-   * which is the licence a four-second message needs.
+   * It never carries anything one *has* to act on. Whatever the profile is
+   * worth is written permanently in the profile menu, so missing this costs
+   * nothing — which is the licence a four-second message needs. An optional
+   * action button keeps that licence: it is only ever a shortcut to something
+   * the page offers permanently (see `Notice.action`).
    */
   let {
     notice,
@@ -47,6 +49,20 @@
     >
       <span class="dot" style:background={DOT[notice.tone]}></span>
       {notice.message}
+      {#if notice.action}
+        {@const action = notice.action}
+        <!-- Dismissed on use: waiting out the fade would leave "3 keys
+             deleted" on screen after the keys came back. -->
+        <button
+          class="act"
+          onclick={() => {
+            action.run();
+            onDismiss();
+          }}
+        >
+          {action.label}
+        </button>
+      {/if}
     </div>
   {/if}
 {/key}
@@ -78,6 +94,20 @@
     block-size: 7px;
     border-radius: 50%;
     flex: none;
+  }
+  .act {
+    font: inherit;
+    font-weight: 600;
+    color: var(--he-accent, #7c9eff);
+    background: none;
+    border: 1px solid var(--he-border-popover, #262b3a);
+    border-radius: var(--he-radius-control, 5px);
+    padding: 2px 10px;
+    cursor: pointer;
+  }
+  .act:focus-visible {
+    outline: 2px solid var(--he-accent, #7c9eff);
+    outline-offset: 2px;
   }
   @keyframes hold {
     0%,

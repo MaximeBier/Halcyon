@@ -1,4 +1,5 @@
 import type { MigrationResult } from '../config/migrate';
+import type { OverlayConfig } from '../config/schema';
 
 export type Tone = 'success' | 'warning' | 'error';
 
@@ -6,6 +7,14 @@ export type Tone = 'success' | 'warning' | 'error';
 export interface Notice {
   tone: Tone;
   message: string;
+  /**
+   * An optional way back, offered at the moment of the mistake.
+   *
+   * The toast doctrine survives it: missing the toast still costs nothing,
+   * because the action is only ever a shortcut to something the page offers
+   * permanently (the undo lives in the header and under Ctrl+Z).
+   */
+  action?: { label: string; run: () => void };
 }
 
 /**
@@ -93,4 +102,37 @@ export function profileStatus(name: string, keyCount: number, health: Health): s
         : ` · ${health.dropped} could not be read`;
 
   return `${name} · ${keysLabel(keyCount)}${lost}`;
+}
+
+/**
+ * The toast for several keys deleted at once, carrying their way back.
+ *
+ * A deletion is recognised by shape, not announced by the caller: two of the
+ * four delete controls live in components that only hand a new config through
+ * the one door, so the door itself has to tell a deletion apart. The
+ * discriminator is reference identity — every editor helper keeps the
+ * surviving key objects, while an import rebuilds all of them — so a smaller
+ * imported profile can never masquerade as "keys deleted" and talk over the
+ * import's own toast.
+ *
+ * One key says nothing: it disappears under the cursor, the feedback is the
+ * disappearance itself. Several might be Ctrl+A under a Delete meant for one —
+ * the exact regret the action button is for.
+ */
+export function deletionToast(
+  before: OverlayConfig,
+  after: OverlayConfig,
+  undo: () => void,
+): Notice | null {
+  if (after.style !== before.style || after.layoutOverride !== before.layoutOverride) return null;
+  if (!after.keys.every((key) => before.keys.includes(key))) return null;
+
+  const count = before.keys.length - after.keys.length;
+  if (count < 2) return null;
+
+  return {
+    tone: 'success',
+    message: `${keysLabel(count)} deleted`,
+    action: { label: 'Undo', run: undo },
+  };
 }
