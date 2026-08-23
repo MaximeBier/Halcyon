@@ -123,7 +123,7 @@
       <strong>Listening · press any key</strong>
       {#if added}<span class="added">{added} added</span>{/if}
     </span>
-    <button class="skip" data-action="skip" type="button" onclick={skip}>Skip tutorial</button>
+    <button class="skip" data-action="skip" type="button" onclick={skip}>Skip setup</button>
   </div>
 {:else}
   <div class="card" data-card>
@@ -213,7 +213,7 @@
           {keyboard === 'no-permission' ? 'Allow keyboard' : 'Rescan devices'}
         </button>
       {/if}
-      <button class="skip" data-action="skip" type="button" onclick={skip}>Skip tutorial</button>
+      <button class="skip" data-action="skip" type="button" onclick={skip}>Skip setup</button>
     </div>
   </div>
 {/if}
