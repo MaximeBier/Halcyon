@@ -86,7 +86,13 @@
         {/each}
       </ul>
     {/if}
-    <button data-action="copy" type="button" onclick={copy} onblur={() => (copyState = 'idle')}>
+    <button
+      data-action="copy"
+      type="button"
+      onclick={copy}
+      onblur={() => (copyState = 'idle')}
+      title={copyState === 'failed' ? 'Select the log above and copy it by hand' : undefined}
+    >
       {copyState === 'done' ? 'Copied' : copyState === 'failed' ? 'Copy failed' : 'Copy log'}
     </button>
   </section>

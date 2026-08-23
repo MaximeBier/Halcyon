@@ -187,6 +187,9 @@
           type="button"
           onclick={copy}
           onblur={() => (copyState = 'idle')}
+          title={copyState === 'failed'
+            ? 'Select the URL field above and copy it by hand'
+            : undefined}
         >
           {copyState === 'done' ? 'Copied' : copyState === 'failed' ? 'Copy failed' : 'Copy URL'}
         </button>

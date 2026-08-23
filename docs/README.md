@@ -89,7 +89,7 @@ says which of the three links is broken — keyboard, OBS, or overlay.
 
 ## Reporting a problem
 
-Open the **Diagnostics** panel at the bottom of the page and click **Copy**,
+Open the **Diagnostics** panel at the bottom of the page and click **Copy log**,
 then paste that into your report. It carries everything needed to understand the
 problem without asking you three more questions.
 

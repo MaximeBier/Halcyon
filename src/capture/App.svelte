@@ -86,8 +86,8 @@
   /**
    * What the open profile is worth, kept past the toast that announced it.
    *
-   * The two are not redundant (spec §16.6): the toast says something just
-   * happened, this says what we are looking at — hours later, when the only
+   * The two are not redundant (spec Â§16.6): the toast says something just
+   * happened, this says what we are looking at â hours later, when the only
    * question left is why there are four keys instead of six.
    */
   let health = $state<Health>({
@@ -105,7 +105,7 @@
 
   let selectedIds = $state<number[]>([]);
   /**
-   * Where the next shift-range in the keys list reaches from (spec §16.5).
+   * Where the next shift-range in the keys list reaches from (spec Â§16.5).
    *
    * A key id, not an index: rows shift when keys are deleted, and
    * `pickedFromList` already treats a deleted anchor as none at all.
@@ -116,7 +116,7 @@
 
   function pickKey(id: number, event: MouseEvent) {
     // `detail` is 0 when the activation came from the keyboard: Enter has no
-    // double click to follow it up with, so it opens the popover directly —
+    // double click to follow it up with, so it opens the popover directly â
     // the same door Enter is on a stage handle.
     if (event.detail === 0) {
       editor?.open(id);
@@ -134,7 +134,7 @@
     keysAnchor = pick.anchor;
   }
   /**
-   * The editor's stage, in pixels — measured there, read here.
+   * The editor's stage, in pixels â measured there, read here.
    *
    * Learning a key places it, and a placement has to land on the work surface
    * (task 31). This page cannot measure a stage it does not own, so the box
@@ -145,11 +145,11 @@
   void loadLayoutMap(navigator).then((map) => (layout = map));
 
   // What the labels are actually read from: the explicit choice always beats
-  // detection, which is the only reason the choice exists (spec §8.6).
+  // detection, which is the only reason the choice exists (spec Â§8.6).
   const activeLayout = $derived(resolveLayout(config.layoutOverride, layout));
 
   // The packed size, which is the only one worth quoting: the raw box has an
-  // empty top and left by construction (spec §5.4).
+  // empty top and left by construction (spec Â§5.4).
   const size = $derived(recommendedSize(resolve(config)));
 
   /**
@@ -157,12 +157,12 @@
    *
    * The stage does not scroll, so the surface is all there is: a key out here
    * is drawn nowhere, and **this list is the only thing that can say it
-   * exists**. Three ways out need no mistake at all — shrinking the window,
+   * exists**. Three ways out need no mistake at all â shrinking the window,
    * raising `unit` (the surface is measured in key units, so it shrinks too),
    * importing a profile with distant coordinates.
    *
    * Nothing is claimed before the stage has been measured: unmeasured, the
-   * surface falls back to its 12 × 8 floor, which most layouts overflow, and
+   * surface falls back to its 12 Ã 8 floor, which most layouts overflow, and
    * every load would mark half the keys on its first frame. The honest answer
    * then is that nothing is known yet.
    */
@@ -186,12 +186,12 @@
   /**
    * The configured keys the suggester currently speaks for.
    *
-   * Derived, never cached — and that is the fix for a real defect. The first
+   * Derived, never cached â and that is the fix for a real defect. The first
    * version kept a snapshot refreshed only when the suggester learned
    * something, which lost exactly the keys that matter: adding a key means
    * pressing it, so it reaches full travel *before* it exists in
    * `config.keys`. The refresh then filtered a list without it, and every
-   * later press taught the suggester nothing new — so it never spoke again.
+   * later press taught the suggester nothing new â so it never spoke again.
    * Reading `config` here means the list also follows a key being added.
    */
   const suggestedIds = $derived.by(() => {
@@ -205,7 +205,7 @@
    *
    * Two figures rather than one since 2026-08-23: opening `overlay.html` in a
    * tab to check that it works is an overlay, so the total could no longer say
-   * whether the one in OBS was among them (spec §16.7).
+   * whether the one in OBS was among them (spec Â§16.7).
    */
   let listeners = $state({ inObs: 0, inBrowser: 0 });
 
@@ -219,7 +219,7 @@
    * Whether another capture page has been heard broadcasting.
    *
    * Tabs left open all publish onto the same bus, and the overlay obeys
-   * whichever spoke last — a fault in which every page looks entirely correct.
+   * whichever spoke last â a fault in which every page looks entirely correct.
    * A flag rather than a count, since a page reloaded is a page renamed; once
    * true it stays true, see `ConfigBroadcaster.hasOtherCapture`.
    */
@@ -227,12 +227,12 @@
 
   /**
    * Everything worth writing down, for the report nobody can write blind
-   * (spec §11). Mirrored into state because the journal is plain data: it is
+   * (spec Â§11). Mirrored into state because the journal is plain data: it is
    * appended to from four event handlers and read by one panel.
    */
   const journal = createJournal();
   let log = $state<readonly JournalEntry[]>([]);
-  /** §9.3: a fold says in its header when what it hides is ours to fix. */
+  /** Â§9.3: a fold says in its header when what it hides is ours to fix. */
   const toReport = $derived(log.filter((entry) => entry.kind === 'bug').length);
 
   function note(kind: 'user' | 'bug', message: string) {
@@ -241,10 +241,10 @@
   }
 
   /**
-   * The live reading — a function, not a derived value.
+   * The live reading â a function, not a derived value.
    *
    * It follows `frame`, which the session's preview emitter caps at sixty a
-   * second — a bound the session enforces, not a figure the keyboard happens
+   * second â a bound the session enforces, not a figure the keyboard happens
    * to respect. Passed as a
    * function, it is only ever called from inside the fold's body, so a shut
    * fold reads no frame at all and the capture page never competes with its
@@ -283,19 +283,19 @@
    * password as typed good, *now*?
    *
    * Separate from the live client on purpose. That one carries a reconnection
-   * backoff, so after a few failures it answers "not yet" rather than "no" —
+   * backoff, so after a few failures it answers "not yet" rather than "no" â
    * which is the wrong answer to someone who has just retyped a password.
    */
   let obsProbe = $state<string | null>(null);
 
   function testObs() {
-    obsProbe = 'testing…';
+    obsProbe = 'testingâ¦';
 
     // The first terminal status wins, and nothing after it counts.
     //
     // `close()` is not neutral: it reports 'idle', which came straight back
     // into this handler and overwrote the answer we had just recorded. Every
-    // probe — success, refused password, dead server — ended up reading
+    // probe â success, refused password, dead server â ended up reading
     // "idle", which is the one word that answers nothing. Found in review on
     // 2026-08-21; the test double described a `close()` that says nothing,
     // and the real one speaks.
@@ -305,7 +305,7 @@
       url: `ws://localhost:${port}`,
       password: settings.password,
       onStatus: (status) => {
-        // 'connecting' is not an answer either — it is the question.
+        // 'connecting' is not an answer either â it is the question.
         if (answered || status === 'connecting') return;
 
         answered = true;
@@ -338,7 +338,7 @@
   /**
    * Written the first time everything works, whether the wizard was followed
    * or skipped. Without it, an OBS restart the next evening reopens a setup
-   * that was finished weeks ago — `nextStep` reads the world, not history.
+   * that was finished weeks ago â `nextStep` reads the world, not history.
    */
   $effect(() => {
     if (step === 'done' && setup !== 'done') remember('done');
@@ -376,7 +376,7 @@
           overlays.clear();
           refreshOverlays();
           // Same for the rate. Its window ages on keyboard reports, so with
-          // nobody typing the last good figure would stay on screen — a
+          // nobody typing the last good figure would stay on screen â a
           // throughput advertised beside a dot saying the link is dead. No
           // frame is leaving, and zero is simply the truth.
           rate = 0;
@@ -385,12 +385,12 @@
       onForeignVersion: (version) => {
         // Almost always an overlay left open across a deployment. It goes
         // quiet with nothing to say why, which is the whole reason this line
-        // exists (spec §11).
+        // exists (spec Â§11).
         note('user', `An overlay is running protocol v${version}; reload it.`);
       },
       onMessage: (message) => {
         // Presence and configuration are both driven by these three messages,
-        // so one place reads them (spec §6).
+        // so one place reads them (spec Â§6).
         broadcaster.onOverlayMessage(message, performance.now());
         // The rate ages here as well as on reports. The keyboard speaks only
         // on change, so once someone stops typing nothing advances the window
@@ -402,13 +402,13 @@
         // a stream the configuration filters out entirely no longer calls
         // `onKeys`, and the reading would sit still while the probe runs.
         if (probing) probeReading = streamProbe.reading();
-        // Spec §6: a fresh overlay holds nothing, and the emitter would
+        // Spec Â§6: a fresh overlay holds nothing, and the emitter would
         // otherwise deduplicate its way to a blank page until the next
         // keystroke.
         if (message.t === 'hello') session.resend(performance.now());
         // Every beat gets the current frame back (throttled): a capture that
-        // answers is one the overlay may keep trusting, and one that stops —
-        // closed, crashed, tab discarded — leaves the overlay free to fall
+        // answers is one the overlay may keep trusting, and one that stops â
+        // closed, crashed, tab discarded â leaves the overlay free to fall
         // back to rest instead of drawing a dead page's last key on air.
         if (message.t === 'beat') session.pulse(performance.now());
         refreshOverlays();
@@ -447,7 +447,7 @@
   }
 
   /**
-   * The one door every configuration change goes through — learning, moving,
+   * The one door every configuration change goes through â learning, moving,
    * styling, mode. Persisting without broadcasting, or the reverse, is the
    * failure this shape makes unwritable.
    */
@@ -457,7 +457,7 @@
     broadcaster.publish(config);
   }
 
-  /** What the profile menu shows permanently, under the list (spec §16.6). */
+  /** What the profile menu shows permanently, under the list (spec Â§16.6). */
   const status = $derived(profileStatus(profile, config.keys.length, health));
   const statusWarn = $derived(health.problem !== null || health.dropped > 0);
 
@@ -476,7 +476,7 @@
     health = { problem: next.problem, dropped: next.dropped, from: 'load' };
     config = next.config;
     // Both name keys of the profile being left. Two profiles can share a matrix
-    // index, so a stale selection does not merely look wrong — "Delete 3
+    // index, so a stale selection does not merely look wrong â "Delete 3
     // selected keys" would act on a set nobody chose in this profile.
     selectedIds = [];
     keysAnchor = null;
@@ -495,7 +495,7 @@
     // gets "Apex 2" rather than the layout that was already there.
     const created = profiles.create(name);
     openProfile(created);
-    toast = { tone: 'success', message: `Profile “${created}” created` };
+    toast = { tone: 'success', message: `Profile â${created}â created` };
   }
 
   function duplicateProfile() {
@@ -504,7 +504,7 @@
     profiles.save(profile, config);
     const copy = profiles.duplicate(profile);
     openProfile(copy);
-    toast = { tone: 'success', message: `Duplicated to “${copy}”` };
+    toast = { tone: 'success', message: `Duplicated to â${copy}â` };
   }
 
   function renameProfile(name: string) {
@@ -512,27 +512,27 @@
     // the name it is filed under. Reopening it here would push an identical
     // profile back at OBS for no reason.
     if (!profiles.rename(profile, name)) {
-      toast = { tone: 'error', message: `A profile named “${name}” already exists` };
+      toast = { tone: 'error', message: `A profile named â${name}â already exists` };
       return;
     }
 
     profile = name;
     profileNames = profiles.list();
-    toast = { tone: 'success', message: `Renamed to “${name}”` };
+    toast = { tone: 'success', message: `Renamed to â${name}â` };
   }
 
   function removeProfile() {
     const gone = profile;
     profiles.remove(gone);
     openProfile(profiles.active());
-    toast = { tone: 'success', message: `Profile “${gone}” deleted` };
+    toast = { tone: 'success', message: `Profile â${gone}â deleted` };
   }
 
   /**
    * What the gate over "Add key" offers to press.
    *
-   * Without permission the missing thing is a *click* — WebHID has nothing to
-   * hang its prompt on until one arrives — so the gate has to offer one. This
+   * Without permission the missing thing is a *click* â WebHID has nothing to
+   * hang its prompt on until one arrives â so the gate has to offer one. This
    * is the only place left doing so once the setup wizard is gone for good,
    * and dropping it in the task 27 rewrite left the page with no way at all to
    * grant access. On an unsupported browser nothing is offered: a button that
@@ -543,7 +543,7 @@
   );
 
   /**
-   * Whether the global style has been touched at all — §9.3's marker.
+   * Whether the global style has been touched at all â Â§9.3's marker.
    *
    * Not applied to the port and password, which the fold above once carried:
    * a password is mandatory for the thing to work, so the dot would be lit
@@ -555,6 +555,9 @@
   /** See `clipboard.ts`: the copy can silently not happen, and used to lie. */
   let urlCopied = $state<'idle' | 'done' | 'failed'>('idle');
 
+  /** The panel's own reveal — the wizard's is gone once the setup is done. */
+  let revealed = $state(false);
+
   async function copyUrl() {
     const copied = await copyToClipboard(navigator, url);
     urlCopied = copied ? 'done' : 'failed';
@@ -564,7 +567,7 @@
       'user',
       copied
         ? 'Overlay URL copied.'
-        : 'Overlay URL could not be copied — select the field and copy it by hand.',
+        : 'Overlay URL could not be copied â select the field and copy it by hand.',
     );
   }
 
@@ -606,7 +609,7 @@
 
   /**
    * One warning per anomaly kind and per session. A wrong assumption about
-   * report length would otherwise emit `bad-length` on every single report —
+   * report length would otherwise emit `bad-length` on every single report â
    * hundreds a second, enough to lock up the devtools. The readable log is
    * task 26.
    */
@@ -626,7 +629,7 @@
       ensureConnected: (now) => obs.ensureConnected(now),
     },
     from: captureId,
-    // Only the configured keys travel: the overlay filters nothing (spec §6).
+    // Only the configured keys travel: the overlay filters nothing (spec Â§6).
     selectedIds: () => config.keys.map((key) => key.id),
     onEntries: (entries) => {
       // Before the learning guard: a key is watched from the moment it is
@@ -647,6 +650,18 @@
         activeLayout,
         surfaceOf(stageBox, config.style.unit),
       );
+      // `addLearnedKey` hands the same reference back when the key is already
+      // on the layout. Ending the mode in silence there reads as "the press
+      // did not register", and the person tries again â so the toast names
+      // the key instead, and the selection points at which one it is.
+      if (next === config) {
+        const existing = config.keys.find((key) => key.id === learned.index);
+        if (existing) {
+          selectedIds = [existing.id];
+          toast = { tone: 'warning', message: `“${existing.label}” is already in the layout` };
+        }
+        return;
+      }
       // Read from the result, not from the report: the label is the layout's
       // business, and the wizard's third step names the key it just saw.
       const before = config.keys.map((key) => key.id);
@@ -656,7 +671,7 @@
     onKeys: (k) => {
       frame = k;
       // A synchronous reading, not a timer, and taken inside the report
-      // handler — so it is the report's own moment to within microseconds.
+      // handler â so it is the report's own moment to within microseconds.
       rate = session.rateAt(performance.now());
       // Refreshed here, not in the report handler: this runs at the emission
       // rate, which is bounded, and nothing about the figures needs to be
@@ -664,7 +679,7 @@
       if (probing) probeReading = streamProbe.reading();
       // Expiry is computed on read, so an overlay that went away only stops
       // being counted once something asks. Without this it would linger until
-      // another overlay beats — and if it was the only one, forever.
+      // another overlay beats â and if it was the only one, forever.
       refreshOverlays();
     },
     onAnomaly: warnOnce,
@@ -688,7 +703,7 @@
       // Read before the assignment below overwrites it: only a keyboard that
       // was connected can have left a key mid-press. A key unplugged that way
       // never sends its own release, so the rest frame goes out on its behalf
-      // — without it the overlay draws the key pressed until the freshness
+      // â without it the overlay draws the key pressed until the freshness
       // watch times the whole capture out.
       if (keyboardStatus === 'connected' && status !== 'connected') session.rest(performance.now());
       keyboardStatus = status;
@@ -697,7 +712,7 @@
     },
   });
 
-  // Nothing to do on switching the machine on (spec §10): a keyboard already
+  // Nothing to do on switching the machine on (spec Â§10): a keyboard already
   // authorised resumes without a gesture, and the credentials come from the
   // previous session.
   void link.resume();
@@ -706,8 +721,8 @@
 
 <!--
   The three zones of mockup board `6d`: a 50 px header, the stage, and a 300 px
-  panel. Nothing here is a pile of collapsibles any more — the folds live in the
-  panel's footer, where §9.3 still governs them.
+  panel. Nothing here is a pile of collapsibles any more â the folds live in the
+  panel's footer, where Â§9.3 still governs them.
 -->
 <div class="app">
   <header class="bar">
@@ -724,7 +739,7 @@
            aside, from any screen (board 6f). -->
       <button class="resume" onclick={() => remember('open')}>
         <span class="dot" aria-hidden="true"></span>
-        Resume setup · {stepNumber(step)}/3
+        Resume setup Â· {stepNumber(step)}/3
       </button>
     {/if}
 
@@ -752,7 +767,7 @@
     <main class="stage">
       {#if wizardOpen}
         <!-- On the stage, not beside it: the setup is an orchestration of the
-             editor, not a second interface (spec §9.1). -->
+             editor, not a second interface (spec Â§9.1). -->
         <div class="setup" class:banner={step === 'keys'}>
           <Wizard
             {step}
@@ -771,7 +786,7 @@
         </div>
       {/if}
 
-      <!-- The same component OBS renders, from the same resolved shape — with
+      <!-- The same component OBS renders, from the same resolved shape â with
            the editor decorations on, which the broadcast never gets. -->
       <LayoutEditor
         bind:this={editor}
@@ -785,7 +800,7 @@
         suggestAxis={selectedIds.length === 1 && suggestedIds.includes(selectedIds[0]!)}
         onDismissSuggestion={() => {
           // Proposing a mode for a heterogeneous group would mean nothing, so
-          // the suggestion is single-selection only — and so is dismissing it.
+          // the suggestion is single-selection only â and so is dismissing it.
           suggester.dismiss(selectedIds[0]!);
           observed += 1;
         }}
@@ -820,7 +835,12 @@
           <Gated available={obsStatus === 'identified'} reason="Available once OBS is connected">
             <div class="url">
               <input readonly value={url} aria-label="Overlay URL for OBS" />
-              <button class="link" onclick={copyUrl} onblur={() => (urlCopied = 'idle')}>
+              <button
+                class="link"
+                onclick={copyUrl}
+                onblur={() => (urlCopied = 'idle')}
+                title={urlCopied === 'failed' ? 'Select the field and copy it by hand' : undefined}
+              >
                 {urlCopied === 'done' ? 'Copied' : urlCopied === 'failed' ? 'Failed' : 'Copy'}
               </button>
             </div>
@@ -828,7 +848,7 @@
             {#if config.keys.length > 0}
               <p class="figure">
                 <span>Recommended source size</span>
-                <span class="value">{size.width} × {size.height} px</span>
+                <span class="value">{size.width} Ã {size.height} px</span>
               </p>
             {/if}
 
@@ -853,7 +873,19 @@
           </label>
           <label class="field">
             Password
-            <input type="password" bind:value={settings.password} onchange={reconnect} />
+            <!-- The wizard's reveal, repeated here: this is the field one
+                 comes back to weeks later, when the password OBS generated is
+                 long forgotten. -->
+            <span class="secret">
+              <input
+                type={revealed ? 'text' : 'password'}
+                bind:value={settings.password}
+                onchange={reconnect}
+              />
+              <button type="button" onclick={() => (revealed = !revealed)}>
+                {revealed ? 'hide' : 'show'}
+              </button>
+            </span>
           </label>
           <p class="fine">
             Stored in this browser and carried in the URL above. Anyone with access to this machine
@@ -863,7 +895,7 @@
       </section>
 
       <!-- Global appearance. Per-key overrides live in the popover the editor
-           anchors to the selection, never here (spec §16.4). -->
+           anchors to the selection, never here (spec Â§16.4). -->
       <section class="block">
         <!-- Open on a first run, unlike the per-key block in the popover. The
              contents of this one *is* what someone came to the section for;
@@ -871,7 +903,7 @@
              whether this key has any. -->
         <Collapsible
           id="style"
-          title="Global style · all keys"
+          title="Global style Â· all keys"
           modified={styled}
           defaultOpen
           {storage}
@@ -889,9 +921,9 @@
               {#each config.keys as key (key.id)}
                 <li class:selected={selectedIds.includes(key.id)}>
                   <!-- The row is the only thing that can reach an off-screen
-                       key (spec §16.5): its handle is clipped away with the
-                       stage overflow. So the row selects — plain, ctrl-toggle,
-                       shift-range — and a double click opens the popover,
+                       key (spec Â§16.5): its handle is clipped away with the
+                       stage overflow. So the row selects â plain, ctrl-toggle,
+                       shift-range â and a double click opens the popover,
                        which already folds itself back inside the stage. -->
                   <button
                     class="pick"
@@ -918,7 +950,7 @@
                     aria-label={'Delete ' + key.label}
                     onclick={() => updateConfig(removeKey(config, key.id))}
                   >
-                    🗑
+                    ð
                   </button>
                 </li>
               {/each}
@@ -941,7 +973,7 @@
 
       <footer class="foot">
         <!-- Deliberately last and discreet: an edge case that matters only when
-             detection got it wrong (spec §16.4, §8.6). -->
+             detection got it wrong (spec Â§16.4, Â§8.6). -->
         <Collapsible
           id="layout"
           title="Keyboard layout"
@@ -961,18 +993,18 @@
                 ),
               )}
           >
-            <option value="auto">Auto — detected</option>
+            <option value="auto">Auto â detected</option>
             <option value="azerty">AZERTY</option>
             <option value="qwerty">QWERTY</option>
             <option value="qwertz">QWERTZ</option>
           </select>
-          <p class="fine">Only affects displayed labels · capture is layout-independent.</p>
+          <p class="fine">Only affects displayed labels Â· capture is layout-independent.</p>
         </Collapsible>
 
         <Collapsible
           id="diagnostics"
-          title="Journal"
-          note={toReport > 0 ? log.length + ' · ' + toReport + ' to report' : String(log.length)}
+          title="Diagnostics"
+          note={toReport > 0 ? log.length + ' Â· ' + toReport + ' to report' : String(log.length)}
           {storage}
         >
           <Diagnostics
@@ -1011,7 +1043,7 @@
     display: flex;
     align-items: center;
     gap: 22px;
-    block-size: var(--he-header-height, 50px);
+    block-size: var(--he-header-height, 62px);
     padding: 0 22px;
     border-block-end: 1px solid var(--he-border, #1b1e27);
   }
@@ -1080,7 +1112,7 @@
 
   .panel {
     flex: none;
-    inline-size: var(--he-panel-width, 300px);
+    inline-size: var(--he-panel-width, 380px);
     display: flex;
     flex-direction: column;
     overflow-y: auto;
@@ -1188,6 +1220,25 @@
     font-size: var(--he-size-sm, 15px);
     color: var(--he-text-muted, #8b90a0);
     padding-block: 3px;
+  }
+  .secret {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .secret input {
+    min-inline-size: 0;
+    flex: 1;
+  }
+  .secret button {
+    all: unset;
+    cursor: pointer;
+    font-size: var(--he-size-xs, 14px);
+    color: var(--he-accent, #7c9eff);
+  }
+  .secret button:focus-visible {
+    outline: 2px solid var(--he-accent, #7c9eff);
+    outline-offset: 2px;
   }
   .field input {
     inline-size: 8rem;
