@@ -1,0 +1,34 @@
+import { describe, it, expect } from 'vitest';
+import { createFrameWatch, FRAME_TIMEOUT_MS } from './freshness';
+
+describe('createFrameWatch', () => {
+  it('is stale before anything was seen: there is no frame worth keeping', () => {
+    const watch = createFrameWatch();
+
+    expect(watch.stale(0)).toBe(true);
+  });
+
+  it('is fresh right after a frame', () => {
+    const watch = createFrameWatch();
+
+    watch.seen(1000);
+
+    expect(watch.stale(1000)).toBe(false);
+  });
+
+  it('tolerates exactly the timeout, like the overlay registry it mirrors', () => {
+    const watch = createFrameWatch();
+    watch.seen(0);
+
+    expect(watch.stale(FRAME_TIMEOUT_MS)).toBe(false);
+    expect(watch.stale(FRAME_TIMEOUT_MS + 1)).toBe(true);
+  });
+
+  it('measures from the latest frame, not the first', () => {
+    const watch = createFrameWatch();
+    watch.seen(0);
+    watch.seen(5000);
+
+    expect(watch.stale(FRAME_TIMEOUT_MS + 1)).toBe(false);
+  });
+});

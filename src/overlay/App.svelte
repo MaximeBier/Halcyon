@@ -3,6 +3,7 @@
   import { createObsClient } from '../transport/obs';
   import { readOverlayParams } from './params';
   import { createRateCounter } from '../protocol/rate';
+  import { createFrameWatch } from './freshness';
   import { newPageId } from '../protocol/identity';
   import KeyboardView from '../view/KeyboardView.svelte';
   import BrowserChrome from './BrowserChrome.svelte';
@@ -41,6 +42,10 @@
    */
   const frames = createRateCounter();
 
+  // Fed on every frame, consulted on every beat: the only witness this page
+  // has that the capture is still alive (`freshness.ts` says why it matters).
+  const freshness = createFrameWatch();
+
   /** How often the overlay announces itself, and the window the rate is read over. */
   const BEAT_MS = 2000;
 
@@ -65,6 +70,7 @@
         // Counted and read on the frame itself: no interval decides how fresh
         // the figure is, which is what "instantly" means here.
         const now = performance.now();
+        freshness.seen(now);
         frames.tick(now);
         rate = frames.read(now);
       }
@@ -85,6 +91,12 @@
     // Without this re-read the count would freeze at its last value the moment
     // frames stopped, printing 58/s beside a link that had gone quiet.
     rate = frames.read(performance.now());
+    // The capture answers every beat with a frame while it lives, so a stale
+    // frame means the capture is gone — and a dead capture can never release
+    // the key it left pressed. Rest is the only honest thing to draw. The
+    // length guard keeps an already-empty frame from being reassigned, and
+    // re-rendered, every two seconds forever.
+    if (frame.length > 0 && freshness.stale(performance.now())) frame = [];
   }, BEAT_MS);
 
   // A reload draws a new id, so leaving in silence has the departed page

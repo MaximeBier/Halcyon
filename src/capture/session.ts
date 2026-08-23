@@ -39,6 +39,28 @@ export interface CaptureSession {
    * sends no report, and a fresh overlay would stay blank.
    */
   resend(now: number): void;
+  /**
+   * Answers an overlay's beat by redelivering the current frame, throttled to
+   * one per `REFRESH_INTERVAL_MS`.
+   *
+   * The emitter deduplicates, so a capture holding a steady state goes silent
+   * on the wire — and from the overlay's side a silent capture and a dead one
+   * look the same. This is the difference: a live capture answers every beat,
+   * so an overlay that stops hearing frames knows it may fall back to rest.
+   * Beat-driven rather than timed, because the beat arrives as a WebSocket
+   * message, which a background tab receives unthrottled — the clock this
+   * page is not allowed to own (spec §10).
+   */
+  pulse(now: number): void;
+  /**
+   * Replaces the current frame with rest and pushes it out immediately.
+   *
+   * For the keyboard being unplugged: a key that leaves mid-press can never
+   * send its own release, so without this the overlay keeps drawing it
+   * pressed until the freshness watch times it out — seconds of a frozen key
+   * on air that one frame removes.
+   */
+  rest(now: number): void;
   /** Frames per second currently going out to OBS. */
   rateAt(now: number): number;
 }
@@ -71,6 +93,16 @@ export function createCaptureSession(options: CaptureSessionOptions): CaptureSes
     },
     resend(now) {
       emitter.reset();
+      emitter.push(current, now, deliver);
+    },
+    pulse(now) {
+      emitter.refresh(current, now, deliver);
+    },
+    rest(now) {
+      // Through buildFrame, not a bare []: with a selection the rest frame
+      // still names every configured key at zero, the shape the overlay is
+      // promised (a missing key means zero, but only when nothing is selected).
+      current = buildFrame([], options.selectedIds?.() ?? null);
       emitter.push(current, now, deliver);
     },
     rateAt(now) {

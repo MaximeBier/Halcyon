@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { buildFrame, createFrameEmitter, sameFrame, FRAME_INTERVAL_MS, TRAVEL_STEP } from './emit';
+import {
+  buildFrame,
+  createFrameEmitter,
+  sameFrame,
+  FRAME_INTERVAL_MS,
+  REFRESH_INTERVAL_MS,
+  TRAVEL_STEP,
+} from './emit';
 import type { AnalogEntry } from '../keyboard/decode';
 import type { FrameKey } from './messages';
 
@@ -399,5 +406,65 @@ describe('createFrameEmitter — the rate ages on the clock, not on the keyboard
 
     expect(emitter.rateAt(100)).toBe(2);
     expect(emitter.rateAt(5_000)).toBe(0);
+  });
+});
+
+describe('createFrameEmitter — refreshing a frame that has not changed', () => {
+  it('redelivers the current frame once the refresh interval has passed', () => {
+    const emitter = createFrameEmitter();
+    emitter.push([[3, 400, 1]], 0, sent);
+
+    expect(emitter.refresh([[3, 400, 1]], REFRESH_INTERVAL_MS + 1, sent)).toBe(true);
+  });
+
+  it('stays silent while the traffic itself is fresh', () => {
+    const emitter = createFrameEmitter();
+    emitter.push([[3, 400, 1]], 0, sent);
+
+    expect(emitter.refresh([[3, 400, 1]], REFRESH_INTERVAL_MS - 1, sent)).toBe(false);
+  });
+
+  it('carries the latest frame, not the last one that left', () => {
+    // The cap can sacrifice the newest variation. A refresh is the chance to
+    // catch the far end up, not to repeat what it already has.
+    const emitter = createFrameEmitter();
+    emitter.push([[3, 400, 0]], 0, sent);
+    const delivered: FrameKey[][] = [];
+
+    emitter.refresh([[3, 410, 0]], REFRESH_INTERVAL_MS + 1, (frame) => {
+      delivered.push(frame);
+      return true;
+    });
+
+    expect(delivered).toEqual([[[3, 410, 0]]]);
+  });
+
+  it('counts the refreshed frame towards the rate: both pills count real traffic', () => {
+    const emitter = createFrameEmitter();
+    emitter.push([[3, 400, 1]], 0, sent);
+    emitter.refresh([[3, 400, 1]], REFRESH_INTERVAL_MS + 1, sent);
+
+    // The push at 0 has aged out of the one-second window by now, so this 1
+    // can only be the refresh itself: an uncounted refresh would read 0.
+    expect(emitter.rateAt(REFRESH_INTERVAL_MS + 1)).toBe(1);
+  });
+
+  it('does not remember a refresh that never left', () => {
+    // Same contract as push: a refresh dropped by a dead connection must not
+    // reset the clock, or the next beat would find the interval unspent and
+    // stay silent too.
+    const emitter = createFrameEmitter();
+    emitter.push([[3, 400, 1]], 0, sent);
+    emitter.refresh([[3, 400, 1]], REFRESH_INTERVAL_MS + 1, dropped);
+
+    expect(emitter.refresh([[3, 400, 1]], REFRESH_INTERVAL_MS + 2, sent)).toBe(true);
+  });
+
+  it('keeps deduplicating pushes across a refresh', () => {
+    const emitter = createFrameEmitter();
+    emitter.push([[3, 400, 1]], 0, sent);
+    emitter.refresh([[3, 400, 1]], REFRESH_INTERVAL_MS + 1, sent);
+
+    expect(emitter.push([[3, 400, 1]], REFRESH_INTERVAL_MS + 2, sent)).toBeNull();
   });
 });

@@ -370,6 +370,11 @@
         // otherwise deduplicate its way to a blank page until the next
         // keystroke.
         if (message.t === 'hello') session.resend(performance.now());
+        // Every beat gets the current frame back (throttled): a capture that
+        // answers is one the overlay may keep trusting, and one that stops —
+        // closed, crashed, tab discarded — leaves the overlay free to fall
+        // back to rest instead of drawing a dead page's last key on air.
+        if (message.t === 'beat') session.pulse(performance.now());
         refreshOverlays();
       },
     });
@@ -643,6 +648,12 @@
       session.handleReport(data, timestamp);
     },
     onStatus: (status, name) => {
+      // Read before the assignment below overwrites it: only a keyboard that
+      // was connected can have left a key mid-press. A key unplugged that way
+      // never sends its own release, so the rest frame goes out on its behalf
+      // — without it the overlay draws the key pressed until the freshness
+      // watch times the whole capture out.
+      if (keyboardStatus === 'connected' && status !== 'connected') session.rest(performance.now());
       keyboardStatus = status;
       keyboardName = name;
       note('user', name === null ? `Keyboard: ${status}.` : `Keyboard: ${status} (${name}).`);

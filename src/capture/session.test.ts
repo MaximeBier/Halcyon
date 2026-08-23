@@ -246,3 +246,100 @@ describe('createCaptureSession — what learning reads', () => {
     expect(seen).toEqual([174]);
   });
 });
+
+describe('createCaptureSession — an overlay beating', () => {
+  it('answers the beat by redelivering the current frame', () => {
+    // Deduplication makes an idle capture and a dead one indistinguishable
+    // from the overlay's side: both go silent. The answer to the beat is what
+    // tells them apart, and it is event-driven — a WebSocket message reaches a
+    // background tab where a timer would be throttled (spec §10).
+    const { session, broadcast } = setup();
+    session.handleReport(report(entry(174, 0x50, 400, 0x01)), 0);
+    broadcast.mockClear();
+
+    session.pulse(2000);
+
+    expect(broadcast).toHaveBeenCalledWith({
+      v: PROTOCOL_VERSION,
+      t: 'frame',
+      from: 'me',
+      k: [[174, 400, 1]],
+    });
+  });
+
+  it('answers at most once per refresh interval, however many overlays beat', () => {
+    const { session, broadcast } = setup();
+    session.handleReport(report(entry(174, 0x50, 400, 0x01)), 0);
+    broadcast.mockClear();
+
+    session.pulse(2000);
+    session.pulse(2500);
+
+    expect(broadcast).toHaveBeenCalledTimes(1);
+  });
+
+  it('stays silent while the traffic itself is fresh', () => {
+    const { session, broadcast } = setup();
+    session.handleReport(report(entry(174, 0x50, 400, 0x01)), 2000);
+    broadcast.mockClear();
+
+    session.pulse(2001);
+
+    expect(broadcast).not.toHaveBeenCalled();
+  });
+});
+
+describe('createCaptureSession — the keyboard going away', () => {
+  it('pushes a rest frame immediately: an unplugged key never sends its release', () => {
+    const { session, broadcast } = setup();
+    session.handleReport(report(entry(174, 0x50, 700, 0x01)), 0);
+    broadcast.mockClear();
+
+    session.rest(1);
+
+    expect(broadcast).toHaveBeenCalledWith({
+      v: PROTOCOL_VERSION,
+      t: 'frame',
+      from: 'me',
+      k: [],
+    });
+  });
+
+  it('carries the configured keys at zero rather than an empty frame', () => {
+    const broadcast = vi.fn(() => true);
+    const session = createCaptureSession({
+      obs: { broadcast, ensureConnected: vi.fn() } as never,
+      from: 'me',
+      onKeys: () => {},
+      onAnomaly: () => {},
+      selectedIds: () => [174],
+    });
+    session.handleReport(report(entry(174, 0x50, 700, 0x01)), 0);
+    broadcast.mockClear();
+
+    session.rest(1);
+
+    expect(broadcast).toHaveBeenCalledWith({
+      v: PROTOCOL_VERSION,
+      t: 'frame',
+      from: 'me',
+      k: [[174, 0, 0]],
+    });
+  });
+
+  it('answers later beats with the rest frame, not the one before the unplug', () => {
+    const { session, broadcast } = setup();
+    session.handleReport(report(entry(174, 0x50, 700, 0x01)), 0);
+    session.rest(1);
+    broadcast.mockClear();
+
+    session.pulse(5000);
+
+    expect(broadcast).toHaveBeenCalledWith({
+      v: PROTOCOL_VERSION,
+      t: 'frame',
+      from: 'me',
+      k: [],
+    });
+  });
+});

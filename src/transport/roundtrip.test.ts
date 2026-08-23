@@ -6,7 +6,8 @@ import { defaultConfig } from '../config/schema';
 import { resolve } from '../config/resolve';
 import { buildScene } from '../view/scene';
 import type { OverlayMessage } from '../protocol/messages';
-import { FakeSocket } from '../test/fixtures';
+import { FakeSocket, entry, report } from '../test/fixtures';
+import { createCaptureSession } from '../capture/session';
 
 /**
  * Relays BroadcastCustomEvent between two clients the way obs-websocket does.
@@ -194,5 +195,38 @@ describe('capture to overlay round trip - the configuration', () => {
     });
 
     expect(received.some((m) => m.t === 'config')).toBe(false);
+  });
+});
+
+describe('capture to overlay round trip - staying fresh', () => {
+  it('answers an overlay beat by redelivering a frame nothing else would repeat', async () => {
+    // The emitter deduplicates, so a held key goes silent on the wire — and a
+    // silent capture looks exactly like a dead one. The beat is what tells
+    // them apart: a live capture answers it with the frame it already sent.
+    const server = new FakeServer();
+    const received: OverlayMessage[] = [];
+
+    const captureClient = spawnClient(server, (m) => {
+      if (m.t === 'beat') session.pulse(3000);
+    });
+    const session = createCaptureSession({
+      obs: captureClient,
+      from: 'capture-a',
+      onKeys: () => {},
+      onAnomaly: () => {},
+    });
+    const overlay = spawnClient(server, (m) => received.push(m));
+    captureClient.connect();
+    overlay.connect();
+    await vi.waitFor(() => expect(captureClient.status).toBe('identified'));
+    await vi.waitFor(() => expect(overlay.status).toBe('identified'));
+
+    session.handleReport(report(entry(174, 0x50, 700, 0x01)), 0);
+    overlay.broadcast({ v: PROTOCOL_VERSION, t: 'beat', id: 'ov', browser: false });
+
+    expect(received.filter((m) => m.t === 'frame')).toEqual([
+      { v: PROTOCOL_VERSION, t: 'frame', from: 'capture-a', k: [[174, 700, 1]] },
+      { v: PROTOCOL_VERSION, t: 'frame', from: 'capture-a', k: [[174, 700, 1]] },
+    ]);
   });
 });

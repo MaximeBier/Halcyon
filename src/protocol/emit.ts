@@ -112,6 +112,16 @@ function compare(before: readonly FrameKey[], after: readonly FrameKey[]) {
 
 export type EmitReason = 'interval' | 'active-change' | 'rest' | 'bottomed' | 'jump' | null;
 
+/**
+ * How often a refresh may repeat a frame the far end already has.
+ *
+ * Well above the frame cap, because a refresh carries no new information: it
+ * exists so the overlay can tell a capture that went quiet from one that went
+ * away. One repeat a second bounds that cost at one obs-websocket request —
+ * noise against the sixty the cap already allows.
+ */
+export const REFRESH_INTERVAL_MS = 1000;
+
 /** Hands a frame to the far end. `false` means it went nowhere. */
 export type Deliver = (frame: FrameKey[]) => boolean;
 
@@ -130,6 +140,20 @@ export interface FrameEmitter {
    * failed to leave.
    */
   push(frame: FrameKey[], now: number, deliver: Deliver): EmitReason;
+  /**
+   * Redelivers the current frame even though nothing changed, at most once
+   * per `REFRESH_INTERVAL_MS`. Returns whether a frame left.
+   *
+   * Deduplication keeps the bus quiet, and it is also what makes an idle
+   * capture and a dead one indistinguishable from the overlay's side: both go
+   * silent. Called on every overlay beat, this turns silence into a signal —
+   * an overlay that stops hearing frames for a few beats knows the capture is
+   * gone and may fall back to rest instead of freezing on the last state it
+   * was given. And it delivers the frame it is handed, not the one that last
+   * left, so an overlay that missed a variation the cap sacrificed is caught
+   * up within one beat.
+   */
+  refresh(frame: FrameKey[], now: number, deliver: Deliver): boolean;
   /**
    * Forgets what the far end has seen, so the next frame goes out whatever it
    * holds. Sent on a `hello`: a fresh overlay is showing nothing, and what its
@@ -200,6 +224,23 @@ export function createFrameEmitter(minIntervalMs: number = FRAME_INTERVAL_MS): F
       emitted.tick(now);
 
       return reason;
+    },
+    refresh(frame, now, deliver) {
+      // Measured against the last emission of any kind: traffic that is
+      // already flowing proves freshness by itself, so a refresh on top of it
+      // would only repeat what the overlay just heard.
+      if (now - lastSentAt < REFRESH_INTERVAL_MS) return false;
+      // Same contract as push: a refresh dropped by a dead connection must
+      // not reset the clock, or the next beat would find the interval unspent
+      // and stay silent too.
+      if (!deliver(frame)) return false;
+
+      lastFrame = frame;
+      lastSentAt = now;
+      // Counted like any other emission: the two pills advertise real
+      // traffic, and a frame that left is traffic whatever its reason.
+      emitted.tick(now);
+      return true;
     },
     reset() {
       // The rate is a measurement of our own throughput, not knowledge about
