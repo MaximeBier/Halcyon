@@ -28,7 +28,8 @@ The page walks you through three steps.
 Click **Allow keyboard** and pick your Wooting from the list Chrome shows.
 
 If you later turn gamepad mode on in Wootility, Chrome sees a different device
-and asks again. Just allow it a second time.
+and the page loses the keyboard. Chrome will not ask again on its own: click
+**Allow keyboard** once more and pick the Wooting in the list it shows.
 
 ### 2 · Connect OBS
 
