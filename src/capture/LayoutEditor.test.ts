@@ -242,6 +242,18 @@ describe('LayoutEditor - the popover is a place you go, not one you fall into', 
     expect(isOpen(container)).toBe(true);
   });
 
+  it('opens from outside through the instance, for the sidebar list', async () => {
+    // The keys list in the sidebar is the only thing that can reach an
+    // off-screen key — its handle is clipped away with the stage overflow —
+    // so the list needs a door into the popover that is not a handle click.
+    const { component, container } = editor();
+
+    component.open(2);
+    await tick();
+
+    expect(isOpen(container)).toBe(true);
+  });
+
   it('opens on a right click, and swallows the native menu', async () => {
     const { handles, container } = editor();
     const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });

@@ -276,7 +276,7 @@
     return over >= 0 ? over : Math.max(0, room - panelHeight);
   }
 
-  function open(id: number) {
+  export function open(id: number) {
     if (!selectedIds.includes(id)) selectedIds = [id];
     editingFor = [...selectedIds];
     wantsFocus = true;

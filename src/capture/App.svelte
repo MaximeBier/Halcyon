@@ -23,6 +23,7 @@
   import { newPageId } from '../protocol/identity';
   import { addLearnedKey, pickLearned, removeKey, removeKeys } from './learn';
   import { keysOutside, surfaceOf } from './layout';
+  import { pickedFromList } from './gestures';
   import { loadLayoutMap, resolveLayout, type LayoutMapLike } from '../keyboard/labels';
   import { setLayoutOverride } from '../config/edit';
   import { createAxisSuggester } from './suggest';
@@ -103,6 +104,35 @@
   let lastKey = $state<string | null>(null);
 
   let selectedIds = $state<number[]>([]);
+  /**
+   * Where the next shift-range in the keys list reaches from (spec §16.5).
+   *
+   * A key id, not an index: rows shift when keys are deleted, and
+   * `pickedFromList` already treats a deleted anchor as none at all.
+   */
+  let keysAnchor = $state<number | null>(null);
+  /** The stage component, for the list's door into its popover. */
+  let editor = $state<ReturnType<typeof LayoutEditor>>();
+
+  function pickKey(id: number, event: MouseEvent) {
+    // `detail` is 0 when the activation came from the keyboard: Enter has no
+    // double click to follow it up with, so it opens the popover directly —
+    // the same door Enter is on a stage handle.
+    if (event.detail === 0) {
+      editor?.open(id);
+      keysAnchor = id;
+      return;
+    }
+    const pick = pickedFromList(
+      config.keys.map((key) => key.id),
+      selectedIds,
+      keysAnchor,
+      id,
+      { ctrl: event.ctrlKey || event.metaKey, shift: event.shiftKey },
+    );
+    selectedIds = pick.ids;
+    keysAnchor = pick.anchor;
+  }
   /**
    * The editor's stage, in pixels — measured there, read here.
    *
@@ -449,6 +479,7 @@
     // index, so a stale selection does not merely look wrong — "Delete 3
     // selected keys" would act on a set nobody chose in this profile.
     selectedIds = [];
+    keysAnchor = null;
     lastKey = null;
     broadcaster.publish(config);
 
@@ -743,6 +774,7 @@
       <!-- The same component OBS renders, from the same resolved shape — with
            the editor decorations on, which the broadcast never gets. -->
       <LayoutEditor
+        bind:this={editor}
         {config}
         {frame}
         bind:selectedIds
@@ -856,19 +888,31 @@
             <ul class="keys">
               {#each config.keys as key (key.id)}
                 <li class:selected={selectedIds.includes(key.id)}>
-                  <span class="label">{key.label}</span>
-                  <span class="mode">{key.mode}</span>
-                  {#if offscreen.includes(key.id)}
-                    <!-- Before the override tag: this one says the key cannot
-                         be seen at all, which outranks how it is painted. -->
-                    <span
-                      class="offscreen"
-                      title="Not on the work surface: widen the window, or lower the key size in the global style"
-                    >
-                      off screen
-                    </span>
-                  {/if}
-                  {#if hasOverrides(key)}<span class="override">override</span>{/if}
+                  <!-- The row is the only thing that can reach an off-screen
+                       key (spec §16.5): its handle is clipped away with the
+                       stage overflow. So the row selects — plain, ctrl-toggle,
+                       shift-range — and a double click opens the popover,
+                       which already folds itself back inside the stage. -->
+                  <button
+                    class="pick"
+                    aria-pressed={selectedIds.includes(key.id)}
+                    onclick={(event) => pickKey(key.id, event)}
+                    ondblclick={() => editor?.open(key.id)}
+                  >
+                    <span class="label">{key.label}</span>
+                    <span class="mode">{key.mode}</span>
+                    {#if offscreen.includes(key.id)}
+                      <!-- Before the override tag: this one says the key cannot
+                           be seen at all, which outranks how it is painted. -->
+                      <span
+                        class="offscreen"
+                        title="Not on the work surface: widen the window, or lower the key size in the global style"
+                      >
+                        off screen
+                      </span>
+                    {/if}
+                    {#if hasOverrides(key)}<span class="override">override</span>{/if}
+                  </button>
                   <button
                     class="trash"
                     aria-label={'Delete ' + key.label}
@@ -1177,6 +1221,19 @@
   }
   .keys li.selected {
     background: var(--he-surface, #151823);
+  }
+  .pick {
+    all: unset;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-inline-size: 0;
+    cursor: pointer;
+  }
+  .pick:focus-visible {
+    outline: 2px solid var(--he-accent, #7c9eff);
+    outline-offset: 2px;
   }
   .label {
     font-weight: 600;

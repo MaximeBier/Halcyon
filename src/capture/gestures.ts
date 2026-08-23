@@ -86,6 +86,43 @@ export function toggled(ids: readonly number[], id: number): number[] {
   return ids.includes(id) ? ids.filter((other) => other !== id) : [...ids, id];
 }
 
+/** What a pick in the sidebar list settles on: the selection, and where the
+ * next shift-range reaches from. */
+export interface ListPick {
+  ids: number[];
+  anchor: number;
+}
+
+/**
+ * A pick on a row of the keys list (spec §16.5): plain selects the row alone,
+ * ctrl toggles it, shift takes the contiguous range from the anchor.
+ *
+ * The anchor is the last row picked without shift — including a ctrl-toggle,
+ * so a range extends from the row someone just added, the way every file
+ * manager reads it. It names a key rather than an index: rows move when keys
+ * are deleted, and a range measured from a stale index would grab keys nobody
+ * pointed at. An anchor whose key is gone falls back to a plain pick instead
+ * of throwing or selecting to one end.
+ */
+export function pickedFromList(
+  order: readonly number[],
+  selected: readonly number[],
+  anchor: number | null,
+  id: number,
+  modifiers: { ctrl?: boolean; shift?: boolean },
+): ListPick {
+  if (modifiers.shift && anchor !== null) {
+    const from = order.indexOf(anchor);
+    const to = order.indexOf(id);
+    if (from !== -1 && to !== -1) {
+      const [lo, hi] = from <= to ? [from, to] : [to, from];
+      return { ids: order.slice(lo, hi + 1), anchor };
+    }
+  }
+  if (modifiers.ctrl) return { ids: toggled(selected, id), anchor: id };
+  return { ids: [id], anchor: id };
+}
+
 /**
  * The drag / resize / lasso state machine, kept apart from the DOM.
  *
