@@ -5,17 +5,8 @@
   import { hasOverrides, resolve } from '../config/resolve';
   import { UI_TOKENS } from '../styles/ui-tokens';
   import { recommendedSize } from '../view/scene';
-  import {
-    keysWithin,
-    moveKeysBy,
-    normalizeRect,
-    onSurface,
-    pixelsToUnits,
-    resizeKeyTo,
-    surfaceOf,
-    type Edge,
-    type Point,
-  } from './layout';
+  import { onSurface, pixelsToUnits, surfaceOf, type Edge, type Point, type Rect } from './layout';
+  import { createGestures, toggled } from './gestures';
   import { removeKeys } from './learn';
   import type { OverlayConfig } from '../config/schema';
   import type { LayoutMapLike } from '../keyboard/labels';
@@ -58,21 +49,12 @@
   } = $props();
 
   /**
-   * The configuration being dragged, or `null` when no drag is in progress.
+   * The configuration under gesture, or `null` when none is in progress.
    *
-   * A drag emits a position on every pointer move — up to 120 a second — and
-   * `onChange` persists and broadcasts. Doing that per move would stringify
-   * the whole configuration into local storage and push it over obs-websocket
-   * at that rate, competing with the frames. So the gesture works on a draft
-   * and commits once, on release: the broadcast lags the preview by the length
-   * of a drag, which nobody can perceive while adjusting a key.
+   * Written by the gesture machine alone — the reason a gesture works on a
+   * draft and commits once lives with the rules, in `gestures.ts`.
    */
   let draft = $state<OverlayConfig | null>(null);
-  let drag: {
-    startX: number;
-    startY: number;
-    origins: Map<number, { x: number; y: number }>;
-  } | null = null;
 
   /**
    * The selection the popover was opened for, empty when it is closed.
@@ -90,32 +72,9 @@
    */
   let editingFor = $state<number[]>([]);
 
-  /**
-   * The marquee in progress, in key units, or `null` when none is.
-   *
-   * `base` is the selection the lasso adds to — empty unless Shift was held
-   * when it started. Recorded once rather than read from `selectedIds`, which
-   * the gesture rewrites on every move.
-   */
-  let lasso = $state<{ from: Point; to: Point; base: number[] } | null>(null);
+  /** The marquee to draw, in key units and the right way round, or `null`. */
+  let lassoRect = $state<Rect | null>(null);
   let stage = $state<HTMLElement | null>(null);
-
-  /**
-   * The resize in progress, or `null` when none is.
-   *
-   * Kept apart from `drag` rather than folded into it: the two gestures start
-   * from different presses, and one variable holding either would need a tag
-   * to say which — at which point they are two variables with extra steps. The
-   * *draft* is shared, so everything downstream of it, the popover and the
-   * quoted source size included, follows a resize exactly as it follows a move.
-   */
-  let sizing = $state<{
-    id: number;
-    edge: Edge;
-    startX: number;
-    startY: number;
-    origin: { x: number; y: number; w: number; h: number };
-  } | null>(null);
 
   /**
    * The eight handles, and why there are eight rather than three.
@@ -125,9 +84,6 @@
    * whole cost of the other five, and `resizeKeyTo` pays it in one place.
    */
   const EDGES: readonly Edge[] = ['n', 'e', 's', 'w', 'ne', 'se', 'sw', 'nw'];
-
-  /** In key units, the two corners the right way round. */
-  const lassoRect = $derived(lasso === null ? null : normalizeRect(lasso.from, lasso.to));
 
   /** What the editor shows: the draft while dragging, the real one otherwise. */
   const shown = $derived(draft ?? config);
@@ -164,6 +120,20 @@
   });
 
   const surface = $derived(surfaceOf(stageBox, unit));
+
+  /**
+   * The drag, resize and lasso rules, kept apart from the DOM (gestures.ts).
+   *
+   * This side only translates events and holds the reactive mirrors the
+   * template reads; every decision — what a press selects, where a clamp
+   * stops, whether a release writes — is made over there, on plain values.
+   */
+  const gestures = createGestures(() => ({ config, surface, unit, selectedIds }), {
+    preview: (next) => (draft = next),
+    marquee: (rect) => (lassoRect = rect),
+    select: (ids) => (selectedIds = ids),
+    commit: (next) => onChange(next),
+  });
 
   /** A key coordinate in stage pixels. */
   const acrossX = (x: number) => (x - surface.x) * unit;
@@ -384,14 +354,7 @@
     commitPendingEdit();
     editingFor = [];
 
-    // Shift adds, matching Shift+click. Without it the press clears, which is
-    // the behaviour bare stage had before the lasso existed — a marquee that
-    // selects nothing still ends with an empty selection.
-    const base = event.shiftKey ? [...selectedIds] : [];
-    selectedIds = base;
-
-    const at = stagePoint(event);
-    lasso = { from: at, to: at, base };
+    gestures.pressStage(stagePoint(event), event.shiftKey);
   }
 
   /**
@@ -417,9 +380,7 @@
   }
 
   function toggle(id: number) {
-    selectedIds = selectedIds.includes(id)
-      ? selectedIds.filter((other) => other !== id)
-      : [...selectedIds, id];
+    selectedIds = toggled(selectedIds, id);
   }
 
   /**
@@ -441,34 +402,8 @@
     // detaches, so whatever is half-typed in it commits here or never.
     commitPendingEdit();
 
-    if (event.shiftKey) {
-      // Composing a selection, not moving one: no drag starts from here, or a
-      // twitch of the hand would displace the group being assembled.
-      toggle(id);
-      return;
-    }
-
-    // Pressing a key outside the selection takes it alone; pressing one inside
-    // keeps the group, so the whole group can be dragged.
-    if (!selectedIds.includes(id)) {
-      // A new selection is a new subject, and `popoverVisible` closes the
-      // panel on its own once the ids no longer match. Pressing a key already
-      // in the selection changes nothing, which is what lets the popover
-      // survive a drag of the very keys it edits.
-      selectedIds = [id];
-    }
-
-    draft = config;
-    drag = {
-      startX: event.clientX,
-      startY: event.clientY,
-      origins: new Map(
-        config.keys
-          .filter((key) => selectedIds.includes(key.id))
-          .map((key) => [key.id, { x: key.x, y: key.y }]),
-      ),
-    };
-    (event.currentTarget as Element).setPointerCapture(event.pointerId);
+    const armed = gestures.pressKey(id, { x: event.clientX, y: event.clientY }, event.shiftKey);
+    if (armed) (event.currentTarget as Element).setPointerCapture(event.pointerId);
   }
 
   /**
@@ -487,113 +422,14 @@
     // commits the popover's field before the draft hides it.
     commitPendingEdit();
 
-    draft = config;
-    sizing = {
-      id: sizable.id,
-      edge,
-      startX: event.clientX,
-      startY: event.clientY,
-      origin: { x: sizable.x, y: sizable.y, w: sizable.w, h: sizable.h },
-    };
+    gestures.pressGrip(sizable, edge, { x: event.clientX, y: event.clientY });
     (event.currentTarget as Element).setPointerCapture(event.pointerId);
   }
 
   function onPointerMove(event: PointerEvent) {
-    if (sizing && draft) {
-      // Same guard as the drag: a release we never saw would leave the edge
-      // following the pointer with nothing held down.
-      if (event.buttons === 0) {
-        abandon();
-        return;
-      }
-
-      draft = resizeKeyTo(
-        config,
-        sizing.id,
-        sizing.edge,
-        sizing.origin,
-        pixelsToUnits(event.clientX - sizing.startX, config.style.unit),
-        pixelsToUnits(event.clientY - sizing.startY, config.style.unit),
-        surface,
-      );
-      return;
-    }
-
-    if (lasso) {
-      // Same guard as the drag: a release we never saw would leave the
-      // marquee following the pointer with nothing held down.
-      if (event.buttons === 0) {
-        lasso = null;
-        return;
-      }
-
-      lasso = { ...lasso, to: stagePoint(event) };
-      // Live, because a marquee that only reports on release is a rectangle
-      // one has to aim blind. Nothing is persisted or broadcast by a
-      // selection, so the cost is a filter over a handful of keys.
-      selectedIds = [...new Set([...lasso.base, ...keysWithin(shown, lassoRect!)])];
-      return;
-    }
-
-    if (!drag || !draft) return;
-    // No button held means the release happened somewhere we never saw it —
-    // outside the window, or after the handle was removed from the DOM and
-    // took the pointer capture with it. Without this the key follows the
-    // mouse for good.
-    if (event.buttons === 0) {
-      abandon();
-      return;
-    }
-
-    const dx = pixelsToUnits(event.clientX - drag.startX, config.style.unit);
-    const dy = pixelsToUnits(event.clientY - drag.startY, config.style.unit);
-    draft = moveKeysBy(config, drag.origins, dx, dy, surface);
-  }
-
-  /** Drops the gesture without writing anything. */
-  function abandon() {
-    drag = null;
-    sizing = null;
-    draft = null;
-    // The selection the marquee built is kept: it is what one was aiming at,
-    // and Escape clears it on the next press anyway.
-    lasso = null;
-  }
-
-  function onPointerUp() {
-    if (sizing && draft) {
-      // Compared against the origin, like the drag: a press that wobbles by a
-      // pixel lands back on the same grid cell, and writing there costs a
-      // stringify into local storage and a broadcast for nothing.
-      const key = draft.keys.find((other) => other.id === sizing!.id);
-      const origin = sizing.origin;
-      const resized = key ? key.w !== origin.w || key.h !== origin.h : false;
-      const next = draft;
-
-      abandon();
-      if (resized) onChange(next);
-      return;
-    }
-
-    if (lasso) {
-      lasso = null;
-      return;
-    }
-
-    if (!drag || !draft) return;
-
-    // Compared against the origins rather than "a pointermove happened": a
-    // one-pixel twitch during a click snaps back to the same grid cell, and
-    // writing there costs a synchronous stringify and a broadcast for a
-    // configuration identical to the stored one.
-    const moved = draft.keys.some((key) => {
-      const origin = drag!.origins.get(key.id);
-      return origin ? origin.x !== key.x || origin.y !== key.y : false;
-    });
-    const next = draft;
-
-    abandon();
-    if (moved) onChange(next);
+    // The stage point is passed as a thunk: only the lasso needs it, and the
+    // conversion reads the stage's bounding box on every call.
+    gestures.move({ x: event.clientX, y: event.clientY }, event.buttons, () => stagePoint(event));
   }
 
   /**
@@ -619,7 +455,7 @@
     if (event.key === 'Escape') {
       // Abandons the gesture first: leaving a drag armed with no selection is
       // the one state with no way out.
-      abandon();
+      gestures.cancel();
       // One key, two things to undo, so they come off in the order they went
       // on. Clearing the selection first would leave the popover anchored to
       // nothing for the frame before it noticed.
@@ -656,8 +492,8 @@
 <svelte:window
   onkeydown={onKeyDown}
   onpointermove={onPointerMove}
-  onpointerup={onPointerUp}
-  onpointercancel={abandon}
+  onpointerup={gestures.release}
+  onpointercancel={gestures.cancel}
   onresize={measure}
 />
 
