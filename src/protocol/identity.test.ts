@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { newOverlayId } from './identity';
+import { newPageId } from './identity';
 
 /** Stands in for a context that has `crypto` but no `randomUUID` on it. */
 const insecureContext = {};
 
-describe('newOverlayId', () => {
+describe('newPageId', () => {
   it('uses randomUUID when the browser offers one', () => {
-    const id = newOverlayId({ randomUUID: () => 'uuid-from-the-browser' });
+    const id = newPageId('overlay', { randomUUID: () => 'uuid-from-the-browser' });
 
     expect(id).toBe('uuid-from-the-browser');
   });
@@ -14,7 +14,7 @@ describe('newOverlayId', () => {
   it('reaches for the global crypto by default', () => {
     // Node's global crypto has randomUUID, so this exercises the normal path —
     // not the fallback, whatever the absence of an argument might suggest.
-    expect(newOverlayId()).toMatch(/^[0-9a-f-]{36}$/);
+    expect(newPageId('overlay')).toMatch(/^[0-9a-f-]{36}$/);
   });
 
   // `crypto.randomUUID` only exists in a secure context. An overlay served from
@@ -22,11 +22,18 @@ describe('newOverlayId', () => {
   // and a bare call would throw during setup: not a missing count, a blank
   // overlay for the whole stream.
   it('still produces an id outside a secure context', () => {
-    expect(newOverlayId(insecureContext)).toMatch(/^overlay-\S+/);
+    expect(newPageId('overlay', insecureContext)).toMatch(/^overlay-\S+/);
+  });
+
+  // The prefix is the only thing the caller chooses, and it is what makes an id
+  // readable in the journal: `capture-…` beside `overlay-…` says which of the
+  // two pages is being talked about without looking anything up.
+  it('wears the name the caller gave it', () => {
+    expect(newPageId('capture', insecureContext)).toMatch(/^capture-\S+/);
   });
 
   it('produces a different id every time, fallback included', () => {
-    const ids = new Set(Array.from({ length: 100 }, () => newOverlayId(insecureContext)));
+    const ids = new Set(Array.from({ length: 100 }, () => newPageId('overlay', insecureContext)));
 
     expect(ids.size).toBe(100);
   });
@@ -36,8 +43,8 @@ describe('newOverlayId', () => {
   // timeOrigin separate them, and this test is the one that would notice if the
   // random part were ever dropped for the counter.
   it('does not lean on the counter to tell two contexts apart', () => {
-    const random = Array.from({ length: 200 }, () => newOverlayId(insecureContext)).map((id) =>
-      id.split('-').slice(3).join('-'),
+    const random = Array.from({ length: 200 }, () => newPageId('overlay', insecureContext)).map(
+      (id) => id.split('-').slice(3).join('-'),
     );
 
     expect(new Set(random).size).toBe(200);
@@ -47,7 +54,7 @@ describe('newOverlayId', () => {
     // `Math.random().toString(36)` returns fewer characters than expected often
     // enough to matter — `0.5` is `"0.i"`.
     for (let i = 0; i < 500; i++) {
-      expect(newOverlayId(insecureContext).split('-').slice(3).join('-')).toHaveLength(16);
+      expect(newPageId('overlay', insecureContext).split('-').slice(3).join('-')).toHaveLength(16);
     }
   });
 });

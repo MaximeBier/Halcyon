@@ -90,13 +90,13 @@ describe('createObsClient', () => {
     socket().receive({ op: 2, d: { negotiatedRpcVersion: 1 } });
     socket().sent.length = 0;
 
-    client.broadcast({ v: PROTOCOL_VERSION, t: 'frame', k: [[174, 996, 1]] });
+    client.broadcast({ v: PROTOCOL_VERSION, t: 'frame', from: 'capture-a', k: [[174, 996, 1]] });
 
     const request = socket().parsed()[0];
     expect(request.op).toBe(6);
     expect(request.d.requestType).toBe('BroadcastCustomEvent');
     expect(request.d.requestData.eventData).toEqual({
-      heOverlay: { v: PROTOCOL_VERSION, t: 'frame', k: [[174, 996, 1]] },
+      heOverlay: { v: PROTOCOL_VERSION, t: 'frame', from: 'capture-a', k: [[174, 996, 1]] },
     });
   });
 
@@ -118,7 +118,9 @@ describe('createObsClient', () => {
     socket().receive(HELLO_NO_AUTH);
     socket().receive({ op: 2, d: {} });
 
-    expect(client.broadcast({ v: PROTOCOL_VERSION, t: 'frame', k: [] })).toBe(true);
+    expect(client.broadcast({ v: PROTOCOL_VERSION, t: 'frame', from: 'capture-a', k: [] })).toBe(
+      true,
+    );
   });
 
   it('surfaces incoming CustomEvents and ignores foreign payloads', () => {

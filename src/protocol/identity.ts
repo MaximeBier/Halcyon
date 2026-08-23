@@ -1,4 +1,4 @@
-/** What the overlay needs of `crypto`, which is nothing in the worst case. */
+/** What a page needs of `crypto`, which is nothing in the worst case. */
 export interface RandomSource {
   randomUUID?(): string;
 }
@@ -11,7 +11,11 @@ function chunk(): string {
 }
 
 /**
- * A name the capture page can tell this overlay by (spec §11).
+ * A name one end of the protocol can be told by (spec §11).
+ *
+ * Both ends need one, which is why this lives beside the messages rather than
+ * with either page: the overlay so the capture can count who is listening, the
+ * capture so a second one broadcasting is something anybody can notice.
  *
  * Nothing here is a secret, so `randomUUID` is a convenience rather than a
  * requirement — and it is absent outside a secure context, which the overlay
@@ -27,10 +31,13 @@ function chunk(): string {
  * `timeOrigin` is the moment its own context was created, which is the one
  * thing here that genuinely differs between two sources.
  */
-export function newOverlayId(source: RandomSource | undefined = globalThis.crypto): string {
+export function newPageId(
+  prefix: string,
+  source: RandomSource | undefined = globalThis.crypto,
+): string {
   if (typeof source?.randomUUID === 'function') return source.randomUUID();
 
   counter += 1;
   const origin = Math.trunc(performance.timeOrigin).toString(36);
-  return `overlay-${origin}-${counter}-${chunk()}${chunk()}`;
+  return `${prefix}-${origin}-${counter}-${chunk()}${chunk()}`;
 }

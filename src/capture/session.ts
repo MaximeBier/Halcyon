@@ -6,6 +6,14 @@ import type { ObsClient } from '../transport/obs';
 
 export interface CaptureSessionOptions {
   obs: Pick<ObsClient, 'broadcast' | 'ensureConnected'>;
+  /**
+   * This page's own name, signed onto every frame.
+   *
+   * The frames of two capture pages are indistinguishable without it, and they
+   * add up: twenty tabs reporting a hundred frames a second each showed the
+   * overlay two thousand — more than the keyboard can possibly send.
+   */
+  from: string;
   onKeys(keys: FrameKey[]): void;
   onAnomaly(anomaly: DecodeAnomaly): void;
   /** Identifiers of the configured keys, or `null` to carry them all. */
@@ -40,7 +48,7 @@ export function createCaptureSession(options: CaptureSessionOptions): CaptureSes
   let current: FrameKey[] = [];
 
   const deliver = (frame: FrameKey[]) =>
-    options.obs.broadcast({ v: PROTOCOL_VERSION, t: 'frame', k: frame });
+    options.obs.broadcast({ v: PROTOCOL_VERSION, t: 'frame', from: options.from, k: frame });
 
   return {
     handleReport(data, timestamp) {

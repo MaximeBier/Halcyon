@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   overlayTally,
+  captureWarning,
   loadSettings,
   saveSettings,
   overlayUrl,
@@ -170,5 +171,32 @@ describe('overlayTally', () => {
     expect(overlayTally({ inObs: 0, inBrowser: 1 })).toBe('1 overlay in a browser');
     expect(overlayTally({ inObs: 1, inBrowser: 1 })).toBe('1 overlay in OBS · 1 in a browser');
     expect(overlayTally({ inObs: 2, inBrowser: 3 })).toBe('2 overlays in OBS · 3 in a browser');
+  });
+});
+
+describe('captureWarning', () => {
+  it('says nothing at all when this page is the only one talking', () => {
+    expect(captureWarning(false)).toBeNull();
+  });
+
+  // Plainly in the status bar, never behind a fold: this is the failure where
+  // both pages look perfectly healthy while the overlay swings between two
+  // layouts, so nothing about it is discoverable by looking closer.
+  //
+  // Both steps, in the order they work. Closing the other pages stops them
+  // speaking; reloading this one resends this configuration, which is what
+  // takes the overlay back — and is the only thing that clears the warning,
+  // since it never lifts on its own.
+  it('says that others are open, and the two steps out', () => {
+    expect(captureWarning(true)).toBe(
+      'Other capture pages are open. Close them, then reload this page.',
+    );
+  });
+
+  // Quoting a number would mean knowing one, and a page draws a fresh name on
+  // every load: a tab reloaded three times reads as three pages. The plural is
+  // carried by the instruction, which is right for one page and for five.
+  it('quotes no figure it cannot stand behind', () => {
+    expect(captureWarning(true)).not.toMatch(/\d/);
   });
 });

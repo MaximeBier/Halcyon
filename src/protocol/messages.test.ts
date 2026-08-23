@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { envelope, foreignVersion, parseMessage, PROTOCOL_VERSION } from './messages';
+import { resolve } from '../config/resolve';
+import { defaultConfig } from '../config/schema';
+
+/** A config the shape check accepts, so a rejection can only be about `from`. */
+const aConfig = resolve(defaultConfig());
 
 describe('protocol envelope', () => {
   it('wraps a message under the heOverlay key', () => {
@@ -10,10 +15,15 @@ describe('protocol envelope', () => {
 
   it('reads back a wrapped message', () => {
     const parsed = parseMessage({
-      heOverlay: { v: PROTOCOL_VERSION, t: 'frame', k: [[174, 996, 1]] },
+      heOverlay: { v: PROTOCOL_VERSION, t: 'frame', from: 'capture-a', k: [[174, 996, 1]] },
     });
 
-    expect(parsed).toEqual({ v: PROTOCOL_VERSION, t: 'frame', k: [[174, 996, 1]] });
+    expect(parsed).toEqual({
+      v: PROTOCOL_VERSION,
+      t: 'frame',
+      from: 'capture-a',
+      k: [[174, 996, 1]],
+    });
   });
 
   it('ignores an unknown protocol version', () => {
@@ -75,31 +85,83 @@ describe('protocol envelope', () => {
   // key list to undefined, and the very next render would throw — killing the
   // overlay for the rest of the stream.
   it('rejects a malformed frame instead of trusting its shape', () => {
-    expect(parseMessage({ heOverlay: { v: PROTOCOL_VERSION, t: 'frame' } })).toBeNull();
-    expect(parseMessage({ heOverlay: { v: PROTOCOL_VERSION, t: 'frame', k: 'nope' } })).toBeNull();
     expect(
-      parseMessage({ heOverlay: { v: PROTOCOL_VERSION, t: 'frame', k: [[174, 996]] } }),
+      parseMessage({ heOverlay: { v: PROTOCOL_VERSION, t: 'frame', from: 'capture-a' } }),
     ).toBeNull();
     expect(
-      parseMessage({ heOverlay: { v: PROTOCOL_VERSION, t: 'frame', k: [[174, 996, 7]] } }),
+      parseMessage({
+        heOverlay: { v: PROTOCOL_VERSION, t: 'frame', from: 'capture-a', k: 'nope' },
+      }),
     ).toBeNull();
     expect(
-      parseMessage({ heOverlay: { v: PROTOCOL_VERSION, t: 'frame', k: [['a', 996, 1]] } }),
+      parseMessage({
+        heOverlay: { v: PROTOCOL_VERSION, t: 'frame', from: 'capture-a', k: [[174, 996]] },
+      }),
+    ).toBeNull();
+    expect(
+      parseMessage({
+        heOverlay: { v: PROTOCOL_VERSION, t: 'frame', from: 'capture-a', k: [[174, 996, 7]] },
+      }),
+    ).toBeNull();
+    expect(
+      parseMessage({
+        heOverlay: { v: PROTOCOL_VERSION, t: 'frame', from: 'capture-a', k: [['a', 996, 1]] },
+      }),
     ).toBeNull();
   });
 
   it('accepts an empty frame: every key released is a legitimate frame', () => {
-    expect(parseMessage({ heOverlay: { v: PROTOCOL_VERSION, t: 'frame', k: [] } })).toEqual({
+    expect(
+      parseMessage({ heOverlay: { v: PROTOCOL_VERSION, t: 'frame', from: 'capture-a', k: [] } }),
+    ).toEqual({
       v: PROTOCOL_VERSION,
       t: 'frame',
+      from: 'capture-a',
       k: [],
     });
   });
 
   it('rejects a config message that carries no object', () => {
-    expect(parseMessage({ heOverlay: { v: PROTOCOL_VERSION, t: 'config' } })).toBeNull();
     expect(
-      parseMessage({ heOverlay: { v: PROTOCOL_VERSION, t: 'config', config: 'nope' } }),
+      parseMessage({ heOverlay: { v: PROTOCOL_VERSION, t: 'config', from: 'capture-a' } }),
+    ).toBeNull();
+    expect(
+      parseMessage({
+        heOverlay: { v: PROTOCOL_VERSION, t: 'config', from: 'capture-a', config: 'nope' },
+      }),
+    ).toBeNull();
+  });
+
+  // Twenty capture tabs left open all broadcast onto the same bus, and the
+  // overlay obeys whichever spoke last. Nothing in the protocol used to say who
+  // had spoken, so no page could tell its own configuration from a stranger's —
+  // the failure where both sides look perfectly correct.
+  it('carries the name of the capture page that sent a frame or a config', () => {
+    expect(
+      parseMessage({
+        heOverlay: { v: PROTOCOL_VERSION, t: 'frame', from: 'capture-b', k: [] },
+      }),
+    ).toMatchObject({ from: 'capture-b' });
+    expect(
+      parseMessage({
+        heOverlay: { v: PROTOCOL_VERSION, t: 'config', from: 'capture-b', config: aConfig },
+      }),
+    ).toMatchObject({ from: 'capture-b' });
+  });
+
+  // Required, never defaulted. A missing name would have to read as somebody,
+  // and reading as "me" is the worst of the two: the page would file a rival's
+  // broadcast under its own and go on reporting that it is alone.
+  it('rejects a frame or a config that does not say who sent it', () => {
+    expect(parseMessage({ heOverlay: { v: PROTOCOL_VERSION, t: 'frame', k: [] } })).toBeNull();
+    expect(
+      parseMessage({ heOverlay: { v: PROTOCOL_VERSION, t: 'frame', from: '', k: [] } }),
+    ).toBeNull();
+    expect(
+      parseMessage({ heOverlay: { v: PROTOCOL_VERSION, t: 'frame', from: 42, k: [] } }),
+    ).toBeNull();
+    expect(
+      parseMessage({ heOverlay: { v: PROTOCOL_VERSION, t: 'config', config: aConfig } }),
     ).toBeNull();
   });
 
@@ -116,18 +178,27 @@ describe('a frame is numbers the renderer will divide by', () => {
   // as height="NaN".
   it('rejects a travel that is not a finite number', () => {
     expect(
-      parseMessage({ heOverlay: { v: PROTOCOL_VERSION, t: 'frame', k: [[1, Number.NaN, 0]] } }),
+      parseMessage({
+        heOverlay: { v: PROTOCOL_VERSION, t: 'frame', from: 'capture-a', k: [[1, Number.NaN, 0]] },
+      }),
     ).toBeNull();
     expect(
       parseMessage({
-        heOverlay: { v: PROTOCOL_VERSION, t: 'frame', k: [[1, Number.POSITIVE_INFINITY, 0]] },
+        heOverlay: {
+          v: PROTOCOL_VERSION,
+          t: 'frame',
+          from: 'capture-a',
+          k: [[1, Number.POSITIVE_INFINITY, 0]],
+        },
       }),
     ).toBeNull();
   });
 
   it('rejects an identifier that is not a finite number', () => {
     expect(
-      parseMessage({ heOverlay: { v: PROTOCOL_VERSION, t: 'frame', k: [[Number.NaN, 10, 0]] } }),
+      parseMessage({
+        heOverlay: { v: PROTOCOL_VERSION, t: 'frame', from: 'capture-a', k: [[Number.NaN, 10, 0]] },
+      }),
     ).toBeNull();
   });
 });

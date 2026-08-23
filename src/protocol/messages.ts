@@ -1,7 +1,7 @@
 import { isResolvedConfig } from '../config/validate';
 import type { ResolvedConfig } from '../config/schema';
 
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 
 /** [matrix index, travel 0..1023, actuation]. `active` is always transmitted. */
 export type FrameKey = readonly [id: number, travel: number, active: 0 | 1];
@@ -39,14 +39,38 @@ export type BeatMessage = {
  * warning — a crash, or OBS being killed.
  */
 export type ByeMessage = { v: typeof PROTOCOL_VERSION; t: 'bye'; id: string };
-export type ConfigMessage = { v: typeof PROTOCOL_VERSION; t: 'config'; config: ResolvedConfig };
-export type FrameMessage = { v: typeof PROTOCOL_VERSION; t: 'frame'; k: FrameKey[] };
+/**
+ * `from` is the capture page that sent this, and it is the counterpart of the
+ * `id` the overlay puts on its own three messages: both ends of the bus now
+ * sign what they say.
+ *
+ * Nothing reads it to route anything — the overlay obeys every configuration it
+ * is given, as before. It exists so that a capture page can tell its own
+ * broadcast from a second one's. Twenty tabs left open all publish onto the
+ * same bus, the overlay follows whichever spoke last, and until this field
+ * there was no way for anyone to notice: each page counted only its own frames
+ * and dropped the others in silence.
+ */
+export type ConfigMessage = {
+  v: typeof PROTOCOL_VERSION;
+  t: 'config';
+  from: string;
+  config: ResolvedConfig;
+};
+export type FrameMessage = {
+  v: typeof PROTOCOL_VERSION;
+  t: 'frame';
+  from: string;
+  k: FrameKey[];
+};
 
 export type OverlayMessage = HelloMessage | BeatMessage | ByeMessage | ConfigMessage | FrameMessage;
 
 const KNOWN_TYPES = ['hello', 'beat', 'bye', 'config', 'frame'] as const;
 /** The three the overlay sends about itself, all keyed by its id. */
 const PRESENCE_TYPES: readonly string[] = ['hello', 'beat', 'bye'];
+/** The two the capture page sends outwards, all signed with its own name. */
+const BROADCAST_TYPES: readonly string[] = ['config', 'frame'];
 
 export function envelope(message: OverlayMessage): { heOverlay: OverlayMessage } {
   return { heOverlay: message };
@@ -103,6 +127,16 @@ export function parseMessage(payload: unknown): OverlayMessage | null {
     // saying someone is watching when nobody is. On a bye it cuts the other
     // way — that is the message which removes a listener.
     if (typeof id !== 'string' || id === '') return null;
+  }
+
+  if (BROADCAST_TYPES.includes(t)) {
+    const { from } = inner as { from?: unknown };
+    // Required rather than defaulted, and for a sharper reason than `id`. A
+    // capture page compares this against its own name to know whether it is
+    // alone on the bus; a missing one would have to compare as *something*, and
+    // whichever way it fell it would answer that question wrongly for one of
+    // the two pages.
+    if (typeof from !== 'string' || from === '') return null;
   }
 
   if (t === 'hello' || t === 'beat') {

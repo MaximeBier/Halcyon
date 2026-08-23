@@ -78,9 +78,11 @@ describe('capture to overlay round trip', () => {
     await vi.waitFor(() => expect(capture.status).toBe('identified'));
     await vi.waitFor(() => expect(overlay.status).toBe('identified'));
 
-    capture.broadcast({ v: PROTOCOL_VERSION, t: 'frame', k: [[174, 996, 1]] });
+    capture.broadcast({ v: PROTOCOL_VERSION, t: 'frame', from: 'capture-a', k: [[174, 996, 1]] });
 
-    expect(received).toEqual([{ v: PROTOCOL_VERSION, t: 'frame', k: [[174, 996, 1]] }]);
+    expect(received).toEqual([
+      { v: PROTOCOL_VERSION, t: 'frame', from: 'capture-a', k: [[174, 996, 1]] },
+    ]);
   });
 
   it('lets the capture count two overlays from their heartbeats', async () => {
@@ -103,7 +105,7 @@ describe('capture to overlay round trip', () => {
 
     first.broadcast({ v: PROTOCOL_VERSION, t: 'hello', id: 'first', browser: false });
     second.broadcast({ v: PROTOCOL_VERSION, t: 'beat', id: 'second', browser: false });
-    capture.broadcast({ v: PROTOCOL_VERSION, t: 'frame', k: [] });
+    capture.broadcast({ v: PROTOCOL_VERSION, t: 'frame', from: 'capture-a', k: [] });
 
     expect(registry.counts(1000).inObs).toBe(2);
   });
@@ -158,7 +160,12 @@ describe('capture to overlay round trip - the configuration', () => {
       h: 1,
       style: { activeColor: '#ff0000' },
     });
-    capture.broadcast({ v: PROTOCOL_VERSION, t: 'config', config: resolve(config) });
+    capture.broadcast({
+      v: PROTOCOL_VERSION,
+      t: 'config',
+      from: 'capture-a',
+      config: resolve(config),
+    });
 
     const delivered = received.find((m) => m.t === 'config');
     if (delivered?.t !== 'config') throw new Error('the configuration never arrived');
@@ -179,7 +186,12 @@ describe('capture to overlay round trip - the configuration', () => {
     overlay.connect();
     await vi.waitFor(() => expect(overlay.status).toBe('identified'));
 
-    attacker.broadcast({ v: PROTOCOL_VERSION, t: 'config', config: { keys: 'nope' } as never });
+    attacker.broadcast({
+      v: PROTOCOL_VERSION,
+      t: 'config',
+      from: 'an-attacker',
+      config: { keys: 'nope' } as never,
+    });
 
     expect(received.some((m) => m.t === 'config')).toBe(false);
   });

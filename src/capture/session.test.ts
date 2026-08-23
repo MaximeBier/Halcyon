@@ -10,6 +10,7 @@ function setup() {
   const anomalies: unknown[] = [];
   const session = createCaptureSession({
     obs: { broadcast, ensureConnected: vi.fn() } as never,
+    from: 'me',
     onKeys: (k) => keys.push(k),
     onAnomaly: (a) => anomalies.push(a),
   });
@@ -22,7 +23,12 @@ describe('createCaptureSession', () => {
 
     session.handleReport(report(entry(174, 0x50, 996, 0x01)), 0);
 
-    expect(broadcast).toHaveBeenCalledWith({ v: PROTOCOL_VERSION, t: 'frame', k: [[174, 996, 1]] });
+    expect(broadcast).toHaveBeenCalledWith({
+      v: PROTOCOL_VERSION,
+      t: 'frame',
+      from: 'me',
+      k: [[174, 996, 1]],
+    });
   });
 
   it('transmits actuation even at partial travel', () => {
@@ -30,7 +36,12 @@ describe('createCaptureSession', () => {
 
     session.handleReport(report(entry(30, 0x16, 300, 0x00)), 0);
 
-    expect(broadcast).toHaveBeenCalledWith({ v: PROTOCOL_VERSION, t: 'frame', k: [[30, 300, 0]] });
+    expect(broadcast).toHaveBeenCalledWith({
+      v: PROTOCOL_VERSION,
+      t: 'frame',
+      from: 'me',
+      k: [[30, 300, 0]],
+    });
   });
 
   it('feeds the local preview with the very same keys', () => {
@@ -47,13 +58,14 @@ describe('createCaptureSession', () => {
     session.handleReport(report(entry(30, 0x16, 500, 0x02)), 0);
 
     expect(anomalies).toEqual([{ kind: 'unknown-low-bits', index: 30, field: (500 << 6) | 0x02 }]);
-    expect(broadcast).toHaveBeenCalledWith({ v: PROTOCOL_VERSION, t: 'frame', k: [] });
+    expect(broadcast).toHaveBeenCalledWith({ v: PROTOCOL_VERSION, t: 'frame', from: 'me', k: [] });
   });
 
   it('retries the OBS connection on every report: event-driven, timer-free', () => {
     const ensureConnected = vi.fn();
     const session = createCaptureSession({
       obs: { broadcast: vi.fn(), ensureConnected } as never,
+      from: 'me',
       onKeys: () => {},
       onAnomaly: () => {},
     });
@@ -67,6 +79,7 @@ describe('createCaptureSession', () => {
     const ensureConnected = vi.fn();
     const session = createCaptureSession({
       obs: { broadcast: vi.fn(), ensureConnected } as never,
+      from: 'me',
       onKeys: () => {},
       onAnomaly: () => {},
     });
@@ -89,6 +102,7 @@ describe('createCaptureSession — throughput', () => {
     expect(broadcast).toHaveBeenLastCalledWith({
       v: PROTOCOL_VERSION,
       t: 'frame',
+      from: 'me',
       k: [[174, 0, 0]],
     });
   });
@@ -106,6 +120,7 @@ describe('createCaptureSession — throughput', () => {
     const broadcast = vi.fn(() => true);
     const session = createCaptureSession({
       obs: { broadcast, ensureConnected: vi.fn() } as never,
+      from: 'me',
       onKeys: () => {},
       onAnomaly: () => {},
       selectedIds: () => [174],
@@ -113,7 +128,12 @@ describe('createCaptureSession — throughput', () => {
 
     session.handleReport(report(entry(174, 0x50, 100, 0x00), entry(9, 0x1a, 900, 0x01)), 0);
 
-    expect(broadcast).toHaveBeenCalledWith({ v: PROTOCOL_VERSION, t: 'frame', k: [[174, 100, 0]] });
+    expect(broadcast).toHaveBeenCalledWith({
+      v: PROTOCOL_VERSION,
+      t: 'frame',
+      from: 'me',
+      k: [[174, 100, 0]],
+    });
   });
 
   it('reports the rate of the frame it has just sent, not the previous one', () => {
@@ -122,6 +142,7 @@ describe('createCaptureSession — throughput', () => {
     const rates: number[] = [];
     const session = createCaptureSession({
       obs: { broadcast: vi.fn(() => true), ensureConnected: vi.fn() } as never,
+      from: 'me',
       onKeys: () => rates.push(session.rateAt(0)),
       onAnomaly: () => {},
     });
@@ -140,7 +161,12 @@ describe('createCaptureSession — an overlay announcing itself', () => {
 
     session.resend(1);
 
-    expect(broadcast).toHaveBeenCalledWith({ v: PROTOCOL_VERSION, t: 'frame', k: [[174, 400, 0]] });
+    expect(broadcast).toHaveBeenCalledWith({
+      v: PROTOCOL_VERSION,
+      t: 'frame',
+      from: 'me',
+      k: [[174, 400, 0]],
+    });
   });
 
   it('sends a rest frame when nothing is pressed, rather than nothing at all', () => {
@@ -150,7 +176,7 @@ describe('createCaptureSession — an overlay announcing itself', () => {
 
     session.resend(0);
 
-    expect(broadcast).toHaveBeenCalledWith({ v: PROTOCOL_VERSION, t: 'frame', k: [] });
+    expect(broadcast).toHaveBeenCalledWith({ v: PROTOCOL_VERSION, t: 'frame', from: 'me', k: [] });
   });
 });
 
@@ -163,6 +189,7 @@ describe('createCaptureSession — a connection that dropped', () => {
     const broadcast = vi.fn(() => live);
     const session = createCaptureSession({
       obs: { broadcast, ensureConnected: vi.fn() } as never,
+      from: 'me',
       onKeys: () => {},
       onAnomaly: () => {},
     });
@@ -175,7 +202,12 @@ describe('createCaptureSession — a connection that dropped', () => {
 
     session.handleReport(report(entry(174, 0x50, 0, 0x00)), 2);
 
-    expect(broadcast).toHaveBeenCalledWith({ v: PROTOCOL_VERSION, t: 'frame', k: [[174, 0, 0]] });
+    expect(broadcast).toHaveBeenCalledWith({
+      v: PROTOCOL_VERSION,
+      t: 'frame',
+      from: 'me',
+      k: [[174, 0, 0]],
+    });
   });
 });
 
@@ -186,6 +218,7 @@ describe('createCaptureSession — what learning reads', () => {
     const seen: number[] = [];
     const session = createCaptureSession({
       obs: { broadcast: vi.fn(() => true), ensureConnected: vi.fn() } as never,
+      from: 'me',
       onKeys: () => {},
       onAnomaly: () => {},
       selectedIds: () => [],
@@ -201,6 +234,7 @@ describe('createCaptureSession — what learning reads', () => {
     const seen: number[] = [];
     const session = createCaptureSession({
       obs: { broadcast: vi.fn(() => true), ensureConnected: vi.fn() } as never,
+      from: 'me',
       onKeys: () => {},
       onAnomaly: () => {},
       selectedIds: () => [9],

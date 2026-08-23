@@ -3,7 +3,7 @@
   import { createObsClient } from '../transport/obs';
   import { readOverlayParams } from './params';
   import { createRateCounter } from '../protocol/rate';
-  import { newOverlayId } from './identity';
+  import { newPageId } from '../protocol/identity';
   import KeyboardView from '../view/KeyboardView.svelte';
   import BrowserChrome from './BrowserChrome.svelte';
   import type { FrameKey } from '../protocol/messages';
@@ -12,7 +12,7 @@
   // The hash matters: the password is read from the fragment only, so that it
   // never reaches the access log of whoever hosts this page.
   const { port, password } = readOverlayParams(location.search, location.hash);
-  const id = newOverlayId();
+  const id = newPageId('overlay');
 
   let config = $state<ResolvedConfig | null>(null);
   let frame = $state<readonly FrameKey[]>([]);

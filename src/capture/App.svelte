@@ -13,6 +13,7 @@
   import { loadSettings, saveSettings, overlayUrl, browserStorage, keyboardHint } from './settings';
   import { createOverlayRegistry } from './overlays';
   import { createConfigBroadcaster } from './broadcast';
+  import { newPageId } from '../protocol/identity';
   import { addLearnedKey, pickLearned, removeKey, removeKeys } from './learn';
   import { keysOutside, surfaceOf } from './layout';
   import { loadLayoutMap, resolveLayout, type LayoutMapLike } from '../keyboard/labels';
@@ -171,6 +172,22 @@
    */
   let listeners = $state({ inObs: 0, inBrowser: 0 });
   const overlayCount = $derived(listeners.inObs + listeners.inBrowser);
+
+  /**
+   * This page's own name, signed onto every `config` and every `frame` it
+   * sends. Drawn once, and never again: a second draw would make the page a
+   * stranger to its own broadcast.
+   */
+  const captureId = newPageId('capture');
+  /**
+   * Whether another capture page has been heard broadcasting.
+   *
+   * Tabs left open all publish onto the same bus, and the overlay obeys
+   * whichever spoke last — a fault in which every page looks entirely correct.
+   * A flag rather than a count, since a page reloaded is a page renamed; once
+   * true it stays true, see `ConfigBroadcaster.hasOtherCapture`.
+   */
+  let otherCapture = $state(false);
 
   /**
    * Everything worth writing down, for the report nobody can write blind
@@ -358,6 +375,14 @@
     obs: { broadcast: (message) => obs.broadcast(message) },
     current: () => config,
     registry: overlays,
+    from: captureId,
+    onOtherCapture: () => {
+      otherCapture = true;
+      // In the journal as well as in the status bar, and worded differently on
+      // purpose: the bar tells someone what to do, this line timestamps it, for
+      // the report written hours later about an overlay that changed on its own.
+      note('user', 'Another capture page was heard broadcasting.');
+    },
   });
 
   /**
@@ -552,6 +577,7 @@
       broadcast: (message) => obs.broadcast(message),
       ensureConnected: (now) => obs.ensureConnected(now),
     },
+    from: captureId,
     // Only the configured keys travel: the overlay filters nothing (spec §6).
     selectedIds: () => config.keys.map((key) => key.id),
     onEntries: (entries) => {
@@ -631,7 +657,13 @@
 -->
 <div class="app">
   <header class="bar">
-    <StatusBar keyboard={keyboardStatus} obs={obsStatus} {rate} overlays={listeners} />
+    <StatusBar
+      keyboard={keyboardStatus}
+      obs={obsStatus}
+      {rate}
+      overlays={listeners}
+      {otherCapture}
+    />
 
     {#if canResume}
       <!-- Amber, and in the header: findable long after the card was put

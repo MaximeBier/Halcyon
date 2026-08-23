@@ -137,3 +137,22 @@ export function overlayTally(counts: { inObs: number; inBrowser: number }): stri
   if (counts.inBrowser === 0) return `${overlays(counts.inObs)} in OBS`;
   return `${overlays(counts.inObs)} in OBS · ${counts.inBrowser} in a browser`;
 }
+
+/**
+ * What the status bar says when a second capture page is on the bus, or `null`
+ * when this one is alone.
+ *
+ * No number in it, and none available to put there: a capture page draws a
+ * fresh name on every load, so a tab reloaded three times is three names on
+ * this side and one page on the other. The plural is worn by the instruction
+ * instead, where it costs nothing to be right for one page or for five.
+ *
+ * Reloading is not housekeeping. Closing the other pages stops them speaking;
+ * reloading this one sends this configuration afresh, which is what takes the
+ * overlay back — and it is also the only thing that clears the warning, which
+ * never lifts on its own (see `ConfigBroadcaster.hasOtherCapture`).
+ */
+export function captureWarning(another: boolean): string | null {
+  if (!another) return null;
+  return 'Other capture pages are open. Close them, then reload this page.';
+}
