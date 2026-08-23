@@ -436,6 +436,11 @@
     // the selection on plain mouse movement with nothing held down.
     if (event.button !== 0) return;
 
+    // Before any branch: a toggle takes the popover down by changing the
+    // selection, a drag by arming the draft — either way the focused field
+    // detaches, so whatever is half-typed in it commits here or never.
+    commitPendingEdit();
+
     if (event.shiftKey) {
       // Composing a selection, not moving one: no drag starts from here, or a
       // twitch of the hand would displace the group being assembled.
@@ -446,7 +451,6 @@
     // Pressing a key outside the selection takes it alone; pressing one inside
     // keeps the group, so the whole group can be dragged.
     if (!selectedIds.includes(id)) {
-      commitPendingEdit();
       // A new selection is a new subject, and `popoverVisible` closes the
       // panel on its own once the ids no longer match. Pressing a key already
       // in the selection changes nothing, which is what lets the popover
@@ -478,6 +482,10 @@
     if (event.button !== 0) return;
     if (!sizable) return;
     event.stopPropagation();
+
+    // The grip never touches the selection, so nothing else on this path
+    // commits the popover's field before the draft hides it.
+    commitPendingEdit();
 
     draft = config;
     sizing = {

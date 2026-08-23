@@ -395,6 +395,9 @@ describe('LayoutEditor - the popover belongs to one selection', () => {
 });
 
 describe('LayoutEditor - a half-typed field is not thrown away', () => {
+  // Each test targets one way of arming a gesture: the bare stage commits in
+  // its own handler, but a drag or a resize hides the popover through `draft`
+  // alone, and those two paths used to detach the field uncommitted.
   it('blurs the popover before taking it down', async () => {
     // The fields commit on `change`, which fires on blur — and blur is part of
     // the default action of a press elsewhere, so it happens after this
@@ -418,6 +421,45 @@ describe('LayoutEditor - a half-typed field is not thrown away', () => {
     canvas.dispatchEvent(
       new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 4 }),
     );
+
+    expect(blurred).toHaveBeenCalled();
+  });
+
+  it('blurs the popover when a drag starts on a key already selected', async () => {
+    // Pressing a key inside the selection keeps the popover's subject, so the
+    // selection branch commits nothing — yet the press still arms the draft,
+    // which hides the popover and detaches the field mid-edit.
+    const { handles, container } = editor();
+
+    handles[0]!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    await tick();
+
+    const label = container.querySelector<HTMLInputElement>('input[name="label"]')!;
+    label.focus();
+    const blurred = vi.fn();
+    label.addEventListener('blur', blurred);
+
+    press(handles[0]!);
+
+    expect(blurred).toHaveBeenCalled();
+  });
+
+  it('blurs the popover when a resize starts on a grip', async () => {
+    // The grip never touches the selection at all, so nothing on its path
+    // committed the field — same hidden popover, same silent loss.
+    const { handles, container } = editor();
+
+    handles[0]!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    await tick();
+
+    const label = container.querySelector<HTMLInputElement>('input[name="label"]')!;
+    label.focus();
+    const blurred = vi.fn();
+    label.addEventListener('blur', blurred);
+
+    const grip = container.querySelector<HTMLElement>('.grip')!;
+    grip.setPointerCapture = () => {};
+    press(grip);
 
     expect(blurred).toHaveBeenCalled();
   });
