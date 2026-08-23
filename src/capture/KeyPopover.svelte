@@ -120,8 +120,16 @@
    * nothing — would be worse.
    */
   function toText() {
+    // Only when leaving the grid. Clicking Text while the text field is
+    // already showing used to overwrite the name: a key renamed "Sprint" reads
+    // as text mode, the button reads `aria-pressed="true"`, and pressing it —
+    // the natural way to confirm one is in text mode — turned it back into
+    // "W". Nothing about a switch should destroy a value, and the destructive
+    // path already has its own control below, which names what it will write.
+    const leavingIcon = labelKind === 'icon';
     picked = 'text';
-    if (single) onChange(setKeyLabel(config, single.id, labelFor(single.usage, layout)));
+    if (leavingIcon && single)
+      onChange(setKeyLabel(config, single.id, labelFor(single.usage, layout)));
   }
   const mode = $derived<KeyMode>(
     selection.length > 0 && selection.every((key) => key.mode === 'axis') ? 'axis' : 'key',

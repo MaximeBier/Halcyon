@@ -558,6 +558,20 @@ describe('KeyPopover - text or icon', () => {
     expect(onChange.mock.calls[0]![0].keys[2].label).toBe('Enter');
   });
 
+  // A switch must not destroy a value. The button reads `aria-pressed="true"`
+  // on a renamed key, so pressing it is the natural way to confirm one is in
+  // text mode — and it used to replace "Sprint" with "Q". The way back to the
+  // detected name is the control below, which says what it will write.
+  it('leaves a typed name alone when Text is already the mode', () => {
+    const renamed = setKeyLabel(twoKeys(), 1, 'Sprint');
+    const { container, onChange } = withLayout(renamed);
+
+    expect(kind(container, 'text').getAttribute('aria-pressed')).toBe('true');
+    kind(container, 'text').click();
+
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   // The four arrows are the same string in both tables, so a key wearing one
   // is in both modes at once. The switch is held rather than derived for
   // exactly this: picking an arrow must not shut the grid under the pointer.
