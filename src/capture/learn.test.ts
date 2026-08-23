@@ -47,17 +47,32 @@ describe('pickLearned', () => {
 
 describe('addLearnedKey', () => {
   it('adds the key with its label, its size and its default position', () => {
-    const config = addLearnedKey(defaultConfig(), entry(174, 0x2c, 900), azerty, SURFACE);
+    const config = addLearnedKey(defaultConfig(), entry(174, 0x04, 900), azerty, SURFACE);
 
     expect(config.keys).toHaveLength(1);
     expect(config.keys[0]).toMatchObject({
       id: 174,
-      usage: 0x2c,
+      usage: 0x04,
       mode: 'key',
-      label: 'Space',
-      w: 6.25,
+      label: 'Q',
+      w: 1,
       h: 1,
     });
+  });
+
+  // Board 6e: "special keys pick their icon automatically on capture". The
+  // moment a key is learned is the moment its use is known, and it is the only
+  // moment nobody has yet decided anything about its name.
+  it('gives a special key its glyph rather than its name', () => {
+    const config = addLearnedKey(defaultConfig(), entry(174, 0x2c, 900), azerty, SURFACE);
+
+    expect(config.keys[0]).toMatchObject({ label: '␣', w: 6.25 });
+  });
+
+  it('leaves a writing key the name the layout gives it', () => {
+    const config = addLearnedKey(defaultConfig(), entry(1, 0x1a, 900), azerty, SURFACE);
+
+    expect(config.keys[0]?.label).toBe('Z');
   });
 
   it('applies the key mode by default', () => {

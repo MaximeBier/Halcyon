@@ -86,6 +86,73 @@ const KEYCAP_LABELS: Record<string, string> = {
   Numpad9: '9',
 };
 
+/**
+ * The glyph a special key wears instead of its name (board 6e).
+ *
+ * **Beside `KEYCAP_LABELS`, never instead of it.** The Text half of the toggle
+ * has to go on printing what the layout says, so both tables answer for the
+ * same positions and the choice between them belongs to the caller.
+ *
+ * Left and right variants share a glyph, as they share a name: the position on
+ * the board is what tells them apart. The four arrows are already glyphs in the
+ * text table, and they are repeated here on purpose — the two answers agreeing
+ * is a fact worth having stated, not an omission to work around.
+ *
+ * These eight are the ones that comment above `KEYCAP_LABELS` warns off:
+ * outside the shipped Archivo subset, so a system face draws them. That is not
+ * new — the arrows have shipped that way since milestone 4 — but it is why the
+ * table stops at twelve rather than growing a glyph for every position.
+ */
+const KEYCAP_ICONS: Record<string, string> = {
+  ArrowUp: '↑',
+  ArrowDown: '↓',
+  ArrowLeft: '←',
+  ArrowRight: '→',
+  Enter: '⏎',
+  NumpadEnter: '⏎',
+  Backspace: '⌫',
+  Space: '␣',
+  MetaLeft: '⊞',
+  MetaRight: '⊞',
+  ShiftLeft: '⇧',
+  ShiftRight: '⇧',
+  Tab: '⇥',
+  Escape: '⎋',
+  Delete: '⌦',
+};
+
+/**
+ * Every glyph the table can produce, in the order the picker draws them.
+ *
+ * Two jobs, and the second is the one that saved a schema change: the picker
+ * offers all twelve on any key, and **a key is wearing an icon exactly when its
+ * label is one of these**. Asked of the data, as task 22b asks whether a label
+ * still matches the layout — no `labelMode` field, no migration, and it works
+ * on every profile already written.
+ */
+export const ICON_SET: readonly string[] = [
+  '↑',
+  '↓',
+  '←',
+  '→',
+  '⏎',
+  '⌫',
+  '␣',
+  '⊞',
+  '⇧',
+  '⇥',
+  '⎋',
+  '⌦',
+];
+
+/** The glyph for a position, or `null` where a name is all there is. */
+export function iconFor(usage: number): string | null {
+  const geometry = geometryFor(usage);
+  if (!geometry) return null;
+
+  return KEYCAP_ICONS[geometry.code] ?? null;
+}
+
 export function labelFor(usage: number, layout: LayoutMapLike | null): string {
   const geometry = geometryFor(usage);
   if (!geometry) return `HID 0x${usage.toString(16)}`;

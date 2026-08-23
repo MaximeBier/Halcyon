@@ -1,4 +1,4 @@
-import { labelFor, resolveLayout, type LayoutMapLike } from '../keyboard/labels';
+import { iconFor, labelFor, resolveLayout, type LayoutMapLike } from '../keyboard/labels';
 import type {
   GlobalStyle,
   KeyConfig,
@@ -83,6 +83,11 @@ export function setKeyLabel(config: OverlayConfig, id: number, label: string): O
  * renamed a key "Sprint" would lose it to a keyboard being replugged
  * (spec §8.6). Making it a function rather than a reaction to `layoutOverride`
  * is what keeps that impossible.
+ *
+ * It produces exactly what learning produces — glyph included, since board 6e.
+ * That is the whole contract of the button: it puts a key back where a fresh
+ * capture would have put it. Leaving the glyph out here would have made it
+ * turn every icon back into a word on its way to fixing one letter.
  */
 export function recomputeLabels(
   config: OverlayConfig,
@@ -90,7 +95,10 @@ export function recomputeLabels(
 ): OverlayConfig {
   return {
     ...config,
-    keys: config.keys.map((key) => ({ ...key, label: labelFor(key.usage, layout) })),
+    keys: config.keys.map((key) => ({
+      ...key,
+      label: iconFor(key.usage) ?? labelFor(key.usage, layout),
+    })),
   };
 }
 

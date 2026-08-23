@@ -152,6 +152,20 @@ describe('labels and modes', () => {
     expect(next.keys[1]?.label).toBe('KeyS');
     expect(next.keys[1]?.label).toBe(labelFor(0x16, null));
   });
+
+  // The same invariant as the test above, now that learning prefers a glyph for
+  // the twelve special positions: recomputing has to reach for the glyph too,
+  // or the button quietly turns every icon back into a word.
+  it('restores the glyph on a special key, as a fresh learn would', () => {
+    const base = config();
+    const withEnter = setKeyLabel(
+      { ...base, keys: [...base.keys, { ...base.keys[0]!, id: 9, usage: 0x28 }] },
+      9,
+      'Enter',
+    );
+
+    expect(recomputeLabels(withEnter, new Map([['KeyQ', 'a']])).keys.at(-1)?.label).toBe('⏎');
+  });
 });
 
 describe('choosing a layout', () => {

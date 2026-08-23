@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, cleanup } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import KeyPopover from './KeyPopover.svelte';
 import popoverSource from './KeyPopover.svelte?raw';
 import { setKeyLabel, setKeyStyle } from '../config/edit';
@@ -462,5 +463,126 @@ describe('KeyPopover - the Style block is shut on a first run', () => {
 
     expect(container.querySelector('details')!.open).toBe(false);
     expect(container.querySelector('[data-style-row="fillColor"]')).toBeNull();
+  });
+});
+
+describe('KeyPopover - text or icon', () => {
+  const AZERTY = new Map([['KeyQ', 'a']]);
+
+  const withLayout = (config: OverlayConfig, selectedIds = [1]) => {
+    const onChange = vi.fn();
+    const view = render(KeyPopover, {
+      props: {
+        config,
+        selectedIds,
+        surface: SURFACE,
+        onChange,
+        onClose: vi.fn(),
+        storage: memory(),
+        layout: AZERTY,
+      },
+    });
+    return { ...view, onChange };
+  };
+
+  const kind = (container: Element, value: 'text' | 'icon') =>
+    container.querySelector<HTMLButtonElement>(`button[data-label-kind="${value}"]`)!;
+  const icons = (container: Element) => [
+    ...container.querySelectorAll<HTMLButtonElement>('button[aria-label^="Icon "]'),
+  ];
+
+  /** Enter, which the twelve cover, learned as its glyph. */
+  const withEnter = (label = '⏎') => {
+    const config = twoKeys();
+    config.keys.push({ id: 3, usage: 0x28, mode: 'key', label, x: 2, y: 0, w: 1, h: 1 });
+    return config;
+  };
+
+  it('shows the text field on a key wearing a name', () => {
+    const { container } = withLayout(twoKeys());
+
+    expect(container.querySelector('#key-label-text')).not.toBeNull();
+    expect(icons(container)).toHaveLength(0);
+    expect(kind(container, 'text').getAttribute('aria-pressed')).toBe('true');
+  });
+
+  // The whole point of learning a glyph: the popover has to open on the editor
+  // that matches what the key is actually wearing, or the toggle reads as a
+  // claim that the key is in text mode while showing a glyph.
+  it('opens on the grid for a key already wearing a glyph', () => {
+    const { container } = withLayout(withEnter(), [3]);
+
+    expect(kind(container, 'icon').getAttribute('aria-pressed')).toBe('true');
+    expect(icons(container)).toHaveLength(12);
+    expect(container.querySelector('#key-label-text')).toBeNull();
+  });
+
+  it('marks the glyph the key is wearing', () => {
+    const { container } = withLayout(withEnter(), [3]);
+    const pressed = icons(container).filter((b) => b.getAttribute('aria-pressed') === 'true');
+
+    expect(pressed.map((b) => b.textContent?.trim())).toEqual(['⏎']);
+  });
+
+  it('writes the glyph that is clicked', () => {
+    const { container, onChange } = withLayout(withEnter(), [3]);
+
+    icons(container)
+      .find((b) => b.textContent?.trim() === '⌫')!
+      .click();
+
+    expect(onChange.mock.calls[0]![0].keys[2].label).toBe('⌫');
+  });
+
+  // Any glyph on any key, as the board draws the grid — a picker, not a lookup
+  // of the one icon this position happens to have.
+  it('offers the twelve on a writing key too', async () => {
+    const { container, onChange } = withLayout(twoKeys());
+
+    kind(container, 'icon').click();
+    await tick();
+    icons(container)
+      .find((b) => b.textContent?.trim() === '⇧')!
+      .click();
+
+    expect(onChange.mock.calls[0]![0].keys[0].label).toBe('⇧');
+  });
+
+  it('puts the layout name back when Text is chosen', () => {
+    const { container, onChange } = withLayout(withEnter(), [3]);
+
+    kind(container, 'text').click();
+
+    // No layout entry for Enter, so the keycap table answers — which is what
+    // text mode means for a key that prints no character.
+    expect(onChange.mock.calls[0]![0].keys[2].label).toBe('Enter');
+  });
+
+  // The four arrows are the same string in both tables, so a key wearing one
+  // is in both modes at once. The switch is held rather than derived for
+  // exactly this: picking an arrow must not shut the grid under the pointer.
+  it('stays on the grid after an arrow is picked', async () => {
+    const { container } = withLayout(twoKeys());
+
+    kind(container, 'icon').click();
+    await tick();
+    icons(container)
+      .find((b) => b.textContent?.trim() === '←')!
+      .click();
+
+    expect(kind(container, 'icon').getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('offers no way back to the detected name while the grid is open', () => {
+    // "Reset to detected" and the Text button would write the same thing.
+    const { container } = withLayout(withEnter(), [3]);
+
+    expect(container.querySelector('button[data-reset="label"]')).toBeNull();
+  });
+
+  it('says nothing about labels for a group', () => {
+    const { container } = withLayout(twoKeys(), [1, 2]);
+
+    expect(container.querySelector('button[data-label-kind="icon"]')).toBeNull();
   });
 });

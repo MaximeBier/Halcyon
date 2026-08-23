@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { FALLBACK_LAYOUTS, labelFor, loadLayoutMap, resolveLayout } from './labels';
+import {
+  FALLBACK_LAYOUTS,
+  ICON_SET,
+  iconFor,
+  labelFor,
+  loadLayoutMap,
+  resolveLayout,
+} from './labels';
 import { ISO_GEOMETRY } from './geometry';
 
 const azerty = new Map([
@@ -201,5 +208,60 @@ describe('resolveLayout - the forced choice corrects, it does not replace', () =
   it('still works alone when detection is unavailable', () => {
     expect(labelFor(0x14, resolveLayout('azerty', null))).toBe('A');
     expect(labelFor(0x07, resolveLayout('azerty', null))).toBe('KeyD');
+  });
+});
+
+describe('the icon set', () => {
+  // Board 6e, "KEY LABEL · ICON SET". Twelve glyphs, and they sit *beside*
+  // KEYCAP_LABELS rather than replacing it: text mode has to go on printing the
+  // name the layout gives, which is the whole meaning of the Text half.
+  it('gives the twelve special positions a glyph', () => {
+    expect(iconFor(0x52)).toBe('↑');
+    expect(iconFor(0x51)).toBe('↓');
+    expect(iconFor(0x50)).toBe('←');
+    expect(iconFor(0x4f)).toBe('→');
+    expect(iconFor(0x28)).toBe('⏎');
+    expect(iconFor(0x2a)).toBe('⌫');
+    expect(iconFor(0x2c)).toBe('␣');
+    expect(iconFor(0xe3)).toBe('⊞');
+    expect(iconFor(0xe1)).toBe('⇧');
+    expect(iconFor(0x2b)).toBe('⇥');
+    expect(iconFor(0x29)).toBe('⎋');
+    expect(iconFor(0x4c)).toBe('⌦');
+  });
+
+  // Same rule as the text table: one glyph for both sides of the board, since
+  // both keycaps print the same thing and the position tells them apart.
+  it('gives both sides of a paired modifier the same glyph', () => {
+    expect(iconFor(0xe5)).toBe(iconFor(0xe1));
+    expect(iconFor(0xe7)).toBe(iconFor(0xe3));
+    expect(iconFor(0x58)).toBe(iconFor(0x28));
+  });
+
+  it('has nothing to say about a writing key', () => {
+    expect(iconFor(0x14)).toBeNull();
+    expect(iconFor(0x1e)).toBeNull();
+  });
+
+  it('says nothing for a usage the board does not have', () => {
+    expect(iconFor(0xffff)).toBeNull();
+  });
+
+  // The picker offers every glyph on any key, so the set has to be listable —
+  // and a key wears an icon exactly when its label is in here. That test is
+  // what replaces a `labelMode` field in the schema.
+  it('lists exactly the glyphs the table can produce', () => {
+    const produced = new Set(
+      ISO_GEOMETRY.map((position) => iconFor(position.usage)).filter(
+        (icon): icon is string => icon !== null,
+      ),
+    );
+
+    expect(new Set(ICON_SET)).toEqual(produced);
+    expect(ICON_SET).toHaveLength(12);
+  });
+
+  it('holds no duplicate, so the picker cannot show one glyph twice', () => {
+    expect(new Set(ICON_SET).size).toBe(ICON_SET.length);
   });
 });

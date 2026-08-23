@@ -3,7 +3,7 @@
   import { effectiveStyle, overriddenKeys } from '../config/resolve';
   import { removeKeys } from './learn';
   import { moveKey, resizeKeys, GRID, type Rect } from './layout';
-  import { labelFor, type LayoutMapLike } from '../keyboard/labels';
+  import { ICON_SET, labelFor, type LayoutMapLike } from '../keyboard/labels';
   import Collapsible from './Collapsible.svelte';
   import {
     RADIUS_BOUNDS,
@@ -78,6 +78,45 @@
     const detected = labelFor(single.usage, layout);
     return detected === single.label ? null : detected;
   });
+
+  /**
+   * Which of the two label editors is showing — a view switch, not a stored
+   * mode. Nothing in the configuration records "this key is in icon mode"; the
+   * label is the label, and a glyph is text like any other (spec §16.4).
+   *
+   * It has to be held rather than derived from the label, for the four arrows:
+   * `KEYCAP_LABELS` and the icon set answer `←` alike, so a key wearing one is
+   * in both modes at once. Derived, picking `←` in the grid would read as text
+   * again and shut the grid under the pointer.
+   */
+  let picked = $state<'text' | 'icon' | null>(null);
+  const labelKind = $derived(
+    picked ?? (single && ICON_SET.includes(single.label) ? 'icon' : 'text'),
+  );
+
+  // A different key is a different question. Without this, opening the grid on
+  // Enter and then clicking a letter leaves the letter showing a grid.
+  let editing = $state<number | null>(null);
+  $effect(() => {
+    if (single?.id !== editing) {
+      editing = single?.id ?? null;
+      picked = null;
+    }
+  });
+
+  /**
+   * Back to the name, on request — destructive like the recompute button, and
+   * for the same reason: it is a click, not a side effect.
+   *
+   * With no layout detected this hands back the position name for a writing
+   * key, which is poor. It is still the honest answer, it is one field away
+   * from being fixed by hand, and the alternative — a Text button that does
+   * nothing — would be worse.
+   */
+  function toText() {
+    picked = 'text';
+    if (single) onChange(setKeyLabel(config, single.id, labelFor(single.usage, layout)));
+  }
   const mode = $derived<KeyMode>(
     selection.length > 0 && selection.every((key) => key.mode === 'axis') ? 'axis' : 'key',
   );
@@ -298,17 +337,63 @@
 
     {#if single}
       <div class="row">
-        <label for="key-label">Label</label>
-        <input
-          id="key-label"
-          name="label"
-          type="text"
-          value={single.label}
-          onchange={(event) => onChange(setKeyLabel(config, single.id, event.currentTarget.value))}
-        />
+        <span class="label" id="key-label">Label</span>
+        <!-- Board 6e. Not a stored mode: it chooses which editor is on screen,
+             and both write the same field. -->
+        <div class="segmented small" role="group" aria-labelledby="key-label">
+          <button
+            type="button"
+            data-label-kind="text"
+            class:on={labelKind === 'text'}
+            aria-pressed={labelKind === 'text'}
+            onclick={toText}
+          >
+            Text
+          </button>
+          <button
+            type="button"
+            data-label-kind="icon"
+            class:on={labelKind === 'icon'}
+            aria-pressed={labelKind === 'icon'}
+            onclick={() => (picked = 'icon')}
+          >
+            Icon
+          </button>
+        </div>
       </div>
 
-      {#if detectedLabel !== null}
+      {#if labelKind === 'icon'}
+        <div class="icons" role="group" aria-label="Icon">
+          {#each ICON_SET as icon (icon)}
+            <button
+              type="button"
+              class:on={single.label === icon}
+              aria-pressed={single.label === icon}
+              aria-label={`Icon ${icon}`}
+              onclick={() => onChange(setKeyLabel(config, single.id, icon))}
+            >
+              {icon}
+            </button>
+          {/each}
+        </div>
+        <!-- Said here because it is the one thing the grid cannot show: the
+             twelve are already on the keys nobody had to touch. -->
+        <p class="hint">Special keys pick their icon on capture. Text keeps the layout name.</p>
+      {:else}
+        <div class="row">
+          <input
+            id="key-label-text"
+            name="label"
+            type="text"
+            aria-labelledby="key-label"
+            value={single.label}
+            onchange={(event) =>
+              onChange(setKeyLabel(config, single.id, event.currentTarget.value))}
+          />
+        </div>
+      {/if}
+
+      {#if labelKind === 'text' && detectedLabel !== null}
         <!-- The counterpart of "Reset to global" for the one property that is
              not a style. Without it a rename only comes undone by retyping the
              detected label exactly — and a layout change will not do it, since
@@ -528,6 +613,40 @@
   }
   .segmented.small button {
     padding: 4px 8px;
+  }
+  /* Six across, as the board draws it — twelve glyphs in two rows fit the
+     284 px panel without any of them shrinking below a target. */
+  .icons {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 7px;
+  }
+  .icons button {
+    display: grid;
+    place-items: center;
+    height: 30px;
+    font: inherit;
+    /* Larger than the panel's text on purpose: these are drawn by a system
+       face, not by Archivo, and they read small at the UI size. */
+    font-size: var(--he-size-lg, 18px);
+    color: var(--he-text, #dde1e9);
+    background: var(--he-bg, #0e1015);
+    border: 1px solid var(--he-border-control, #232838);
+    border-radius: var(--he-radius-control, 5px);
+    cursor: pointer;
+  }
+  .icons button:hover {
+    border-color: var(--he-border-hover, #3a4054);
+  }
+  .icons button.on {
+    border-color: var(--he-accent, #7c9eff);
+    outline: 1px solid var(--he-accent, #7c9eff);
+  }
+  .hint {
+    margin: 0;
+    font-size: var(--he-size-sm, 15px);
+    line-height: 1.45;
+    color: var(--he-text-faint, #5a5f70);
   }
   .suggestion {
     margin: 0;
