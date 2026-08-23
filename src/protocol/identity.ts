@@ -35,7 +35,13 @@ export function newPageId(
   prefix: string,
   source: RandomSource | undefined = globalThis.crypto,
 ): string {
-  if (typeof source?.randomUUID === 'function') return source.randomUUID();
+  // The prefix goes on both branches. It was on the fallback alone for a day,
+  // which meant it was never on anything in production — every real page is in
+  // a secure context, so every real id was a bare UUID, and the one branch that
+  // honoured the contract was the one that never runs. `from` travels on every
+  // `config` and every `frame`, so this is what tells a capture from an overlay
+  // when someone is reading the bus to find out why two pages are talking.
+  if (typeof source?.randomUUID === 'function') return `${prefix}-${source.randomUUID()}`;
 
   counter += 1;
   const origin = Math.trunc(performance.timeOrigin).toString(36);

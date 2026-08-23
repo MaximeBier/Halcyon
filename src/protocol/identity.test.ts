@@ -8,13 +8,13 @@ describe('newPageId', () => {
   it('uses randomUUID when the browser offers one', () => {
     const id = newPageId('overlay', { randomUUID: () => 'uuid-from-the-browser' });
 
-    expect(id).toBe('uuid-from-the-browser');
+    expect(id).toBe('overlay-uuid-from-the-browser');
   });
 
   it('reaches for the global crypto by default', () => {
     // Node's global crypto has randomUUID, so this exercises the normal path —
     // not the fallback, whatever the absence of an argument might suggest.
-    expect(newPageId('overlay')).toMatch(/^[0-9a-f-]{36}$/);
+    expect(newPageId('overlay')).toMatch(/^overlay-[0-9a-f-]{36}$/);
   });
 
   // `crypto.randomUUID` only exists in a secure context. An overlay served from
@@ -26,10 +26,16 @@ describe('newPageId', () => {
   });
 
   // The prefix is the only thing the caller chooses, and it is what makes an id
-  // readable in the journal: `capture-…` beside `overlay-…` says which of the
-  // two pages is being talked about without looking anything up.
-  it('wears the name the caller gave it', () => {
+  // readable on the bus: `capture-…` beside `overlay-…` says which of the two
+  // pages sent a message without looking anything up.
+  //
+  // **On both branches**, which is the whole point of asserting it twice. For a
+  // day it was on the fallback alone — the branch no real page ever takes,
+  // since a secure context is a requirement of WebHID and of the hosted
+  // overlay. A contract honoured only where it cannot be observed is not one.
+  it('wears the name the caller gave it, secure context or not', () => {
     expect(newPageId('capture', insecureContext)).toMatch(/^capture-\S+/);
+    expect(newPageId('capture', { randomUUID: () => 'x' })).toBe('capture-x');
   });
 
   it('produces a different id every time, fallback included', () => {

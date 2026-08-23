@@ -167,10 +167,34 @@
   }
 
   function typed(input: HTMLInputElement, fallback: number): number | null {
-    if (input.value !== '') return Number(input.value);
-    input.value = String(fallback);
-    return null;
+    const value = Number(input.value);
+    // Finite, not merely non-empty. A NaN would reach the configuration, fail
+    // `isResolvedConfig` on the wire, and freeze the overlay on its last valid
+    // frame — with the editor showing a change that never left the page.
+    if (input.value === '' || !Number.isFinite(value)) {
+      input.value = String(fallback);
+      return null;
+    }
+    return value;
   }
+
+  /**
+   * Writes the configuration's own value back into the field.
+   *
+   * Every number here is clamped downstream — the radius against
+   * `RADIUS_BOUNDS`, the position against the work surface, the size against
+   * the grid. When the clamped result equals what was already stored, nothing
+   * in the configuration changes, so Svelte never rewrites the input and it
+   * goes on showing a figure nothing holds. **A silent clamp is how someone
+   * concludes the setting is broken** — the finding of the 2026-08-20 review,
+   * which `StylePanel.size()` acted on and this panel never did.
+   */
+  function settle(input: HTMLInputElement, value: number) {
+    input.value = String(value);
+  }
+
+  /** The key as it came out of an edit, for `settle` to read its clamped value. */
+  const after = (next: OverlayConfig, id: number) => next.keys.find((key) => key.id === id);
 </script>
 
 <!--
@@ -187,9 +211,17 @@
   beside it — and it is exactly where one would click to undo it. Padded well
   past its six pixels, so the target is a target.
 -->
-{#snippet named(property: keyof KeyStyle, label: string, control: string)}
+{#snippet named(property: keyof KeyStyle, label: string, control: string, group: boolean)}
   <span class="name">
-    <label for={control}>{label}</label>
+    <!-- A `<label for>` only where a labelable control answers to that id. The
+         fill direction is a group of buttons, and pointing a label at it named
+         nothing at all: the `for` dangled, so the `aria-labelledby` beside it
+         resolved to no element and the group went nameless. -->
+    {#if group}
+      <span class="label" id={`${control}-name`}>{label}</span>
+    {:else}
+      <label for={control}>{label}</label>
+    {/if}
     {#if overridden.includes(property)}
       <button
         type="button"
@@ -287,7 +319,7 @@
       >
         {#each COLORS as [property, label] (property)}
           <div class="row" data-style-row={property}>
-            {@render named(property, label, `key-${property}`)}
+            {@render named(property, label, `key-${property}`, false)}
             <div class="value">
               <input
                 id={`key-${property}`}
@@ -301,9 +333,9 @@
         {/each}
 
         <div class="row" data-style-row="fillDirection">
-          {@render named('fillDirection', 'Fill direction', 'key-fillDirection')}
+          {@render named('fillDirection', 'Fill direction', 'key-fillDirection', true)}
           <div class="value">
-            <div class="segmented small" role="group" aria-labelledby="key-fillDirection">
+            <div class="segmented small" role="group" aria-labelledby="key-fillDirection-name">
               {#each DIRECTIONS as [value, glyph] (value)}
                 <button
                   type="button"
@@ -321,7 +353,7 @@
         </div>
 
         <div class="row" data-style-row="radius">
-          {@render named('radius', 'Radius', 'key-radius')}
+          {@render named('radius', 'Radius', 'key-radius', false)}
           <div class="value">
             <input
               id="key-radius"
@@ -332,8 +364,10 @@
               value={effective.radius}
               onchange={(event) => {
                 const value = typed(event.currentTarget, effective!.radius);
-                if (value !== null)
-                  apply('radius', Math.min(RADIUS_BOUNDS.max, Math.max(RADIUS_BOUNDS.min, value)));
+                if (value === null) return;
+                const clamped = Math.min(RADIUS_BOUNDS.max, Math.max(RADIUS_BOUNDS.min, value));
+                settle(event.currentTarget, clamped);
+                apply('radius', clamped);
               }}
             />
             <span class="unit">px</span>
@@ -439,7 +473,10 @@
             value={single.x}
             onchange={(event) => {
               const x = typed(event.currentTarget, single.x);
-              if (x !== null) onChange(moveKey(config, single.id, x, single.y, surface));
+              if (x === null) return;
+              const next = moveKey(config, single.id, x, single.y, surface);
+              settle(event.currentTarget, after(next, single.id)?.x ?? single.x);
+              onChange(next);
             }}
           />
           <span class="times">,</span>
@@ -451,7 +488,10 @@
             value={single.y}
             onchange={(event) => {
               const y = typed(event.currentTarget, single.y);
-              if (y !== null) onChange(moveKey(config, single.id, single.x, y, surface));
+              if (y === null) return;
+              const next = moveKey(config, single.id, single.x, y, surface);
+              settle(event.currentTarget, after(next, single.id)?.y ?? single.y);
+              onChange(next);
             }}
           />
         </div>
@@ -470,7 +510,10 @@
           value={lead.w}
           onchange={(event) => {
             const w = typed(event.currentTarget, lead.w);
-            if (w !== null) onChange(resizeKeys(config, selectedIds, w, lead.h));
+            if (w === null) return;
+            const next = resizeKeys(config, selectedIds, w, lead.h);
+            settle(event.currentTarget, after(next, lead.id)?.w ?? lead.w);
+            onChange(next);
           }}
         />
         <span class="times">×</span>
@@ -483,7 +526,10 @@
           value={lead.h}
           onchange={(event) => {
             const h = typed(event.currentTarget, lead.h);
-            if (h !== null) onChange(resizeKeys(config, selectedIds, lead.w, h));
+            if (h === null) return;
+            const next = resizeKeys(config, selectedIds, lead.w, h);
+            settle(event.currentTarget, after(next, lead.id)?.h ?? lead.h);
+            onChange(next);
           }}
         />
       </div>

@@ -4,7 +4,7 @@ import { tick } from 'svelte';
 import KeyPopover from './KeyPopover.svelte';
 import popoverSource from './KeyPopover.svelte?raw';
 import { setKeyLabel, setKeyStyle } from '../config/edit';
-import { DEFAULT_STYLE, defaultConfig, type OverlayConfig } from '../config/schema';
+import { DEFAULT_STYLE, RADIUS_BOUNDS, defaultConfig, type OverlayConfig } from '../config/schema';
 import { surfaceOf } from './layout';
 
 afterEach(cleanup);
@@ -625,5 +625,53 @@ describe('KeyPopover - resetting a group', () => {
     const next = onChange.mock.calls[0]![0];
     expect(next.keys[0].style).toBeUndefined();
     expect(next.keys[1].style).toBeUndefined();
+  });
+});
+
+describe('KeyPopover - a field never shows a figure nothing holds', () => {
+  const radius = (container: Element) => container.querySelector<HTMLInputElement>('#key-radius')!;
+
+  // The clamp is local and invisible: at 100 already, typing 500 changes
+  // nothing in the configuration, so Svelte never rewrites the input and it
+  // goes on reading 500. A silent clamp is how someone concludes the setting
+  // is broken — the 2026-08-20 review, acted on in StylePanel and not here.
+  it('writes the clamped radius back into the field', () => {
+    const config = twoKeys();
+    config.keys[0]!.style = { radius: RADIUS_BOUNDS.max };
+    const { container } = popover(config);
+
+    change(radius(container), '500');
+
+    expect(radius(container).value).toBe(String(RADIUS_BOUNDS.max));
+  });
+
+  it('puts the stored value back when the field is emptied', () => {
+    const { container } = popover();
+    const before = radius(container).value;
+
+    change(radius(container), '');
+
+    expect(radius(container).value).toBe(before);
+  });
+
+  // A NaN would reach the configuration, fail `isResolvedConfig` on the wire,
+  // and freeze the overlay on its last valid frame.
+  it('refuses a value that is not a finite number', () => {
+    const { container, onChange } = popover();
+
+    change(radius(container), 'NaN');
+
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  // The label of a group of buttons cannot be a `<label for>`: nothing there is
+  // labelable, so the `for` dangled and the `aria-labelledby` beside it pointed
+  // at no element at all.
+  it('gives the fill direction group a name that resolves', () => {
+    const { container } = popover(twoKeys(), [1]);
+    const group = container.querySelector('[aria-labelledby="key-fillDirection-name"]');
+
+    expect(group).not.toBeNull();
+    expect(container.querySelector('#key-fillDirection-name')?.textContent).toBe('Fill direction');
   });
 });
