@@ -1,0 +1,51 @@
+name: release
+
+# The offline archive, and only that. The image, the tests and the header
+# probes live in `image.yml`, which runs on the same tag.
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      # Pinned to a commit SHA like every third-party step in `image.yml`, and
+      # with more reason here: this job holds `contents: write`, so a `vN` tag
+      # moved by its owner would be a write token handed to whoever moved it.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      # Eight seconds, and the plan said to leave them to `image.yml`. The two
+      # workflows are independent runs, though: a red `image.yml` publishes no
+      # image and stops nothing here, so without this an archive built from a
+      # failing tree would hang off the release on its own.
+      - run: npm test
+      - run: npm run build
+
+      # The folder goes in whole, not its contents: the README tells people to
+      # unpack it and run `npx serve dist`, which needs a `dist` to serve.
+      - name: Package the offline archive
+        run: zip -r he-overlay-offline.zip dist
+
+      # `gh` rather than a release action — it ships on the runner, it is
+      # first-party, and it leaves nothing to pin in a job that can write to
+      # the repository. Create on the first run for a tag, upload on a re-run.
+      - name: Attach it to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" he-overlay-offline.zip --clobber
+          else
+            gh release create "$TAG" --generate-notes he-overlay-offline.zip
+          fi

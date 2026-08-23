@@ -109,6 +109,25 @@ This is also the fallback for the day the CEF bundled with OBS starts enforcing
 the local network access permission: served from `localhost`, the overlay and
 OBS share an origin host, and the permission never comes up.
 
+## Without Docker
+
+Every release carries `he-overlay-offline.zip`, built by `release.yml` from the
+same commit as the image. Unpack it and serve the folder with any static server:
+
+```bash
+npx serve dist
+```
+
+It cannot be opened as a `file://` page — browsers refuse ES modules from that
+scheme.
+
+**The archive ships no headers**, which the image does. Everything above about
+the CSP, the caching and the `Permissions-Policy` is served by nginx, not baked
+into the files; a folder handed to an arbitrary static server has none of it.
+The application works regardless — the policy defends it, it does not run it.
+This is worth knowing rather than worth fixing: an archive cannot carry headers,
+and the image already covers the case where they matter.
+
 ## What the image serves, and why
 
 | Header | Reason |

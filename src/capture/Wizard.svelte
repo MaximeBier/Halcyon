@@ -131,9 +131,11 @@
     <h2>{TITLES[step]}</h2>
 
     {#if step === 'keyboard'}
+      <!-- Wooting and nothing else, because that is what the device chooser
+           will show: `requestDevice` filters on their vendor id. Offering "any
+           analog HE keyboard" sent people to a picker that had nothing in it. -->
       <p class="lede">
-        Plug in a Wooting or any analog HE keyboard. If travel values stay at zero, close Wootility:
-        it locks the analog stream.
+        Plug in your Wooting keyboard. Other analog keyboards are not supported yet.
       </p>
     {:else}
       <p class="lede">
