@@ -1,6 +1,6 @@
 <script lang="ts">
   import { clearKeyStyle, setKeyLabel, setKeyMode, setKeyStyle } from '../config/edit';
-  import { effectiveStyle, overriddenKeys } from '../config/resolve';
+  import { effectiveStyle, overriddenInAny } from '../config/resolve';
   import { removeKeys } from './learn';
   import { moveKey, resizeKeys, GRID, type Rect } from './layout';
   import { ICON_SET, labelFor, type LayoutMapLike } from '../keyboard/labels';
@@ -63,7 +63,13 @@
    */
   const lead = $derived(selection[0] ?? null);
   const effective = $derived(lead ? effectiveStyle(config.style, lead) : null);
-  const overridden = $derived(lead ? overriddenKeys(lead) : []);
+  /**
+   * Over the whole selection, not the lead key — because that is what the
+   * reset below writes to. The displayed *values* come from the lead by
+   * design (see above); what is overridden cannot, or the button clears the
+   * lead's properties on everyone and leaves the rest behind.
+   */
+  const overridden = $derived(overriddenInAny(selection));
   const single = $derived(selection.length === 1 ? selection[0]! : null);
 
   /**
@@ -160,7 +166,8 @@
 </script>
 
 <!--
-  The name of a property, and a dot beside it when this key overrides it.
+  The name of a property, and a dot beside it when the selection overrides it —
+  any key of it, since clicking the dot clears the property on all of them.
 
   **Only the exception is marked.** A column of labels reading `global` is a
   column of statements that nothing has happened, in a panel 284 px wide — and

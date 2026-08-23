@@ -50,6 +50,28 @@ export function overriddenKeys(key: KeyConfig): (keyof KeyStyle)[] {
   return STYLE_KEYS.filter((property) => overrideOf(key, property) !== undefined);
 }
 
+/**
+ * Every property overridden by **any** key of a selection, in `STYLE_KEYS`
+ * order.
+ *
+ * The popover reads this rather than the lead key's own list, and the two are
+ * not interchangeable: it writes to the whole selection. Reading the lead while
+ * writing to everyone produced two failures that pointed opposite ways — "reset
+ * to global" cleared the lead's properties on every key and left the others'
+ * behind, and a selection whose lead was untouched showed no reset button at
+ * all, so an overridden key in the group could not be reached.
+ *
+ * A property the union reports may be overridden on one key of five. That reads
+ * correctly: the marker means "this differs from the global somewhere here",
+ * and clicking it clears the property across the selection — which is what the
+ * marker was already doing.
+ */
+export function overriddenInAny(keys: readonly KeyConfig[]): (keyof KeyStyle)[] {
+  return STYLE_KEYS.filter((property) =>
+    keys.some((key) => overrideOf(key, property) !== undefined),
+  );
+}
+
 /** Visible marker in the editor: without it, months later you are left hunting
  *  for why one key does not react like the others (spec §8.2). */
 export function hasOverrides(key: KeyConfig): boolean {

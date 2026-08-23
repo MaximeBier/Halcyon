@@ -586,3 +586,30 @@ describe('KeyPopover - text or icon', () => {
     expect(container.querySelector('button[data-label-kind="icon"]')).toBeNull();
   });
 });
+
+describe('KeyPopover - resetting a group', () => {
+  const resetAll = (container: Element) =>
+    container.querySelector<HTMLButtonElement>('button[data-reset-all]');
+
+  // The panel writes to the whole selection and used to read the lead key
+  // alone, which broke both ways at once.
+  it('offers the reset when the override is on a key that is not the first', () => {
+    const config = twoKeys();
+    config.keys[1]!.style = { activeColor: '#ff0000' };
+
+    expect(resetAll(popover(config, [1, 2]).container)).not.toBeNull();
+  });
+
+  it('clears what every key of the selection overrides, not the first one only', () => {
+    const config = twoKeys();
+    config.keys[0]!.style = { radius: 4 };
+    config.keys[1]!.style = { activeColor: '#ff0000' };
+    const { container, onChange } = popover(config, [1, 2]);
+
+    resetAll(container)!.click();
+
+    const next = onChange.mock.calls[0]![0];
+    expect(next.keys[0].style).toBeUndefined();
+    expect(next.keys[1].style).toBeUndefined();
+  });
+});

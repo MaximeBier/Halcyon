@@ -4,6 +4,7 @@ import {
   effectiveStyle,
   hasGlobalOverrides,
   hasOverrides,
+  overriddenInAny,
   overriddenKeys,
 } from './resolve';
 import {
@@ -190,5 +191,41 @@ describe('whether the global style has been touched', () => {
   it('covers the whole of GlobalStyle, and is kept honest by the type', () => {
     expect(GLOBAL_STYLE_KEYS).toHaveLength(13);
     expect(GLOBAL_STYLE_KEYS).toEqual(expect.arrayContaining([...STYLE_KEYS]));
+  });
+});
+
+describe('what a whole selection overrides', () => {
+  it('says nothing about an empty selection', () => {
+    expect(overriddenInAny([])).toEqual([]);
+  });
+
+  it('agrees with the single-key answer on a single key', () => {
+    const one = key({ style: { fillColor: '#000', opacity: 0.5 } });
+
+    expect(overriddenInAny([one])).toEqual(overriddenKeys(one));
+  });
+
+  // The popover writes to the whole selection while it used to read the lead
+  // key alone. Reset then cleared the lead's properties everywhere and left
+  // the others' in place — the button promising the opposite in its comment.
+  it('unions what the keys override, rather than trusting the first', () => {
+    const selection = [key({ style: { radius: 4 } }), key({ id: 9, style: { opacity: 0.5 } })];
+
+    expect(overriddenInAny(selection)).toEqual(['opacity', 'radius']);
+  });
+
+  // The other half of the same defect, and the worse one: the reset button is
+  // only rendered when this list is non-empty, so a group whose first key was
+  // untouched offered no way at all to clear the one that was.
+  it('reports an override carried by a key that is not the first', () => {
+    const selection = [key(), key({ id: 9, style: { activeColor: '#ff0000' } })];
+
+    expect(overriddenInAny(selection)).toEqual(['activeColor']);
+  });
+
+  it('reports a property once, however many keys carry it', () => {
+    const selection = [key({ style: { radius: 4 } }), key({ id: 9, style: { radius: 8 } })];
+
+    expect(overriddenInAny(selection)).toEqual(['radius']);
   });
 });
