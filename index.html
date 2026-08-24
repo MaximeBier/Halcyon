@@ -1,88 +1,878 @@
 <!doctype html>
 <!--
   Home page. Deliberately static: no script, therefore no bundle, and it is
-  part of neither application (spec §5.1).
-  Placeholder content — task 28 will rewrite it alongside the documentation.
+  part of neither application (spec §5.1). The only thing it loads besides
+  itself is the stylesheet that declares its five font faces.
+
+  Transcribed from the `Landing Page` artboard of the design canvas. The canvas
+  draws at a fixed 1120 px with everything inline; four things had to change on
+  the way in, and none of them are visible:
+
+    · inline `style` attributes became classes, so the page can be read;
+    · the canvas's `style-hover` attribute — inert in a browser — became `:hover`;
+    · `<image-slot>` became the `.media` placeholder below, one per clip;
+    · the breakpoints are ours. The canvas says nothing about narrow screens.
+
+  Each media placeholder carries, in a comment directly above it, the note the
+  canvas attached to that slot: what to film. Dropping a `<video>` in place of
+  the `.media` block is the whole of the work when the clips exist.
 -->
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Halcyon</title>
+    <title>Halcyon — Analog Keyboard Overlay</title>
+    <meta
+      name="description"
+      content="Show your Wooting's analog key travel live in OBS. Keys fill up on screen as you press them, and light up at actuation. Nothing to install."
+    />
+    <link rel="stylesheet" href="./src/styles/fonts-home.css" />
     <style>
+      /*
+       * The palette is `UI_TOKENS` (src/styles/ui-tokens.ts), copied rather
+       * than imported: importing it would mean a script, and a script would
+       * mean a bundle on the one page that has neither. The values are the
+       * same, and a drift between them shows up the moment the two pages sit
+       * side by side in a browser.
+       *
+       * Dark only, and `color-scheme: dark` says so. The application has no
+       * light theme; a light home page in front of a dark application would be
+       * the single inconsistency on the site.
+       */
       :root {
-        color-scheme: light dark;
-        --ink: #16181d;
-        --muted: #5c6370;
-        --bg: #ffffff;
-        --line: #dcdfe4;
+        color-scheme: dark;
+
+        --bg: #0e1015;
+        --stage: #0b0d11;
+        --surface: #141722;
+        --line: #1b1e27;
+        --line-strong: #232838;
+        --line-control: #262b3a;
+        --line-hover: #3a4054;
+
+        --accent: #7c9eff;
+        --accent-hover: #a5bcff;
+        /* The accent, held back. Illustration only — no text sits on it. */
+        --accent-dim: #3d4a78;
+        --ok: #4caf7d;
+
+        --text: #dde1e9;
+        --text-muted: #8b90a0;
+        --text-faint: #5a5f70;
+
+        --sans: 'Archivo', system-ui, sans-serif;
+        --mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+        --shell: 1120px;
+        --gutter: 40px;
+        /* Between two sections. Halved on narrow screens, at the bottom. */
+        --rhythm: 96px;
       }
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --ink: #e6e8ec;
-          --muted: #9aa1ae;
-          --bg: #16181d;
-          --line: #2c3038;
-        }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
       }
+
       body {
         margin: 0;
-        padding: 4rem 1.5rem;
         background: var(--bg);
-        color: var(--ink);
-        font:
-          16px/1.6 system-ui,
-          sans-serif;
+        color: var(--text);
+        font: 400 16px/1.6 var(--sans);
+        -webkit-font-smoothing: antialiased;
       }
-      main {
-        max-width: 34rem;
-        margin: 0 auto;
+
+      h1,
+      h2,
+      h3 {
+        margin: 0;
+        text-wrap: balance;
       }
-      h1 {
-        margin: 0 0 0.25rem;
-        font-size: 1.75rem;
-      }
+
       p {
-        color: var(--muted);
-        margin: 0 0 2rem;
+        margin: 0;
+        text-wrap: pretty;
       }
-      a.card {
-        display: block;
-        padding: 1rem 1.25rem;
-        margin-bottom: 0.75rem;
-        border: 1px solid var(--line);
-        border-radius: 0.5rem;
-        color: inherit;
+
+      a {
+        color: var(--accent);
         text-decoration: none;
       }
-      a.card:hover {
-        border-color: var(--muted);
+
+      a:hover {
+        color: var(--accent-hover);
       }
-      a.card strong {
-        display: block;
+
+      /*
+       * Every band is the same width and the same gutter. `shell` is the only
+       * thing that centres anything on this page.
+       */
+      .shell {
+        max-width: var(--shell);
+        width: 100%;
+        margin: 0 auto;
+        padding-left: var(--gutter);
+        padding-right: var(--gutter);
       }
-      a.card span {
-        color: var(--muted);
-        font-size: 0.9rem;
+
+      /* --- Header ------------------------------------------------------- */
+
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        height: 64px;
+        border-bottom: 1px solid var(--line);
+        /* Translucent, so the hero slides under it rather than behind a lid. */
+        background: rgba(14, 16, 21, 0.92);
+        backdrop-filter: blur(8px);
+      }
+
+      .topbar > .shell {
+        display: flex;
+        height: 100%;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+      }
+
+      .wordmark {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .wordmark b {
+        font-weight: 800;
+        font-size: 17px;
+        letter-spacing: 0.05em;
+      }
+
+      .wordmark span {
+        font-size: 12.5px;
+        letter-spacing: 0.03em;
+        color: var(--text-faint);
+        white-space: nowrap;
+      }
+
+      .topnav {
+        display: flex;
+        align-items: center;
+        gap: 28px;
+        font-size: 15px;
+      }
+
+      /*
+       * `:not(.btn)`, because the call to action sits in this nav too and a
+       * bare `.topnav a` outranks `.btn--primary` — one class and one element
+       * against one class. Without the exclusion the button is muted grey on
+       * the accent, which is unreadable rather than merely wrong.
+       */
+      .topnav a:not(.btn) {
+        color: var(--text-muted);
+        font-weight: 600;
+      }
+
+      .topnav a:not(.btn):hover {
+        color: var(--text);
+      }
+
+      /* --- Buttons ------------------------------------------------------ */
+
+      .btn {
+        display: inline-block;
+        border-radius: 5px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .btn--primary {
+        background: var(--accent);
+        color: var(--bg);
+        padding: 14px 28px;
+        font-size: 17px;
+      }
+
+      .btn--primary:hover {
+        background: var(--accent-hover);
+        color: var(--bg);
+      }
+
+      .btn--ghost {
+        border: 1px solid var(--line-control);
+        color: var(--text);
+        padding: 13px 24px;
+        font-size: 17px;
+        font-weight: 600;
+      }
+
+      .btn--ghost:hover {
+        border-color: var(--line-hover);
+        color: var(--text);
+      }
+
+      /* The header's copy of the primary button, one size down. */
+      .btn--compact {
+        padding: 9px 18px;
+        font-size: 15px;
+        font-weight: 600;
+      }
+
+      /* --- Hero --------------------------------------------------------- */
+
+      .hero {
+        padding-top: 76px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 26px;
+        text-align: center;
+      }
+
+      .hero h1 {
+        max-width: 840px;
+        font-size: clamp(2.1rem, 5.6vw, 58px);
+        font-weight: 800;
+        line-height: 1.08;
+        letter-spacing: -0.01em;
+      }
+
+      .hero p {
+        max-width: 680px;
+        font-size: 19px;
+        line-height: 1.6;
+        color: var(--text-muted);
+      }
+
+      .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 14px;
+      }
+
+      .showcase {
+        padding-top: 52px;
+      }
+
+      .showcase-frame {
+        position: relative;
+        border: 1px solid var(--line-strong);
+        border-radius: 10px;
+        overflow: hidden;
+        background: var(--stage);
+      }
+
+      /*
+       * The pill the canvas puts over the hero clip. It is decoration, not
+       * status: nothing on this page is connected to anything.
+       */
+      .live-pill {
+        position: absolute;
+        left: 18px;
+        bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 7px 15px;
+        border: 1px solid var(--line-strong);
+        border-radius: 20px;
+        background: rgba(14, 16, 21, 0.85);
+        font: 400 13px var(--mono);
+        color: var(--text-muted);
+        pointer-events: none;
+      }
+
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--ok);
+        flex: none;
+      }
+
+      /* --- Media placeholders ------------------------------------------- */
+
+      /*
+       * What stands in for a clip that has not been filmed. It holds the exact
+       * height the video will take, so the page does not reflow the day the
+       * files land — and it says what it is, rather than pretending to be a
+       * broken player.
+       */
+      .media {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        width: 100%;
+        background: var(--stage);
+        color: var(--text-faint);
+      }
+
+      .media--hero {
+        aspect-ratio: 16 / 7.5;
+      }
+
+      .media--demo {
+        aspect-ratio: 16 / 9;
+        border-radius: 5px;
+        overflow: hidden;
+      }
+
+      .media-glyph {
+        font-size: 26px;
+        line-height: 1;
+        color: var(--line-hover);
+      }
+
+      .media-label {
+        font: 400 13px var(--mono);
+        letter-spacing: 0.04em;
+      }
+
+      /* --- Sections ----------------------------------------------------- */
+
+      section {
+        padding-top: var(--rhythm);
+      }
+
+      .section-head {
+        max-width: 680px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-bottom: 36px;
+      }
+
+      .section-head h2 {
+        font-size: 36px;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+      }
+
+      .section-head p {
+        font-size: 17px;
+        line-height: 1.6;
+        color: var(--text-muted);
+      }
+
+      .grid {
+        display: grid;
+        gap: 18px;
+      }
+
+      .grid--pairs {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .grid--thirds {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .card {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 26px 28px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+      }
+
+      .card h3 {
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .card p {
+        font-size: 15px;
+        line-height: 1.6;
+        color: var(--text-muted);
+      }
+
+      /*
+       * Four small drawings, one per card, built out of boxes rather than
+       * images: they are the same three shapes the interface itself uses, and
+       * a `png` of them would age the moment a token moves.
+       */
+      .glyph {
+        display: flex;
+        height: 34px;
+        gap: 6px;
+      }
+
+      .glyph--bars {
+        align-items: flex-end;
+      }
+
+      .glyph--bars i {
+        width: 22px;
+        border-radius: 2px;
+        background: var(--accent-dim);
+      }
+
+      .glyph--bars i:nth-child(1) {
+        height: 10px;
+      }
+
+      .glyph--bars i:nth-child(2) {
+        height: 20px;
+      }
+
+      .glyph--bars i:nth-child(3) {
+        height: 34px;
+        background: var(--accent);
+      }
+
+      .glyph--mono {
+        align-items: center;
+        font: 400 13px var(--mono);
+        color: var(--text-muted);
+      }
+
+      .glyph--mono.is-ok {
+        color: var(--ok);
+      }
+
+      .glyph--keys {
+        align-items: center;
+        gap: 7px;
+      }
+
+      /*
+       * A key caught mid-press: filled to 46 %, the shaded travel below it,
+       * the unlit remainder below that. One per accent the style panel offers.
+       */
+      .glyph--keys i {
+        width: 26px;
+        height: 26px;
+        border: 1px solid var(--line-control);
+        border-radius: 4px;
+      }
+
+      .glyph--keys i:nth-child(1) {
+        background: linear-gradient(180deg, #7c9eff 0 46%, #3d4a78 46% 76%, #151823 76% 100%);
+      }
+
+      .glyph--keys i:nth-child(2) {
+        background: linear-gradient(180deg, #5ed49e 0 46%, #2e5d48 46% 76%, #121815 76% 100%);
+      }
+
+      .glyph--keys i:nth-child(3) {
+        background: linear-gradient(180deg, #f2755f 0 46%, #6b3229 46% 76%, #1a1312 76% 100%);
+      }
+
+      /* --- Demos -------------------------------------------------------- */
+
+      .demo {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 16px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+      }
+
+      .demo-text {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        padding: 0 6px 6px;
+      }
+
+      .demo-text h3 {
+        font-size: 17px;
+        font-weight: 700;
+      }
+
+      .demo-text p {
+        font-size: 14.5px;
+        line-height: 1.55;
+        color: var(--text-muted);
+      }
+
+      /* --- Steps -------------------------------------------------------- */
+
+      .step-number {
+        display: grid;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        border: 1px solid #26304a;
+        border-radius: 50%;
+        font: 400 15px var(--mono);
+        color: var(--accent);
+      }
+
+      /* --- Closing ------------------------------------------------------ */
+
+      .closing {
+        padding-top: 76px;
+      }
+
+      .closing-panel {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 18px;
+        padding: 56px 40px;
+        background: var(--surface);
+        border: 1px solid var(--line-strong);
+        border-radius: 10px;
+        text-align: center;
+      }
+
+      .closing-panel h2 {
+        max-width: 560px;
+        font-size: 32px;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+      }
+
+      .closing-panel p {
+        font-size: 17px;
+        color: var(--text-muted);
+      }
+
+      /* --- Footer ------------------------------------------------------- */
+
+      .sitefoot {
+        margin-top: 76px;
+        border-top: 1px solid var(--line);
+      }
+
+      .sitefoot > .shell {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding-top: 26px;
+        padding-bottom: 26px;
+      }
+
+      .sitefoot b {
+        font-weight: 800;
+        font-size: 14px;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+      }
+
+      .sitefoot span {
+        font-size: 13.5px;
+        color: var(--text-faint);
+        text-align: right;
+      }
+
+      /* --- Narrow screens ------------------------------------------------
+       *
+       * The canvas is drawn at one width and says nothing about any other, so
+       * these two steps are ours. The first collapses the grids, which is
+       * where the layout actually breaks; the second gives back the gutters
+       * and drops the anchors from the header, keeping the one link that
+       * leads anywhere.
+       */
+      @media (max-width: 900px) {
+        :root {
+          --rhythm: 64px;
+        }
+
+        .grid--pairs,
+        .grid--thirds {
+          grid-template-columns: 1fr;
+        }
+
+        .hero {
+          padding-top: 56px;
+        }
+
+        .section-head h2 {
+          font-size: 30px;
+        }
+
+        .closing-panel {
+          padding: 40px 24px;
+        }
+      }
+
+      @media (max-width: 640px) {
+        :root {
+          --gutter: 20px;
+        }
+
+        .wordmark span,
+        .topnav a:not(.btn) {
+          display: none;
+        }
+
+        .hero p {
+          font-size: 17px;
+        }
+
+        .sitefoot > .shell {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 10px;
+        }
+
+        .sitefoot span {
+          text-align: left;
+        }
+      }
+
+      /*
+       * The sticky header would otherwise land on top of the heading it just
+       * scrolled to, and the blur makes that half-readable rather than plainly
+       * broken, which is worse.
+       */
+      :target {
+        scroll-margin-top: 84px;
+      }
+
+      @media (prefers-reduced-motion: no-preference) {
+        html {
+          scroll-behavior: smooth;
+        }
       }
     </style>
   </head>
+
   <body>
+    <header class="topbar">
+      <div class="shell">
+        <span class="wordmark">
+          <b>HALCYON</b>
+          <span>Analog Keyboard Overlay</span>
+        </span>
+        <nav class="topnav">
+          <a href="#why">Why</a>
+          <a href="#demos">Demos</a>
+          <a href="#setup">Setup</a>
+          <a class="btn btn--primary btn--compact" href="/capture.html">Open the capture page</a>
+        </nav>
+      </div>
+    </header>
+
     <main>
-      <h1>Halcyon</h1>
-      <p>Show your Wooting keyboard's analog key travel live in OBS. Nothing to install.</p>
+      <div class="hero shell">
+        <h1>Show your Wooting's analog key travel live in OBS.</h1>
+        <p>
+          Nothing to install: keys fill up on screen as you press them, and light up at actuation.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn--primary" href="/capture.html">Get started, it's free</a>
+          <a class="btn btn--ghost" href="#demos">Watch the demos</a>
+        </div>
+      </div>
 
-      <a class="card" href="/capture.html">
-        <strong>Open the capture page →</strong>
-        <span>Reads the keyboard, drives the overlay, and builds the OBS URL. Chrome only.</span>
-      </a>
+      <div class="showcase shell">
+        <div class="showcase-frame">
+          <!--
+            To film — hero: gameplay with the overlay along the bottom of the
+            frame, WASD and Space filling in real time.
+          -->
+          <div class="media media--hero" role="img" aria-label="Hero clip, coming soon">
+            <span class="media-glyph" aria-hidden="true">▶</span>
+            <span class="media-label">Video coming soon</span>
+          </div>
+          <span class="live-pill">
+            <span class="dot"></span>
+            LIVE · overlay connected to OBS
+          </span>
+        </div>
+      </div>
 
-      <!--
-        No link to overlay.html. The URL that belongs in OBS carries a port and
-        a password, and this one carries neither: offering it here hands out the
-        wrong address at the exact moment someone is looking for the right one.
-        The capture page builds it, with a Copy button beside it.
-      -->
+      <section id="why" class="shell">
+        <div class="section-head">
+          <h2>Why an analog overlay?</h2>
+          <p>
+            Classic keyboard overlays show a key as on or off. Yours is analog: show what it can
+            actually do.
+          </p>
+        </div>
+        <div class="grid grid--pairs">
+          <article class="card">
+            <span class="glyph glyph--bars" aria-hidden="true">
+              <i></i><i></i><i></i>
+            </span>
+            <h3>Pressure, not just clicks</h3>
+            <p>
+              Each key fills with press depth and switches color at actuation. The stream shows
+              half-presses, feathering, releases: everything an on/off overlay misses.
+            </p>
+          </article>
+
+          <article class="card">
+            <span class="glyph glyph--mono is-ok" aria-hidden="true">
+              <span class="dot"></span>
+              OBS · connected
+            </span>
+            <h3>Hooked to OBS in 3 steps</h3>
+            <p>
+              A wizard walks you through: the keyboard is detected on its own, OBS connects with a
+              copy-paste URL, and you add keys simply by pressing them. No files to edit.
+            </p>
+          </article>
+
+          <article class="card">
+            <span class="glyph glyph--keys" aria-hidden="true">
+              <i></i><i></i><i></i>
+            </span>
+            <h3>Your style, down to the key</h3>
+            <p>
+              Colors, fill direction, corner radius, font, size, opacity: everything is
+              configurable, globally or per key. Arrange keys freely on the canvas and show only the
+              ones that matter.
+            </p>
+          </article>
+
+          <article class="card">
+            <span class="glyph glyph--mono" aria-hidden="true">localhost · 0 cloud</span>
+            <h3>Local and lightweight</h3>
+            <p>
+              Everything runs on your machine: no data sent to the internet, no account. The overlay
+              is a plain browser source, negligible for your FPS in game and on stream.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section id="demos" class="shell">
+        <div class="section-head">
+          <h2>See it in action</h2>
+          <p>Situations where analog genuinely changes what the viewer understands.</p>
+        </div>
+        <div class="grid grid--pairs">
+          <article class="demo">
+            <!--
+              To film — FPS: a duel with a counter-strafe, the A and D
+              half-presses visible on the overlay.
+            -->
+            <div class="media media--demo" role="img" aria-label="FPS clip, coming soon">
+              <span class="media-glyph" aria-hidden="true">▶</span>
+              <span class="media-label">Video coming soon</span>
+            </div>
+            <div class="demo-text">
+              <h3>Counter-strafing, finally visible</h3>
+              <p>
+                Competitive FPS: film a duel where you stop dead with an opposite tap. The overlay
+                shows A releasing while D rises: the move chat always asks about.
+              </p>
+            </div>
+          </article>
+
+          <article class="demo">
+            <!--
+              To film — racing: analog steering on the keyboard, the W gauge
+              hovering mid-travel without ever maxing out.
+            -->
+            <div class="media media--demo" role="img" aria-label="Racing clip, coming soon">
+              <span class="media-glyph" aria-hidden="true">▶</span>
+              <span class="media-label">Video coming soon</span>
+            </div>
+            <div class="demo-text">
+              <h3>Controller-like control, on keys</h3>
+              <p>
+                Racing game or Rocket League in axis mode: a tight corner with the throttle held at
+                60%. A gauge floating mid-travel proves the keyboard really is analog. The perfect
+                answer to "that's impossible on keyboard".
+              </p>
+            </div>
+          </article>
+
+          <article class="demo">
+            <!--
+              To film — split screen: the same clip with a classic on/off
+              overlay on the left, Halcyon on the right.
+            -->
+            <div class="media media--demo" role="img" aria-label="Before and after clip, coming soon">
+              <span class="media-glyph" aria-hidden="true">▶</span>
+              <span class="media-label">Video coming soon</span>
+            </div>
+            <div class="demo-text">
+              <h3>Before / after</h3>
+              <p>
+                The same run, split-screen: on/off overlay on one side, Halcyon on the other. Ten
+                seconds is enough for the difference to jump out. Great as a short for socials.
+              </p>
+            </div>
+          </article>
+
+          <article class="demo">
+            <!--
+              To film — setup: a 90 s timelapse from opening the page to the
+              overlay live in OBS, the wizard's three steps.
+            -->
+            <div class="media media--demo" role="img" aria-label="Setup timelapse, coming soon">
+              <span class="media-glyph" aria-hidden="true">▶</span>
+              <span class="media-label">Video coming soon</span>
+            </div>
+            <div class="demo-text">
+              <h3>From launch to live in 90 seconds</h3>
+              <p>
+                Timelapse of a real setup: keyboard detected, OBS connected, keys added by pressing
+                them. The best proof that "ready in 3 steps" isn't a slogan.
+              </p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="setup" class="shell">
+        <div class="section-head">
+          <h2>Ready in three steps</h2>
+          <p>The wizard does the work; each step validates itself.</p>
+        </div>
+        <div class="grid grid--thirds">
+          <article class="card">
+            <span class="step-number" aria-hidden="true">1</span>
+            <h3>Plug in your keyboard</h3>
+            <p>The app detects your analog keyboard automatically. Nothing to configure.</p>
+          </article>
+
+          <article class="card">
+            <span class="step-number" aria-hidden="true">2</span>
+            <h3>Connect OBS</h3>
+            <p>
+              Paste the provided URL into a browser source. The password stays on your machine.
+            </p>
+          </article>
+
+          <article class="card">
+            <span class="step-number" aria-hidden="true">3</span>
+            <h3>Press your keys</h3>
+            <p>
+              Every key you press joins the overlay, already in place. Rearrange, recolor, you're
+              live.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <div class="closing shell">
+        <div class="closing-panel">
+          <h2>Your keyboard says more than you're showing.</h2>
+          <p>Free, local, ready in three steps.</p>
+          <a class="btn btn--primary" href="/capture.html">Open the capture page</a>
+        </div>
+      </div>
     </main>
+
+    <!--
+      No link to overlay.html, here or anywhere above. The URL that belongs in
+      OBS carries a port and a password, and this one carries neither: offering
+      it would hand out the wrong address at the exact moment someone is
+      looking for the right one. The capture page builds it, with a Copy button
+      beside it.
+    -->
+    <footer class="sitefoot">
+      <div class="shell">
+        <b>HALCYON</b>
+        <span>Analog Keyboard Overlay · Works with Wooting keyboards · OBS 30 or newer</span>
+      </div>
+    </footer>
   </body>
 </html>

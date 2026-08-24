@@ -1,0 +1,58 @@
+/*
+ * Home page only. Neither application imports this file, and it imports
+ * nothing from them: the home page is a static document with no script and no
+ * bundle (spec §5.1), so it cannot reach the faces the two apps declare —
+ * those are pulled in through the Svelte entry points it deliberately lacks.
+ *
+ * The duplication is in the declarations, not in the bytes: all four Archivo
+ * faces and the mono resolve to the same `woff2` files the settings interface
+ * already ships, so a visitor who opens the capture page after the home page
+ * downloads nothing twice.
+ *
+ * Five faces, and no more. The landing mockup uses Archivo 400 for body copy,
+ * 600 for the navigation, 700 for card titles and buttons, 800 for the
+ * headings and the wordmark, and IBM Plex Mono 400 for the status pills and
+ * the step numbers. Archivo 500 is shipped for the settings interface and has
+ * no job here, so it is not declared.
+ *
+ * Only `woff2`, and `swap`, for the reasons given in `fonts-broadcast.css`.
+ */
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../assets/fonts/archivo-latin-400-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('../assets/fonts/archivo-latin-600-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../assets/fonts/archivo-latin-700-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url('../assets/fonts/archivo-latin-800-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../assets/fonts/ibm-plex-mono-latin-400-normal.woff2') format('woff2');
+}
