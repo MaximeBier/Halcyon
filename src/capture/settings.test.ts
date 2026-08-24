@@ -153,11 +153,28 @@ describe('status bar wording', () => {
 
   it('tells a server that never answered apart from one that went away', () => {
     expect(obsHint('disconnected')).not.toBe(obsHint('unreachable'));
-    // Nothing retries on its own: the reconnection rides on keyboard reports.
-    // Both statuses say so — someone staring at a screen that only moves on a
-    // keystroke deserves to be told, whichever way the connection failed.
+    // A connection that closed says how to get it back: nothing retries on its
+    // own, the reconnection rides on keyboard reports, and that sentence is the
+    // whole message.
     expect(obsHint('disconnected')).toMatch(/key/i);
-    expect(obsHint('unreachable')).toMatch(/press a key/i);
+  });
+
+  it('leaves the keystroke out of the unreachable hint, which has more to say', () => {
+    // It said it until 2026-08-24, and the sentence had grown to three
+    // instructions — enough to wrap the status bar onto a third row and push
+    // the other four pills apart. The keystroke is the cheapest of the three
+    // to drop: it is what anyone using a keyboard overlay does next anyway,
+    // and the wizard's OBS row still spells it out where a beginner is looking.
+    expect(obsHint('unreachable')).not.toMatch(/press a key/i);
+  });
+
+  it('keeps the unreachable hint short enough to sit in a run of pills', () => {
+    // The status bar is a wrapping flex row (StatusBar.svelte), so a long
+    // sentence in the middle of it does not merely wrap itself — it pushes
+    // every pill after it onto another row. The cap is a round number, not a
+    // measurement: what it guards is that nobody appends a fourth instruction
+    // here without noticing what it costs the bar.
+    expect(obsHint('unreachable').length).toBeLessThan(140);
   });
 });
 

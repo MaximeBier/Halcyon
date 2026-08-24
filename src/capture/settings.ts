@@ -111,10 +111,19 @@ export function obsHint(status: ObsStatus): string {
       return 'OBS refused the password. Check Tools → WebSocket Server Settings.';
     case 'unreachable':
       // Two dead ends hide behind this status, and neither announces itself:
-      // Chrome asks for local network access once — a refusal is silent and
-      // permanent until site settings lift it — and the retry rides on
-      // keyboard reports (spec §2.2), so a screen nobody types at never moves.
-      return 'OBS is not answering. Enable its WebSocket server in Tools, and allow local network access — if you blocked it, re-allow it in the browser’s site settings. Then press a key to retry.';
+      // the WebSocket server is off, or Chrome's local network access was
+      // refused — it asks exactly once, and a refusal is silent and permanent
+      // until site settings lift it. Both have to be named here, because
+      // nothing else in the application names the second one.
+      //
+      // **The keystroke was a third instruction, and it went on 2026-08-24.**
+      // The retry does ride on keyboard reports (spec §2.2), so saying it was
+      // never wrong — it was just the least valuable sentence in a message
+      // that had grown long enough to wrap the status bar onto a third row and
+      // push the four other pills apart. Anyone using a keyboard overlay
+      // presses a key within seconds, and the wizard's OBS row still spells it
+      // out where a beginner is actually looking (`obsNote`).
+      return 'OBS is not answering. Enable its WebSocket server in Tools, and allow local network access. Re-allow it in site settings if you refused.';
     case 'disconnected':
       // Retrying rides on keyboard reports, never on a timer (spec §2.2), so
       // the way back is a keystroke — and saying so beats looking stuck.
