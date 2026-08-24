@@ -106,7 +106,7 @@ describe('whether anything shows at all', () => {
 
 describe('remembering across reloads', () => {
   const memory = (initial?: string) => {
-    const map = new Map(initial === undefined ? [] : [['he-overlay:setup', initial]]);
+    const map = new Map(initial === undefined ? [] : [['halcyon:setup', initial]]);
     return {
       getItem: (key: string) => map.get(key) ?? null,
       setItem: (key: string, value: string) => void map.set(key, value),

@@ -4,7 +4,7 @@
  * One key per fold rather than one shared record: a single value would tie
  * the journal to the layout selector, and closing one would close both.
  */
-const keyFor = (id: string) => `he-overlay:open:${id}`;
+const keyFor = (id: string) => `halcyon:open:${id}`;
 
 const OPEN = '1';
 const SHUT = '0';

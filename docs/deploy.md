@@ -1,9 +1,9 @@
-# Deploying HE Overlay
+# Deploying Halcyon
 
 The application is a static build served by nginx. There is no server to run, no
 database, no state: the container serves three HTML pages and their assets.
 
-Image: `ghcr.io/maximebier/he-overlay:latest`, `linux/amd64`. It listens on
+Image: `ghcr.io/maximebier/halcyon:latest`, `linux/amd64`. It listens on
 **8080** as an unprivileged user and exposes **`/healthz`**.
 
 **`latest` moves on a version tag only**, never on a push to `main`. Pushes
@@ -16,7 +16,7 @@ between a compromised push and the OBS password of every viewer of that page.
 To pin a known version instead of tracking `latest`:
 
 ```yaml
-image: ghcr.io/maximebier/he-overlay:0.1.2
+image: ghcr.io/maximebier/halcyon:0.1.2
 ```
 
 ## Deploy behind Traefik
@@ -54,7 +54,7 @@ no error. Expect to spend hours on it.
 To prove Traefik added nothing:
 
 ```bash
-curl -sSI https://he-overlay.wardensquad.fr/overlay.html \
+curl -sSI https://halcyon.wardensquad.fr/overlay.html \
   | grep -i -e content-security -e permissions-policy -e cache-control
 ```
 
@@ -65,7 +65,7 @@ Expected: **one** `content-security-policy` line, containing `ws://localhost:*`.
 The browser source URL:
 
 ```
-https://he-overlay.wardensquad.fr/overlay.html#password=<password>
+https://halcyon.wardensquad.fr/overlay.html#password=<password>
 ```
 
 Note the `#`, not `?`. **A fragment is never sent to the server** — that is a
@@ -100,7 +100,7 @@ documented — but that is the streamer's own screen, not our server.
 Nothing ties the image to our domain:
 
 ```bash
-docker run -p 8080:8080 ghcr.io/maximebier/he-overlay
+docker run -p 8080:8080 ghcr.io/maximebier/halcyon
 ```
 
 Then open `http://localhost:8080/capture.html`.
@@ -111,7 +111,7 @@ OBS share an origin host, and the permission never comes up.
 
 ## Without Docker
 
-Every release carries `he-overlay-offline.zip`, built by `release.yml` from the
+Every release carries `halcyon-offline.zip`, built by `release.yml` from the
 same commit as the image. Unpack it and serve the folder with any static server:
 
 ```bash

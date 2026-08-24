@@ -17,7 +17,7 @@ function wizard(step: WizardStep, overrides: Record<string, unknown> = {}) {
     obs: 'idle' as ObsStatus,
     overlaysInObs: 0,
     settings: { port: 4455, password: 'hunter2' },
-    url: 'https://he-overlay.example/overlay.html?port=4455#password=hunter2',
+    url: 'https://halcyon.example/overlay.html?port=4455#password=hunter2',
     learning: false,
     added: null,
     ...handlers,
@@ -125,7 +125,7 @@ describe('arming the capture', () => {
         obs: 'identified' as ObsStatus,
         overlaysInObs: 1,
         settings: { port: 4455, password: '' },
-        url: 'https://he-overlay.example/overlay.html?port=4455',
+        url: 'https://halcyon.example/overlay.html?port=4455',
         get learning() {
           return listening.at(-1) ?? false;
         },
@@ -160,7 +160,7 @@ describe('arming the capture', () => {
         obs: 'identified' as ObsStatus,
         overlaysInObs: 1,
         settings: { port: 4455, password: '' },
-        url: 'https://he-overlay.example/overlay.html?port=4455',
+        url: 'https://halcyon.example/overlay.html?port=4455',
         get learning() {
           return value;
         },
@@ -200,7 +200,7 @@ describe('putting the setup aside', () => {
         obs: 'identified' as ObsStatus,
         overlaysInObs: 1,
         settings: { port: 4455, password: '' },
-        url: 'https://he-overlay.example/overlay.html?port=4455',
+        url: 'https://halcyon.example/overlay.html?port=4455',
         get learning() {
           return value;
         },

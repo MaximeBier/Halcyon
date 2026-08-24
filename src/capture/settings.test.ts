@@ -34,7 +34,7 @@ describe('credential persistence', () => {
   });
 
   it('survives a corrupted value in storage', () => {
-    expect(loadSettings(memoryStorage({ 'he-overlay:connection': '{{{' }))).toEqual({
+    expect(loadSettings(memoryStorage({ 'halcyon:connection': '{{{' }))).toEqual({
       port: 4455,
       password: '',
     });
@@ -88,10 +88,10 @@ describe('credential persistence', () => {
 
     try {
       const storage = browserStorage();
-      storage.setItem('he-overlay:profile:Apex', '{}');
-      storage.removeItem('he-overlay:profile:Apex');
+      storage.setItem('halcyon:profile:Apex', '{}');
+      storage.removeItem('halcyon:profile:Apex');
 
-      expect(storage.getItem('he-overlay:profile:Apex')).toBeNull();
+      expect(storage.getItem('halcyon:profile:Apex')).toBeNull();
     } finally {
       if (original) Object.defineProperty(globalThis, 'localStorage', original);
     }
@@ -100,7 +100,7 @@ describe('credential persistence', () => {
   it('refuses a port no URL could carry', () => {
     const stored = JSON.stringify({ port: 99999, password: 'hunter2' });
 
-    expect(loadSettings(memoryStorage({ 'he-overlay:connection': stored }))).toEqual({
+    expect(loadSettings(memoryStorage({ 'halcyon:connection': stored }))).toEqual({
       port: 4455,
       password: 'hunter2',
     });
@@ -112,8 +112,8 @@ describe('overlayUrl', () => {
     // A query string lands in the access log of whoever hosts the page — us.
     // This URL is the one place the capture page hands a password to the user,
     // so it is the one place that decides where their credentials travel.
-    expect(overlayUrl('https://he-overlay.example', { port: 4455, password: 'a&b' })).toBe(
-      'https://he-overlay.example/overlay.html?port=4455#password=a%26b',
+    expect(overlayUrl('https://halcyon.example', { port: 4455, password: 'a&b' })).toBe(
+      'https://halcyon.example/overlay.html?port=4455#password=a%26b',
     );
   });
 
@@ -126,7 +126,7 @@ describe('overlayUrl', () => {
   it('produces a URL the overlay reads back unchanged', () => {
     // The two sides encode independently; only a round trip proves they agree.
     const settings = { port: 4456, password: 'p@ss w&rd=#é' };
-    const url = new URL(overlayUrl('https://he-overlay.example', settings));
+    const url = new URL(overlayUrl('https://halcyon.example', settings));
 
     expect(readOverlayParams(url.search, url.hash)).toEqual(settings);
   });

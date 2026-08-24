@@ -38,7 +38,7 @@
   <div class="chrome" data-chrome>
     <div class="vignette" aria-hidden="true"></div>
 
-    <span class="brand">HE OVERLAY <span class="file">· overlay.html</span></span>
+    <span class="brand">HALCYON <span class="file">· overlay.html</span></span>
 
     <span class="link" data-link data-connected={connected}>
       <span class="dot" aria-hidden="true"></span>

@@ -32,7 +32,7 @@ describe('opening and closing', () => {
   it('starts from what was written, against the default', () => {
     // The whole point: the default is a first-run guess, the stored value is
     // a decision. A decision that a reload undoes was never a decision.
-    const storage = memoryStorage({ 'he-overlay:open:style': '0' });
+    const storage = memoryStorage({ 'halcyon:open:style': '0' });
 
     expect(details(fold({ storage, defaultOpen: true }).container).open).toBe(false);
   });
@@ -44,7 +44,7 @@ describe('opening and closing', () => {
     details(container).dispatchEvent(new Event('toggle'));
     await tick();
 
-    expect(storage.map.get('he-overlay:open:style')).toBe('1');
+    expect(storage.map.get('halcyon:open:style')).toBe('1');
   });
 
   it('shows its contents only while open', async () => {

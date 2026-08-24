@@ -9,17 +9,24 @@ import { readProfileName } from '../config/storage';
  * that component does.
  */
 
-/** What every exported profile is called, whatever version wrote it. */
-const STEM = 'he-overlay';
+/** What every exported profile is called. */
+const STEM = 'halcyon';
 
 /**
  * Prefixes stripped when reading a name back, longest first.
  *
  * The order is load-bearing, not cosmetic: `he-overlay-profile-` starts with
- * `he-overlay-`, so trying the short one first would leave every file this
- * version writes answering `profile-Valorant`.
+ * `he-overlay-`, so trying the short one first would leave those files
+ * answering `profile-Valorant`.
+ *
+ * **The two `he-overlay-` entries are the way back from the rename.** The
+ * product became Halcyon on 2026-08-24 and the storage keys moved with it, with
+ * no migration — a decision that was only safe because the profiles had been
+ * exported to files first. Those files are what restores them, so the names
+ * they were written under have to keep being understood. They cost two entries
+ * in a list and nothing else.
  */
-const PREFIXES = [`${STEM}-profile-`, `${STEM}-`];
+const PREFIXES = [`${STEM}-profile-`, 'he-overlay-profile-', 'he-overlay-'];
 
 /**
  * Fallback name, and deliberately the same word `freeName` uses.

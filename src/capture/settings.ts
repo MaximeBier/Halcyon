@@ -1,7 +1,7 @@
 import type { KeyboardStatus } from '../keyboard/device';
 import { DEFAULT_OBS_PORT, normalizePort, type ObsStatus } from '../transport/obs';
 
-const KEY = 'he-overlay:connection';
+const KEY = 'halcyon:connection';
 
 export interface ConnectionSettings {
   port: number;

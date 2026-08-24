@@ -3,23 +3,23 @@ import { importedProfileName, nameFromFileName, profileFileName } from './profil
 
 describe('the name an exported profile lands under', () => {
   it('says what the file is and which profile it holds', () => {
-    expect(profileFileName('Valorant')).toBe('he-overlay-profile-Valorant.json');
+    expect(profileFileName('Valorant')).toBe('halcyon-profile-Valorant.json');
   });
 
   it('keeps the profile name out of the path, whatever it is called', () => {
     // A profile name is free text and lands in a file name: anything a path
     // could read as a separator becomes a dash.
-    expect(profileFileName('Apex / Legends')).toBe('he-overlay-profile-Apex-Legends.json');
+    expect(profileFileName('Apex / Legends')).toBe('halcyon-profile-Apex-Legends.json');
   });
 
   it('never trails the dash the sanitising leaves behind', () => {
-    // `he-overlay-profile-Valorant-.json` reads as a file whose name was cut
+    // `halcyon-profile-Valorant-.json` reads as a file whose name was cut
     // off, and it comes back through `nameFromFileName` as `Valorant-`.
-    expect(profileFileName('Valorant!')).toBe('he-overlay-profile-Valorant.json');
+    expect(profileFileName('Valorant!')).toBe('halcyon-profile-Valorant.json');
   });
 
   it('names a file even when nothing of the profile survives sanitising', () => {
-    expect(profileFileName('///')).toBe('he-overlay-profile-Profile.json');
+    expect(profileFileName('///')).toBe('halcyon-profile-Profile.json');
   });
 });
 
@@ -29,7 +29,7 @@ describe('the profile name read back off a file', () => {
   // the envelope existed.
 
   it('strips the prefix this version writes', () => {
-    expect(nameFromFileName('he-overlay-profile-Valorant.json')).toBe('Valorant');
+    expect(nameFromFileName('halcyon-profile-Valorant.json')).toBe('Valorant');
   });
 
   it('strips the prefix earlier versions wrote', () => {
@@ -46,13 +46,25 @@ describe('the profile name read back off a file', () => {
   it('keeps what the browser adds to a second download', () => {
     // Chrome renames rather than overwrites. The suffix is part of the name it
     // was given, and `freeName` would have deduplicated it anyway.
-    expect(nameFromFileName('he-overlay-profile-Valorant (1).json')).toBe('Valorant (1)');
+    expect(nameFromFileName('halcyon-profile-Valorant (1).json')).toBe('Valorant (1)');
+  });
+
+  it('still strips the prefix written under the old product name', () => {
+    // The product was renamed on 2026-08-24, and the storage keys were renamed
+    // with it — without a migration, deliberately, because the profiles had
+    // been exported to files first. Those files are the way back, so the two
+    // prefixes they may carry have to keep working.
+    expect(nameFromFileName('he-overlay-profile-Valorant.json')).toBe('Valorant');
+  });
+
+  it('strips the oldest prefix of the three', () => {
+    expect(nameFromFileName('he-overlay-Valorant.json')).toBe('Valorant');
   });
 
   it('answers nothing when the file name carries nothing', () => {
     // Not an error, and not a made-up name either: the store already names an
     // empty profile, and it must stay the only place that decides that.
-    expect(nameFromFileName('he-overlay-profile-.json')).toBe('');
+    expect(nameFromFileName('halcyon-profile-.json')).toBe('');
   });
 });
 
@@ -66,7 +78,7 @@ describe('which of the two names an imported file lands under', () => {
   });
 
   it('falls back to the file name when the file carries none', () => {
-    expect(importedProfileName('{"version":1,"keys":[]}', 'he-overlay-profile-Apex.json')).toBe(
+    expect(importedProfileName('{"version":1,"keys":[]}', 'halcyon-profile-Apex.json')).toBe(
       'Apex',
     );
   });
@@ -75,10 +87,10 @@ describe('which of the two names an imported file lands under', () => {
     // The caller has already decided whether the configuration is usable; this
     // function only names it. Throwing here would turn a readable profile into
     // a failed import.
-    expect(importedProfileName('not json', 'he-overlay-profile-Apex.json')).toBe('Apex');
+    expect(importedProfileName('not json', 'halcyon-profile-Apex.json')).toBe('Apex');
   });
 
   it('answers nothing when neither carries a name', () => {
-    expect(importedProfileName('{}', 'he-overlay-profile-.json')).toBe('');
+    expect(importedProfileName('{}', 'halcyon-profile-.json')).toBe('');
   });
 });

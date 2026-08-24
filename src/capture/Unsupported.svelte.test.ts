@@ -17,7 +17,7 @@ describe('a browser that cannot run the capture page', () => {
     // Named, not "this page": the banner is the first line of a window that
     // may well have been opened from a link, and the product is what someone
     // will go looking for in the other browser.
-    expect(text).toMatch(/he overlay/i);
+    expect(text).toMatch(/halcyon/i);
     expect(text).toMatch(/chromium/i);
     expect(text.length).toBeLessThan(80);
   });

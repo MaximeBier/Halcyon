@@ -37,7 +37,7 @@ const memory = (initial: Record<string, string> = {}) => {
  * renders nothing at all, so every test that reads a row starts from someone
  * who has opened it once.
  */
-const unfolded = () => memory({ 'he-overlay:open:key-style': '1' });
+const unfolded = () => memory({ 'halcyon:open:key-style': '1' });
 
 function popover(config = twoKeys(), selectedIds = [1]) {
   const onChange = vi.fn();

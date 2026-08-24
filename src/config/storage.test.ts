@@ -48,7 +48,7 @@ describe('configuration persistence', () => {
   });
 
   it('reports an unreadable configuration without losing the use of the application', () => {
-    const result = loadConfig(memoryStorage({ 'he-overlay:config': '{{{' }));
+    const result = loadConfig(memoryStorage({ 'halcyon:config': '{{{' }));
 
     expect(result.problem).toBe('unreadable');
     expect(result.config).toEqual(defaultConfig());
@@ -57,13 +57,13 @@ describe('configuration persistence', () => {
   it('reports a configuration written by a newer version', () => {
     const raw = JSON.stringify({ version: CONFIG_VERSION + 1, layout: 'iso', style: {}, keys: [] });
 
-    expect(loadConfig(memoryStorage({ 'he-overlay:config': raw })).problem).toBe('too-new');
+    expect(loadConfig(memoryStorage({ 'halcyon:config': raw })).problem).toBe('too-new');
   });
 
   it('says how many keys the stored configuration lost on the way in', () => {
     const raw = JSON.stringify({ version: 1, layout: 'iso', style: {}, keys: [aKey, { id: 9 }] });
 
-    const result = loadConfig(memoryStorage({ 'he-overlay:config': raw }));
+    const result = loadConfig(memoryStorage({ 'halcyon:config': raw }));
 
     expect(result.config.keys).toHaveLength(1);
     expect(result.dropped).toBe(1);
@@ -121,7 +121,7 @@ describe('import and export', () => {
 
 describe('what loading leaves behind in storage', () => {
   const aStore = (raw: string) => {
-    const map = new Map([['he-overlay:config', raw]]);
+    const map = new Map([['halcyon:config', raw]]);
     return {
       getItem: (key: string) => map.get(key) ?? null,
       setItem: (key: string, value: string) => void map.set(key, value),
@@ -146,7 +146,7 @@ describe('what loading leaves behind in storage', () => {
 
     loadConfig(storage);
 
-    expect(storage.map.get('he-overlay:config')).toBe(raw);
+    expect(storage.map.get('halcyon:config')).toBe(raw);
   });
 
   it('puts a configuration from a newer version aside before anything overwrites it', () => {
@@ -159,7 +159,7 @@ describe('what loading leaves behind in storage', () => {
     const result = loadConfig(storage);
 
     expect(result.problem).toBe('too-new');
-    expect(storage.map.get('he-overlay:backup:he-overlay:config')).toBe(raw);
+    expect(storage.map.get('halcyon:backup:halcyon:config')).toBe(raw);
   });
 
   it('keeps an unreadable configuration aside too, in case it can be salvaged', () => {
@@ -167,7 +167,7 @@ describe('what loading leaves behind in storage', () => {
 
     loadConfig(storage);
 
-    expect(storage.map.get('he-overlay:backup:he-overlay:config')).toBe('{{{');
+    expect(storage.map.get('halcyon:backup:halcyon:config')).toBe('{{{');
   });
 
   it('survives a storage that refuses to be written to while loading', () => {
@@ -268,8 +268,8 @@ describe('named profiles', () => {
   it('falls back to the first profile when the active one is gone', () => {
     const store = createProfileStore(
       profileStorage({
-        'he-overlay:profiles': JSON.stringify(['Default']),
-        'he-overlay:active-profile': 'Deleted by hand',
+        'halcyon:profiles': JSON.stringify(['Default']),
+        'halcyon:active-profile': 'Deleted by hand',
       }),
     );
 
@@ -347,7 +347,7 @@ describe('profiles that must not eat one another', () => {
 
 describe('profiles adopt what came before them', () => {
   const legacy = () =>
-    profileStorage({ 'he-overlay:config': exportConfig(withKeys(aKey, anotherKey)) });
+    profileStorage({ 'halcyon:config': exportConfig(withKeys(aKey, anotherKey)) });
 
   it('adopts a pre-profile configuration as the default profile', () => {
     // Everyone upgrading from v0.5 has their whole layout under the old key.
@@ -362,11 +362,11 @@ describe('profiles adopt what came before them', () => {
 
   it('leaves the old key where it was, so a rollback still finds it', () => {
     const storage = legacy();
-    const before = storage.map.get('he-overlay:config');
+    const before = storage.map.get('halcyon:config');
 
     createProfileStore(storage);
 
-    expect(storage.map.get('he-overlay:config')).toBe(before);
+    expect(storage.map.get('halcyon:config')).toBe(before);
   });
 
   it('never adopts twice, so an old key cannot come back over a real profile', () => {
@@ -393,8 +393,8 @@ describe('what a profile says about itself', () => {
     // indistinguishable from a profile someone really did empty.
     const store = createProfileStore(
       profileStorage({
-        'he-overlay:profiles': JSON.stringify(['Default']),
-        'he-overlay:profile:Default': '{{{',
+        'halcyon:profiles': JSON.stringify(['Default']),
+        'halcyon:profile:Default': '{{{',
       }),
     );
 
@@ -406,13 +406,13 @@ describe('what a profile says about itself', () => {
 
   it('keeps an unreadable profile aside, as the single configuration did', () => {
     const storage = profileStorage({
-      'he-overlay:profiles': JSON.stringify(['Default']),
-      'he-overlay:profile:Default': '{{{',
+      'halcyon:profiles': JSON.stringify(['Default']),
+      'halcyon:profile:Default': '{{{',
     });
 
     createProfileStore(storage).load('Default');
 
-    expect(storage.map.get('he-overlay:backup:he-overlay:profile:Default')).toBe('{{{');
+    expect(storage.map.get('halcyon:backup:halcyon:profile:Default')).toBe('{{{');
   });
 });
 
@@ -431,8 +431,8 @@ describe('a storage that refuses to write must not destroy anything', () => {
   }
 
   const withOneProfile = () => ({
-    'he-overlay:profiles': JSON.stringify(['Default']),
-    'he-overlay:profile:Default': exportConfig(withKeys(aKey, anotherKey)),
+    'halcyon:profiles': JSON.stringify(['Default']),
+    'halcyon:profile:Default': exportConfig(withKeys(aKey, anotherKey)),
   });
 
   it('keeps the profile when a rename cannot be written', () => {
@@ -452,8 +452,8 @@ describe('a storage that refuses to write must not destroy anything', () => {
     // survives in the list with nothing behind it.
     const storage = readOnly({
       ...withOneProfile(),
-      'he-overlay:profiles': JSON.stringify(['Default', 'Apex']),
-      'he-overlay:profile:Apex': exportConfig(withKeys(aKey)),
+      'halcyon:profiles': JSON.stringify(['Default', 'Apex']),
+      'halcyon:profile:Apex': exportConfig(withKeys(aKey)),
     });
     const store = createProfileStore(storage);
 
@@ -465,13 +465,13 @@ describe('a storage that refuses to write must not destroy anything', () => {
 
 describe('a profile named like a backup', () => {
   it('does not have its configuration overwritten by its neighbour failing', () => {
-    // `he-overlay:profile:X` + ".backup" is exactly `he-overlay:profile:X.backup`.
+    // `halcyon:profile:X` + ".backup" is exactly `halcyon:profile:X.backup`.
     // With the backup written into the same namespace, a profile that failed to
     // load buried the profile literally named "X.backup".
     const storage = profileStorage({
-      'he-overlay:profiles': JSON.stringify(['Default', 'Default.backup']),
-      'he-overlay:profile:Default': '{{{',
-      'he-overlay:profile:Default.backup': exportConfig(withKeys(aKey)),
+      'halcyon:profiles': JSON.stringify(['Default', 'Default.backup']),
+      'halcyon:profile:Default': '{{{',
+      'halcyon:profile:Default.backup': exportConfig(withKeys(aKey)),
     });
     const store = createProfileStore(storage);
 
@@ -482,8 +482,8 @@ describe('a profile named like a backup', () => {
 
   it('is not erased when its neighbour is removed', () => {
     const storage = profileStorage({
-      'he-overlay:profiles': JSON.stringify(['Default', 'Default.backup']),
-      'he-overlay:profile:Default.backup': exportConfig(withKeys(aKey)),
+      'halcyon:profiles': JSON.stringify(['Default', 'Default.backup']),
+      'halcyon:profile:Default.backup': exportConfig(withKeys(aKey)),
     });
     const store = createProfileStore(storage);
 

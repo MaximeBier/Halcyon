@@ -25,6 +25,15 @@ describe('what OBS gets', () => {
 });
 
 describe('what a person gets', () => {
+  it('wears the product name, and the product is Halcyon', () => {
+    // The one place the brand is on screen rather than in a document: this
+    // wordmark shows whenever the overlay is opened in a browser to check it
+    // works (spec §16.7), so it is also the one that would be caught wearing
+    // the old name on someone's stream.
+    expect(chrome().container.textContent).toContain('HALCYON');
+    expect(chrome().container.textContent).not.toContain('HE OVERLAY');
+  });
+
   it('names the page, so a correct URL stops looking like a broken one', () => {
     // Today a working URL and a wrong one both render a black empty page.
     // This line is the whole reason the decoration exists.

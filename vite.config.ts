@@ -15,7 +15,7 @@ import { resolve } from 'node:path';
  */
 // `||`, not `??`: Docker turns `--build-arg VITE_BUILD=` into the empty
 // string rather than leaving it unset, and `??` lets that through. The panel
-// would then render "HE Overlay " with nothing after it — the anonymous build
+// would then render "Halcyon " with nothing after it — the anonymous build
 // this whole mechanism exists to prevent.
 const BUILD = process.env.VITE_BUILD || 'dev';
 

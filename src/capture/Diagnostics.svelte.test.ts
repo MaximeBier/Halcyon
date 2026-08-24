@@ -127,12 +127,16 @@ describe('the background probe', () => {
 
 describe('naming itself', () => {
   it('says which build is running, and not merely its own name', () => {
-    // `toBeTruthy` passed on the literal "HE Overlay " alone, so it could not
+    // `toBeTruthy` passed on the literal "Halcyon " alone, so it could not
     // notice `__BUILD__` going empty — the one failure the whole mechanism
     // exists to prevent, and the one a lost `define` in vite.config produces.
     const shown = panel().container.querySelector('[data-build]')!.textContent ?? '';
 
-    expect(shown.replace('HE Overlay', '').trim()).not.toBe('');
+    expect(shown.replace('Halcyon', '').trim()).not.toBe('');
+    // The name itself, pinned: the line above only ever proved the build
+    // string was there, so it went on passing through the 2026-08-24 rename
+    // without noticing which product it was naming.
+    expect(shown).toContain('Halcyon');
   });
 });
 

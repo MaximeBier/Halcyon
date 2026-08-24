@@ -30,10 +30,8 @@ describe('remembering which folds are open', () => {
   it('falls back rather than trusting a value it does not recognise', () => {
     // Anything other than the two it writes. Reading "0" as open, or a stray
     // string as closed, silently reverses a choice someone made on purpose.
-    expect(loadOpenState(memoryStorage({ 'he-overlay:open:style': 'yes' }), 'style', true)).toBe(
-      true,
-    );
-    expect(loadOpenState(memoryStorage({ 'he-overlay:open:style': 'yes' }), 'style', false)).toBe(
+    expect(loadOpenState(memoryStorage({ 'halcyon:open:style': 'yes' }), 'style', true)).toBe(true);
+    expect(loadOpenState(memoryStorage({ 'halcyon:open:style': 'yes' }), 'style', false)).toBe(
       false,
     );
   });

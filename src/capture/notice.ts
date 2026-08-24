@@ -53,7 +53,7 @@ export function importFailedToast(
     tone: 'error',
     message:
       reason === 'too-new'
-        ? `Import failed · written by a newer version of HE Overlay · ${KEPT}`
+        ? `Import failed · written by a newer version of Halcyon · ${KEPT}`
         : `Import failed · unreadable file · ${KEPT}`,
   };
 }
@@ -90,7 +90,7 @@ export function loadToast(problem: 'unreadable' | 'too-new' | null): Notice | nu
   if (problem === null) return null;
 
   const cause =
-    problem === 'too-new' ? 'written by a newer version of HE Overlay' : 'could not be read';
+    problem === 'too-new' ? 'written by a newer version of Halcyon' : 'could not be read';
   return {
     tone: 'error',
     message: `Saved profile ${cause} · started from the defaults · the copy is kept aside`,

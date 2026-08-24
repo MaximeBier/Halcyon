@@ -65,7 +65,7 @@
     // The build and the browser go with it. They are the two facts a reader
     // needs before the first line, and the two nobody thinks to paste — the
     // user agent in particular names OBS's embedded Chromium (spec §2.1).
-    const header = `HE Overlay ${__BUILD__}\n${navigator.userAgent}\n\n`;
+    const header = `Halcyon ${__BUILD__}\n${navigator.userAgent}\n\n`;
     copyState = (await copyToClipboard(navigator, header + logText())) ? 'done' : 'failed';
   }
 
@@ -163,7 +163,7 @@
 
   <section>
     <h3>This build</h3>
-    <p class="at" data-build>HE Overlay {__BUILD__}</p>
+    <p class="at" data-build>Halcyon {__BUILD__}</p>
     <p class="at agent">{navigator.userAgent}</p>
   </section>
 </div>

@@ -1,7 +1,7 @@
 import type { KeyboardStatus } from '../keyboard/device';
 import type { ObsStatus } from '../transport/obs';
 
-const KEY = 'he-overlay:setup';
+const KEY = 'halcyon:setup';
 
 /**
  * Where the setup stands, in the order the mockup walks it (boards 6a–6c).

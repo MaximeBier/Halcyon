@@ -41,7 +41,7 @@
        will be heard, and someone who cannot see the banner needs it most. -->
   <div class="wall" role="alert">
     <span class="dot" aria-hidden="true"></span>
-    <span>HE Overlay needs a Chromium browser, such as Chrome or Edge.</span>
+    <span>Halcyon needs a Chromium browser, such as Chrome or Edge.</span>
   </div>
 {/if}
 

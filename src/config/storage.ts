@@ -1,12 +1,12 @@
 import { migrate, type MigrationResult } from './migrate';
 import { defaultConfig, type OverlayConfig } from './schema';
 
-const KEY = 'he-overlay:config';
-const PROFILES_KEY = 'he-overlay:profiles';
-const ACTIVE_KEY = 'he-overlay:active-profile';
+const KEY = 'halcyon:config';
+const PROFILES_KEY = 'halcyon:profiles';
+const ACTIVE_KEY = 'halcyon:active-profile';
 const DEFAULT_PROFILE = 'Default';
 
-const profileKey = (name: string) => `he-overlay:profile:${name}`;
+const profileKey = (name: string) => `halcyon:profile:${name}`;
 
 /**
  * Where a configuration we refused to load is kept.
@@ -16,13 +16,13 @@ const profileKey = (name: string) => `he-overlay:profile:${name}`;
  * running cached JavaScript, would otherwise cost an evening of layout work
  * between the warning and the first change the user makes.
  *
- * **A namespace of its own, not a suffix.** `he-overlay:profile:X` plus
+ * **A namespace of its own, not a suffix.** `halcyon:profile:X` plus
  * ".backup" is character for character `profileKey('X.backup')`, and nothing
  * stops anyone naming a profile that: the salvage copy of one profile landed
  * on top of a real one, and removing the first erased the second. Found in
  * review on 2026-08-21.
  */
-const backupKey = (key: string) => `he-overlay:backup:${key}`;
+const backupKey = (key: string) => `halcyon:backup:${key}`;
 
 /** Storage that can be read and written. Writing may fail; reading may not. */
 type Store = Pick<Storage, 'getItem' | 'setItem'>;

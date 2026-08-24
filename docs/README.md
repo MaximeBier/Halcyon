@@ -1,4 +1,4 @@
-# HE Overlay
+# Halcyon
 
 Analog key travel from a Wooting keyboard, live in OBS. Each key fills up as you
 press it, so viewers see how far a key went down, not just that it was hit.
@@ -14,7 +14,7 @@ Nothing to install. Open the page, add your keys, and OBS shows them.
 
 ## Open it
 
-<https://he-overlay.wardensquad.fr>
+<https://halcyon.wardensquad.fr>
 
 That is the whole installation. Your keys, colours and profiles are saved in
 your browser, on your machine.
@@ -64,7 +64,7 @@ Optional. Put a shortcut in your Windows Startup folder — press `Win`+`R` and
 type `shell:startup` to open it:
 
 ```
-chrome.exe --app=https://he-overlay.wardensquad.fr/capture.html
+chrome.exe --app=https://halcyon.wardensquad.fr/capture.html
 ```
 
 `--app` opens it as a plain window, without tabs or an address bar.
@@ -101,4 +101,4 @@ problem without asking you three more questions.
 
 Running your own copy, offline use, hosting it yourself: see
 [deploy.md](deploy.md) and the
-[releases page](https://github.com/MaximeBier/he-overlay/releases).
+[releases page](https://github.com/MaximeBier/halcyon/releases).
