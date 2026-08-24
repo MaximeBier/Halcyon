@@ -25,7 +25,7 @@
   import { keysOutside, surfaceOf } from './layout';
   import { pickedFromList } from './gestures';
   import { loadLayoutMap, resolveLayout, type LayoutMapLike } from '../keyboard/labels';
-  import { setLayoutOverride } from '../config/edit';
+  import { detectedLabelFor, setLayoutOverride } from '../config/edit';
   import { createAxisSuggester } from './suggest';
   import { hasGlobalOverrides, hasOverrides, resolve } from '../config/resolve';
   import { recommendedSize } from '../view/scene';
@@ -1074,7 +1074,25 @@
                         off screen
                       </span>
                     {/if}
-                    {#if hasOverrides(key)}<span class="override">override</span>{/if}
+                    <!-- Same amber, same shape as the override tag beside it: at a
+                         glance the two say one thing — this key was customized. The
+                         words separate them for whoever reads on, because the ways
+                         back differ: "Reset to global" for a style, "Reset to
+                         detected" for a name.
+
+                         A typed label is the one customization that is invisible on
+                         the key itself. Four arrows drawn as a clean cluster, one of
+                         them Right Ctrl wearing a down arrow, and nothing on screen
+                         to say which. -->
+                    {#if detectedLabelFor(key, activeLayout) !== null}
+                      <span
+                        class="customized"
+                        title="Renamed by hand · this is not the name its position produces"
+                      >
+                        renamed
+                      </span>
+                    {/if}
+                    {#if hasOverrides(key)}<span class="customized">override</span>{/if}
                   </button>
                   <button
                     class="trash"
@@ -1461,9 +1479,12 @@
     font-size: var(--he-size-xs, 14px);
     color: var(--he-text-faint, #5a5f70);
   }
-  .override {
+  /* One class for both tags: they are the same mark, and the words are what
+     separate a style override from a name someone typed. */
+  .customized {
     font-size: var(--he-size-xs, 14px);
     color: var(--he-override, #d9a05b);
+    white-space: nowrap;
   }
   /* Red where the override tag is amber: an override is a choice, and this is
      a key nobody can see. */

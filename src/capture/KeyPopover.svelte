@@ -1,5 +1,11 @@
 <script lang="ts">
-  import { clearKeyStyle, setKeyLabel, setKeyMode, setKeyStyle } from '../config/edit';
+  import {
+    clearKeyStyle,
+    detectedLabelFor,
+    setKeyLabel,
+    setKeyMode,
+    setKeyStyle,
+  } from '../config/edit';
   import { effectiveStyle, overriddenInAny } from '../config/resolve';
   import { removeKeys } from './learn';
   import { moveKey, resizeKeys, GRID, type Rect } from './layout';
@@ -79,11 +85,7 @@
    * Null with no layout: there is nothing to go back to, and the position name
    * `labelFor` would produce is worse than anything the user typed.
    */
-  const detectedLabel = $derived.by(() => {
-    if (!single || layout === null) return null;
-    const detected = labelFor(single.usage, layout);
-    return detected === single.label ? null : detected;
-  });
+  const detectedLabel = $derived(single ? detectedLabelFor(single, layout) : null);
 
   /**
    * Which of the two label editors is showing — a view switch, not a stored
@@ -386,7 +388,26 @@
 
     {#if single}
       <div class="row">
-        <span class="label" id="key-label">Label</span>
+        <!-- The badge sits with the word it qualifies, not at the far end of a
+             `space-between` row where it would read as a third control. The
+             header carries the same one for style overrides: one colour, one
+             meaning — this was customized — and the word says which kind.
+
+             Outside `#key-label`, deliberately: that id is the accessible name
+             of the segmented group below, and folding "renamed" into it would
+             have the Text/Icon buttons announce themselves as "Label renamed". -->
+        <div class="named">
+          <span class="label" id="key-label">Label</span>
+          {#if detectedLabel !== null}
+            <span
+              class="badge"
+              data-badge="renamed"
+              title="Renamed by hand · this is not the name its position produces"
+            >
+              renamed
+            </span>
+          {/if}
+        </div>
         <!-- Board 6e. Not a stored mode: it chooses which editor is on screen,
              and both write the same field. -->
         <div class="segmented small" role="group" aria-labelledby="key-label">
@@ -429,7 +450,10 @@
              twelve are already on the keys nobody had to touch. -->
         <p class="hint">Special keys pick their icon on capture. Text keeps the layout name.</p>
       {:else}
-        <div class="row">
+        <!-- `end`, because this row has one child and `space-between` puts a
+             lone child on the left — the one control in the popover that did
+             not line up with the column every other row forms. -->
+        <div class="row end">
           <input
             id="key-label-text"
             name="label"
@@ -592,6 +616,13 @@
     align-items: center;
     justify-content: space-between;
     gap: 10px;
+  }
+  /* A row's label and the badge that qualifies it, held together so
+     `space-between` keeps seeing two things and not three. */
+  .named {
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
   /* The fold brings its own frame; inside the popover it is a run of rows like
      any other, so it gets the same spacing and no second border. */

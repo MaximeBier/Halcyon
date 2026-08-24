@@ -68,7 +68,12 @@ afterEach(() =>
   ),
 );
 
-function editor(config = twoKeys(), box = STAGE, selectedIds: number[] = []) {
+function editor(
+  config = twoKeys(),
+  box = STAGE,
+  selectedIds: number[] = [],
+  layout: Map<string, string> | null = null,
+) {
   laidOut(box);
   const onChange = vi.fn();
   const view = render(LayoutEditor, {
@@ -78,6 +83,7 @@ function editor(config = twoKeys(), box = STAGE, selectedIds: number[] = []) {
       selectedIds,
       stageBox: { ...box },
       onChange,
+      layout,
       // The popover's Style fold remembers whether it is open; nothing here
       // reaches for  on its own.
       storage: { getItem: () => null, setItem: () => {} },
@@ -316,13 +322,45 @@ describe('LayoutEditor - the popover is a place you go, not one you fall into', 
 });
 
 describe('LayoutEditor - a customized key says so', () => {
+  // Position `KeyA` carries usage 0x04. The map speaks for the writing keys
+  // only, exactly as `getLayoutMap()` does.
+  const qwerty = new Map([['KeyA', 'a']]);
+  const withKey = (label: string, usage = 0x04) => {
+    const config = twoKeys();
+    config.keys[0] = { ...config.keys[0]!, usage, label };
+    return config;
+  };
+
   it('marks the keys that override something', () => {
     // Without it: you style one key, forget, and hunt months later for why it
     // does not react like the others (spec §8.2).
     const { handles } = editor(setKeyStyle(twoKeys(), [2], 'activeColor', '#ff0000'));
 
-    expect(handles[0]!.classList.contains('overridden')).toBe(false);
-    expect(handles[1]!.classList.contains('overridden')).toBe(true);
+    expect(handles[0]!.classList.contains('customized')).toBe(false);
+    expect(handles[1]!.classList.contains('customized')).toBe(true);
+  });
+
+  it('marks a key wearing a name that is not its own', () => {
+    // The case this exists for: Right Ctrl renamed to the down arrow and moved
+    // into the arrow cluster, so four keys draw as a clean set and one of them
+    // answers to a key nowhere near it. The dot is what says which.
+    const { handles } = editor(withKey('↓', 0xe4), STAGE, [], qwerty);
+
+    expect(handles[0]!.classList.contains('customized')).toBe(true);
+  });
+
+  it('leaves a key still wearing the name the layout gave it', () => {
+    const { handles } = editor(withKey('A'), STAGE, [], qwerty);
+
+    expect(handles[0]!.classList.contains('customized')).toBe(false);
+  });
+
+  it('marks nothing as renamed when no layout was detected', () => {
+    // `labelFor` would answer the position name, and every key on the board
+    // would report itself renamed against a debugging string.
+    const { handles } = editor(withKey('↓', 0xe4), STAGE, [], null);
+
+    expect(handles[0]!.classList.contains('customized')).toBe(false);
   });
 });
 

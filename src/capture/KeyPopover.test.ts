@@ -308,6 +308,31 @@ describe('KeyPopover - going back to the detected label', () => {
 
     expect(resetLabel(withLayout(renamed, null).container)).toBeNull();
   });
+
+  const labelBadge = (container: Element) => container.querySelector('[data-badge="renamed"]');
+
+  it('marks the Label row with the same badge the key wears', () => {
+    // The dot on the handle says a key was customized; opening it has to say
+    // *which* customization, in the same amber, on the row responsible.
+    const renamed = setKeyLabel(twoKeys(), 1, 'Sprint');
+
+    expect(labelBadge(withLayout(renamed, AZERTY).container)).not.toBeNull();
+  });
+
+  it('leaves the Label row unmarked while the name is the detected one', () => {
+    const config = twoKeys();
+    config.keys[0]!.label = 'A';
+
+    expect(labelBadge(withLayout(config, AZERTY).container)).toBeNull();
+  });
+
+  it('leaves the Label row unmarked when no layout was detected', () => {
+    // Same rule as the way back below it: with nothing to compare against,
+    // calling a name "renamed" would be an accusation with no evidence.
+    const renamed = setKeyLabel(twoKeys(), 1, 'Sprint');
+
+    expect(labelBadge(withLayout(renamed, null).container)).toBeNull();
+  });
 });
 
 describe('the width the editor is told about', () => {

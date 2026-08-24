@@ -3,6 +3,7 @@
   import KeyboardView from '../view/KeyboardView.svelte';
   import KeyPopover from './KeyPopover.svelte';
   import { hasOverrides, resolve } from '../config/resolve';
+  import { detectedLabelFor } from '../config/edit';
   import { UI_TOKENS } from '../styles/ui-tokens';
   import { recommendedSize } from '../view/scene';
   import { onSurface, pixelsToUnits, surfaceOf, type Edge, type Point, type Rect } from './layout';
@@ -42,7 +43,12 @@
      * whether it is open. The editor keeps nothing of its own in it.
      */
     storage: Pick<Storage, 'getItem' | 'setItem'>;
-    /** Passed straight through to the popover; the editor makes no use of it. */
+    /**
+     * Passed through to the popover, and read here for one thing: whether a
+     * key still wears the name its position produces. Without it a renamed key
+     * is indistinguishable from one the layout named, which is the whole point
+     * of the dot the handle carries.
+     */
     layout?: LayoutMapLike | null;
     suggestAxis?: boolean;
     onDismissSuggestion?: () => void;
@@ -524,7 +530,7 @@
           class="handle"
           data-id={key.id}
           class:selected={selectedIds.includes(key.id)}
-          class:overridden={hasOverrides(key)}
+          class:customized={hasOverrides(key) || detectedLabelFor(key, layout) !== null}
           style:left={`${acrossX(key.x) + gap / 2}px`}
           style:top={`${acrossY(key.y) + gap / 2}px`}
           style:width={`${Math.max(0, key.w * unit - gap)}px`}
@@ -810,13 +816,21 @@
        and one of the two would always be hiding the other. */
     box-shadow: 0 0 0 1px var(--he-accent, #7c9eff);
   }
-  /* The same amber the popover badge uses. One colour, one meaning: this key
-     differs from the global (spec §8.2).
+  /* The same amber the popover badge uses. One colour, one meaning: **this key
+     was customized** — a style that differs from the global (spec §8.2), a
+     label that is not the one its position produces, or both.
+
+     It read "differs from the global style" alone until 2026-08-24. A renamed
+     key is the case that hurts more: a style override is visible on the key
+     itself, while a label someone typed is invisible by construction — it
+     looks exactly like a key that came out of the layout that way. Four arrows
+     drawn as a clean cluster, one of which is Right Ctrl, and nothing on
+     screen to say which one.
 
      Top *left*, because the AXIS tag the renderer draws sits top right and the
      two were printing on top of each other. Temporary: the mockup has not
      placed either of them yet, and when it does they move together. */
-  .handle.overridden::after {
+  .handle.customized::after {
     content: '';
     position: absolute;
     top: 3px;

@@ -7,6 +7,7 @@ import {
   setKeyMode,
   setKeyStyle,
   setLayoutOverride,
+  detectedLabelFor,
 } from './edit';
 import { defaultConfig, type OverlayConfig } from './schema';
 import { hasOverrides } from './resolve';
@@ -267,5 +268,54 @@ describe('choosing a layout', () => {
     next = setLayoutOverride(next, 'qwerty', QWERTY);
 
     expect(next.keys[0]?.label).toBe('↓');
+  });
+});
+
+describe('telling a name someone typed from the one the layout gave', () => {
+  // The rule already lived twice — inline in `setLayoutOverride`, and again in
+  // the popover — and a third reader was about to copy it. Nothing in the
+  // stored shape marks a label as typed (see `setLayoutOverride` for why), so
+  // the question is asked of the data: does the label still equal what this
+  // layout produces?
+
+  // What `getLayoutMap()` answers: the writing keys and nothing else. Right
+  // Ctrl is absent on purpose — `KEYCAP_LABELS` is what names those, and a
+  // fixture that spoke for them would be testing a map no browser produces.
+  const qwerty = new Map([['KeyQ', 'q']]);
+  // Usage 0x14 sits at position `KeyQ`; `labelFor` upper-cases a single
+  // character, so the name this layout gives it is `Q`.
+  const keyQ = { id: 1, usage: 0x14, mode: 'key' as const, label: 'Q', x: 0, y: 0, w: 1, h: 1 };
+
+  it('says nothing about a key still wearing the name the layout gave it', () => {
+    expect(detectedLabelFor(keyQ, qwerty)).toBe(null);
+  });
+
+  it('hands back the detected name for a key that was renamed', () => {
+    expect(detectedLabelFor({ ...keyQ, label: 'Sprint' }, qwerty)).toBe('Q');
+  });
+
+  it('says nothing at all when no layout was detected', () => {
+    // Without a layout there is nothing to be renamed *from*: `labelFor` would
+    // answer the position name, and calling a key renamed against a debugging
+    // string is worse than saying nothing.
+    expect(detectedLabelFor({ ...keyQ, label: 'Sprint' }, null)).toBe(null);
+  });
+
+  it('leaves an arrow learned as an icon alone', () => {
+    // A key learned through `learn.ts` wears `iconFor(usage) ?? labelFor(...)`,
+    // and the two agree on the four arrows. Were they to disagree, every arrow
+    // on the board would report itself renamed the moment it was learned.
+    const down = { ...keyQ, usage: 0x51, label: '↓' };
+
+    expect(detectedLabelFor(down, qwerty)).toBe(null);
+  });
+
+  it('reports the key this whole feature exists for', () => {
+    // Right Ctrl worn as the down arrow, so the cluster draws as a clean set of
+    // four. It is the one key of the four that does not answer to its own
+    // label, and nothing on screen said so.
+    const brake = { ...keyQ, usage: 0xe4, label: '↓' };
+
+    expect(detectedLabelFor(brake, qwerty)).toBe('Ctrl');
   });
 });

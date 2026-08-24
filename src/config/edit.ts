@@ -103,6 +103,30 @@ export function recomputeLabels(
 }
 
 /**
+ * The name the layout gives this position, when the key no longer wears it.
+ *
+ * `null` means "nobody typed this label" — either it still equals what the
+ * layout produces, or there is no layout to compare against.
+ *
+ * The rule is `setLayoutOverride`'s, and the reasoning below it applies here
+ * word for word: nothing in the stored shape separates "↓ because the layout
+ * said so" from "↓ because I typed it", so the question is asked of the data.
+ * It was written out a second time inside the popover, and a third and fourth
+ * reader were about to copy it again — the editor's dot and the key list both
+ * ask exactly this question. One rule, one place.
+ *
+ * **No layout, no answer.** `labelFor` would fall back to the position name,
+ * and a key reported as renamed from `ControlRight` tells the user nothing
+ * they can act on.
+ */
+export function detectedLabelFor(key: KeyConfig, layout: LayoutMapLike | null): string | null {
+  if (layout === null) return null;
+
+  const detected = labelFor(key.usage, layout);
+  return detected === key.label ? null : detected;
+}
+
+/**
  * Picks the logical layout and relabels the keys that never got a name.
  *
  * The relabelling is the point, not a side effect: the fallback of §8.6 exists
