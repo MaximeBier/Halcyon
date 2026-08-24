@@ -34,7 +34,7 @@ jobs:
       # The folder goes in whole, not its contents: the README tells people to
       # unpack it and run `npx serve dist`, which needs a `dist` to serve.
       - name: Package the offline archive
-        run: zip -r he-overlay-offline.zip dist
+        run: zip -r halcyon-offline.zip dist
 
       # `gh` rather than a release action — it ships on the runner, it is
       # first-party, and it leaves nothing to pin in a job that can write to
@@ -45,7 +45,7 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" he-overlay-offline.zip --clobber
+            gh release upload "$TAG" halcyon-offline.zip --clobber
           else
-            gh release create "$TAG" --generate-notes he-overlay-offline.zip
+            gh release create "$TAG" --generate-notes halcyon-offline.zip
           fi

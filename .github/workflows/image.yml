@@ -8,7 +8,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/he-overlay
+  IMAGE_NAME: ${{ github.repository_owner }}/halcyon
 
 jobs:
   image:
@@ -70,7 +70,7 @@ jobs:
           context: .
           platforms: linux/amd64
           load: true
-          tags: he-overlay:ci
+          tags: halcyon:ci
           # Stamped into the bundle so the diagnostics panel can name its own
           # build (spec §11). A report that cannot say which version produced
           # it is a report about an unknown program.
@@ -99,6 +99,6 @@ jobs:
         run: |
           echo "$TAGS" | while read -r tag; do
             [ -z "$tag" ] && continue
-            docker tag he-overlay:ci "$tag"
+            docker tag halcyon:ci "$tag"
             docker push "$tag"
           done

@@ -4,20 +4,20 @@
 # Replace `letsencrypt` with the name of the certificate resolver in place, and
 # `traefik` with the name of the Traefik network if it differs.
 services:
-  he-overlay:
-    image: ghcr.io/maximebier/he-overlay:latest
-    container_name: he-overlay
+  halcyon:
+    image: ghcr.io/maximebier/halcyon:latest
+    container_name: halcyon
     restart: unless-stopped
     networks: [traefik]
     labels:
       - traefik.enable=true
       - traefik.docker.network=traefik
-      - traefik.http.routers.he-overlay.rule=Host(`he-overlay.wardensquad.fr`)
-      - traefik.http.routers.he-overlay.entrypoints=websecure
-      - traefik.http.routers.he-overlay.tls.certresolver=letsencrypt
-      - traefik.http.services.he-overlay.loadbalancer.server.port=8080
-      - traefik.http.services.he-overlay.loadbalancer.healthcheck.path=/healthz
-      - traefik.http.services.he-overlay.loadbalancer.healthcheck.interval=30s
+      - traefik.http.routers.halcyon.rule=Host(`halcyon.wardensquad.fr`)
+      - traefik.http.routers.halcyon.entrypoints=websecure
+      - traefik.http.routers.halcyon.tls.certresolver=letsencrypt
+      - traefik.http.services.halcyon.loadbalancer.server.port=8080
+      - traefik.http.services.halcyon.loadbalancer.healthcheck.path=/healthz
+      - traefik.http.services.halcyon.loadbalancer.healthcheck.interval=30s
 
 networks:
   traefik:

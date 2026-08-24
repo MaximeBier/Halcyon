@@ -5,7 +5,7 @@
 # defects produces a visible error (spec §12.4).
 set -euo pipefail
 
-IMAGE="${1:-he-overlay:ci}"
+IMAGE="${1:-halcyon:ci}"
 PORT="${PORT:-8080}"
 BASE="http://localhost:${PORT}"
 
