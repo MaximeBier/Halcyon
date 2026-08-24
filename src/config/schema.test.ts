@@ -57,7 +57,7 @@ describe('default values', () => {
     // The two sizes, and everything that describes the overlay rather than a
     // key: whether a resting key has a background, and the outline it wears.
     // A key argues with the theme about its colours, not about these.
-    const globalOnly = ['unit', 'gap', 'restFilled', 'borderColor', 'borderWidth'];
+    const globalOnly = ['unit', 'gap', 'restVisibility', 'borderColor', 'borderWidth'];
     const inheritable = Object.keys(DEFAULT_STYLE).filter((key) => !globalOnly.includes(key));
 
     expect([...STYLE_KEYS].sort()).toEqual(inheritable.sort());

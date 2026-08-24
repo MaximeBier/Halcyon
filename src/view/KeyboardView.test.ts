@@ -20,7 +20,7 @@ const config: ResolvedConfig = {
   version: 1,
   unit: 100,
   gap: 10,
-  restFilled: true,
+  restVisibility: 'filled',
   borderColor: DEFAULT_STYLE.borderColor,
   borderWidth: DEFAULT_STYLE.borderWidth,
   keys: [
@@ -239,5 +239,34 @@ describe('KeyboardView - the border it was given', () => {
     expect(border.getAttribute('stroke-width')).toBe('4');
     expect(border.getAttribute('stroke')).toBe('#ff00aa');
     expect(border.getAttribute('x')).toBe('7'); // the key box starts at 5, inset by half of 4
+  });
+});
+
+describe('KeyboardView - the keys that are being pressed, and no others', () => {
+  // The mode itself is the scene's business; what belongs here is that the
+  // component hands the option through, and that one opacity really does take
+  // the whole key off the screen — border and label with it.
+  const hidden: ResolvedConfig = { ...config, restVisibility: 'hidden' };
+
+  it('draws a resting key at no opacity at all', () => {
+    const { container } = render(KeyboardView, { props: { config: hidden, frame: [] } });
+
+    expect(container.querySelector('g')?.getAttribute('opacity')).toBe('0');
+  });
+
+  it('gives the key back its opacity as soon as it moves', () => {
+    const { container } = render(KeyboardView, {
+      props: { config: hidden, frame: [[174, 40, 0]] },
+    });
+
+    expect(container.querySelector('g')?.getAttribute('opacity')).toBe('1');
+  });
+
+  it('reveals every key when asked, which is how the editor stays usable', () => {
+    const { container } = render(KeyboardView, {
+      props: { config: hidden, frame: [], reveal: true },
+    });
+
+    expect(container.querySelector('g')?.getAttribute('opacity')).toBe('1');
   });
 });

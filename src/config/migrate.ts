@@ -71,7 +71,7 @@ function knownStyle(raw: unknown): Partial<GlobalStyle> {
 function knownKeyStyle(raw: unknown): Partial<KeyStyle> {
   // `STYLE_KEYS` and nothing else. The list used to be built by subtracting a
   // hand-kept `['unit', 'gap']`, which was right until three global-only
-  // settings arrived on 2026-08-22 — `restFilled`, `borderColor`, `borderWidth`
+  // settings arrived on 2026-08-22 — `restVisibility`, `borderColor`, `borderWidth`
   // then rode through on a key, were stored, were re-exported, and were ignored
   // by `resolve()`. Invisible to `overriddenKeys`, so no reset could remove
   // them: precisely the "stored by the editor, ignored by the renderer" the

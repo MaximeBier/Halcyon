@@ -7,6 +7,7 @@ import {
   overriddenInAny,
   overriddenKeys,
 } from './resolve';
+import { COLOR_KEYS, isStyleValue } from './validate';
 import {
   defaultConfig,
   DEFAULT_STYLE,
@@ -158,18 +159,39 @@ describe('overrides that came from imported JSON', () => {
   });
 });
 
-/** Any value of the right type that is not the default one. */
+/**
+ * Any value that is not the default one **and that the product would accept**.
+ *
+ * The second half was missing until 2026-08-24, and the fallback quietly
+ * supplied nonsense for five of the twelve properties: `'#e7e9ee-changed'` for
+ * each colour, and `'filled-changed'` once `restVisibility` arrived. The test
+ * still passed, because `hasGlobalOverrides` only asks whether a value differs
+ * from the default — so it was proving the fold marker notices a change nobody
+ * can make.
+ *
+ * `isStyleValue` is the real rule, and asserting against it here is what keeps
+ * the next property added from landing in the same fallback unnoticed.
+ */
 function other(property: keyof GlobalStyle): unknown {
   const value = DEFAULT_STYLE[property];
-  if (typeof value === 'boolean') return !value;
-  if (typeof value === 'number') return value + 1;
-  return property === 'fillDirection' ? 'down' : `${value}-changed`;
+  const alternative = ((): unknown => {
+    if (typeof value === 'number') return value + 1;
+    if (property === 'fillDirection') return 'down';
+    if (property === 'restVisibility') return 'hidden';
+    if (COLOR_KEYS.includes(property)) return '#abcdef';
+    return `${value}-changed`;
+  })();
+
+  if (!isStyleValue(property, alternative)) {
+    throw new Error(`${property}: ${String(alternative)} is not a value the product accepts`);
+  }
+  return alternative;
 }
 
 describe('whether the global style has been touched', () => {
   // The §9.3 marker on the "Global style" fold. It used to read `STYLE_KEYS`,
   // which is the *inheritable* set — so the five properties a key cannot
-  // override were invisible to it: unit, gap, restFilled, borderColor,
+  // override were invisible to it: unit, gap, restVisibility, borderColor,
   // borderWidth. Turning the resting background off repaints every key on air
   // and lit nothing at all; changing the border colour did light the dot until
   // `borderColor` left `KeyStyle` on 2026-08-22, then quietly stopped.

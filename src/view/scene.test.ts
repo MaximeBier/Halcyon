@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildScene, recommendedSize } from './scene';
 import { OVERLAY_TOKENS } from '../styles/tokens';
+import { MAX_TRAVEL, REST_TRAVEL_FLOOR } from '../keyboard/analog-report';
 import { DEFAULT_STYLE, type ResolvedConfig, type ResolvedKey } from '../config/schema';
 import type { FrameKey } from '../protocol/messages';
 
@@ -32,7 +33,7 @@ const config = (...keys: ResolvedKey[]): ResolvedConfig => ({
   version: 1,
   unit: 100,
   gap: 10,
-  restFilled: true,
+  restVisibility: 'filled',
   borderColor: DEFAULT_STYLE.borderColor,
   borderWidth: DEFAULT_STYLE.borderWidth,
   keys,
@@ -261,7 +262,7 @@ describe('buildScene - a key that may have no background at all', () => {
     // An overlay of outlines: the keys appear as the fingers travel and leave
     // nothing behind. A switch rather than a colour value, so **the colour
     // survives being switched off** — it is still in the style, waiting.
-    const scene = buildScene({ ...config(key()), restFilled: false }, []);
+    const scene = buildScene({ ...config(key()), restVisibility: 'outline' }, []);
 
     expect(scene.keys[0]?.baseFill).toBe('transparent');
   });
@@ -269,15 +270,116 @@ describe('buildScene - a key that may have no background at all', () => {
   it('still swaps to the fill colour when the key fires', () => {
     // The switch is about the *rest* background. What an actuated key paints is
     // the actuation, and taking that away would be taking away the signal.
-    const scene = buildScene({ ...config(key()), restFilled: false }, [[174, 300, 1]]);
+    const scene = buildScene({ ...config(key()), restVisibility: 'outline' }, [[174, 300, 1]]);
 
     expect(scene.keys[0]?.baseFill).toBe(style.fillColor);
   });
 
   it('leaves the border, which is the whole point of an outline overlay', () => {
-    const scene = buildScene({ ...config(key()), restFilled: false }, []);
+    const scene = buildScene({ ...config(key()), restVisibility: 'outline' }, []);
 
     expect(scene.keys[0]?.border.color).toBe(DEFAULT_STYLE.borderColor);
+  });
+});
+
+describe('buildScene - an overlay of the keys being pressed', () => {
+  it('hides a resting key entirely, its border and its label with it', () => {
+    // One opacity on the group rather than a transparent value per part: the
+    // background, the travel, the outline and the label go out together, and
+    // there is no fourth thing to remember the day a fifth is added.
+    const scene = buildScene({ ...config(key()), restVisibility: 'hidden' }, []);
+
+    expect(scene.keys[0]?.opacity).toBe(0);
+  });
+
+  it('leaves a key resting while its travel is only a released switch settling', () => {
+    // A key sitting on the bottom of its travel flickers 1↔0, and none of the
+    // emitter's branches fire on that: no actuation, no release — that one is
+    // guarded by the same floor — no jump, no bottoming. The frames go out
+    // through the cap instead, at 60 Hz.
+    //
+    // Read as travel, that is a key drawn at full opacity and blinking, alone
+    // on an overlay whose whole promise is to be empty at rest. Invisible in
+    // `filled` and `outline`, where the same jitter is a rectangle one part in
+    // 1023 tall — which is why nothing had caught it until this mode existed.
+    const scene = buildScene({ ...config(key()), restVisibility: 'hidden' }, [
+      [174, REST_TRAVEL_FLOOR, 0],
+    ]);
+
+    expect(scene.keys[0]?.opacity).toBe(0);
+  });
+
+  it('wakes on the smallest travel a finger has ever produced', () => {
+    // 1.4 % of the travel, measured in spec §7.3 as the smallest ever seen in
+    // use — an order of magnitude above the floor, which therefore cannot eat
+    // a real press. The floor is a released switch, not a dead zone: §7.3 is
+    // explicit that the product has none.
+    const scene = buildScene({ ...config(key()), restVisibility: 'hidden' }, [
+      [174, Math.round(0.014 * MAX_TRAVEL), 0],
+    ]);
+
+    expect(scene.keys[0]?.opacity).toBe(style.opacity);
+  });
+
+  it('counts a travel that is not a number as a key at rest', () => {
+    // The frame crosses obs-websocket, where any authenticated client can
+    // speak. `NaN` fails every comparison it is given, so a rest test reading
+    // the raw value would call it pressed — a key drawn at no travel at all,
+    // on an overlay meant to be empty. The ratio has been guarded since the
+    // scene was written; this is the same guard reaching the same conclusion.
+    const scene = buildScene({ ...config(key()), restVisibility: 'hidden' }, [[174, NaN, 0]]);
+
+    expect(scene.keys[0]?.opacity).toBe(0);
+  });
+
+  it('shows a key that fires without measurable travel', () => {
+    // An actuation point set low in Wootility fires the key at a travel that
+    // rounds to nothing (spec 16.3). Keyed on the travel alone, the one key
+    // the stream must show would be the one key left hidden.
+    const scene = buildScene({ ...config(key()), restVisibility: 'hidden' }, [[174, 0, 1]]);
+
+    expect(scene.keys[0]?.opacity).toBe(style.opacity);
+  });
+
+  it('hides a resting axis key too, which has travel and never actuates', () => {
+    // No exception for the mode, deliberately: an axis key that never fires
+    // would be an axis key permanently on screen in a mode whose whole promise
+    // is an empty overlay at rest.
+    const scene = buildScene({ ...config(key({ mode: 'axis' })), restVisibility: 'hidden' }, [
+      [174, 0, 0],
+    ]);
+
+    expect(scene.keys[0]?.opacity).toBe(0);
+  });
+
+  it('gives the key it reveals the ordinary rendering, not an outline', () => {
+    // `hidden` is `filled` less the resting keys. A key that appears looks like
+    // any other pressed key.
+    const scene = buildScene({ ...config(key()), restVisibility: 'hidden' }, [[174, 300, 0]]);
+
+    expect(scene.keys[0]?.baseFill).toBe(style.restColor);
+  });
+
+  it('reveals every key for the editor, which has keys to drag', () => {
+    // Like `pack`, and for the same kind of reason: a property of the
+    // rendering, on for one surface and off for the other. Without it the
+    // editor's stage is blank and the layout cannot be edited at all.
+    const scene = buildScene({ ...config(key()), restVisibility: 'hidden' }, [], {
+      reveal: true,
+    });
+
+    expect(scene.keys[0]?.opacity).toBe(style.opacity);
+  });
+
+  it('measures the scene from the geometry, not from what happens to show', () => {
+    // The figure is typed into OBS. Measured on the visible keys, it would be
+    // a source that resizes itself under the fingers.
+    const size = recommendedSize({
+      ...config(key(), key({ id: 9, x: 1 })),
+      restVisibility: 'hidden',
+    });
+
+    expect(size).toEqual({ width: 200, height: 100 });
   });
 });
 
@@ -306,7 +408,7 @@ describe('buildScene - geometry that must never reach the SVG', () => {
         version: 1,
         unit: 20,
         gap: 40,
-        restFilled: true,
+        restVisibility: 'filled',
         borderColor: DEFAULT_STYLE.borderColor,
         borderWidth: DEFAULT_STYLE.borderWidth,
         keys: [key({ w: 0.25 })],

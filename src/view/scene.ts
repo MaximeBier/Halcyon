@@ -1,4 +1,4 @@
-import { MAX_TRAVEL } from '../keyboard/analog-report';
+import { MAX_TRAVEL, REST_TRAVEL_FLOOR } from '../keyboard/analog-report';
 import { OVERLAY_TOKENS } from '../styles/tokens';
 import type { FillDirection, ResolvedConfig } from '../config/schema';
 import type { FrameKey } from '../protocol/messages';
@@ -135,14 +135,28 @@ export interface SceneOptions {
    * every key removed.
    */
   pack?: boolean;
+  /**
+   * Draw every key, whatever `restVisibility` says (spec §5.4).
+   *
+   * On for the editor, off for the broadcast, and the same asymmetry as `pack`
+   * above: a property of the rendering, not of the configuration. Under
+   * `hidden` the editor's stage would otherwise be empty — no key to click, no
+   * handle to drag, and no way back to another mode except by guessing where
+   * the keys are.
+   *
+   * It reveals rather than overrides: a revealed key is drawn exactly as
+   * `filled`/`outline` would draw it, so the editor still shows the colours the
+   * broadcast will use the moment a finger arrives.
+   */
+  reveal?: boolean;
 }
 
 export function buildScene(
   config: ResolvedConfig,
   frame: readonly FrameKey[],
-  { pack = false }: SceneOptions = {},
+  { pack = false, reveal = false }: SceneOptions = {},
 ): Scene {
-  const { unit, gap, restFilled, borderColor, borderWidth } = config;
+  const { unit, gap, restVisibility, borderColor, borderWidth } = config;
   const states = new Map(frame.map(([id, travel, active]) => [id, { travel, active }]));
 
   let width = 0;
@@ -167,12 +181,18 @@ export function buildScene(
   const keys = unique.map((key): SceneKey => {
     // A key missing from the frame means zero travel and inactive (spec 7.3).
     const state = states.get(key.id) ?? { travel: 0, active: 0 as const };
-    // Clamped, because the frame crosses obs-websocket and anyone
-    // authenticated on it can speak. A ratio above one draws a fill several
-    // times the key height, over its neighbours.
-    const ratio = Number.isFinite(state.travel)
-      ? Math.min(1, Math.max(0, state.travel / MAX_TRAVEL))
-      : 0;
+    // Guarded before anything reads it, because the frame crosses
+    // obs-websocket and anyone authenticated on it can speak. `NaN` survives
+    // every clamp and every comparison — `NaN <= REST_TRAVEL_FLOOR` is false,
+    // so a key whose travel is not a number would count as pressed and be
+    // drawn, at no travel, over an overlay meant to be empty.
+    //
+    // One guarded number feeding both the ratio and the rest test, so the two
+    // cannot answer differently about the same key.
+    const travel = Number.isFinite(state.travel) ? state.travel : 0;
+    // Clamped: a ratio above one draws a fill several times the key height,
+    // over its neighbours.
+    const ratio = Math.min(1, Math.max(0, travel / MAX_TRAVEL));
 
     // The translation is applied here, once, and everything else — the fill
     // rectangle, the label, the measured size — is derived from these two. A
@@ -196,14 +216,42 @@ export function buildScene(
     // fill color behind it.
     const actuated = key.mode === 'key' && state.active === 1;
     const fillColor = actuated || key.mode === 'axis' ? key.style.activeColor : key.style.fillColor;
-    // Switched off, a resting key has no background at all — an overlay of
+    // In `outline`, a resting key has no background at all — an overlay of
     // outlines, where the keys appear as the fingers travel. What an actuated
     // key paints is untouched: that is the signal, not the backdrop.
+    //
+    // `hidden` keeps the background it would have had, and goes out through the
+    // opacity below instead. Drawing it as `filled` is what makes a key that
+    // appears look like an ordinary key rather than like a third rendering
+    // nobody chose.
     const baseFill = actuated
       ? key.style.fillColor
-      : restFilled
-        ? key.style.restColor
-        : 'transparent';
+      : restVisibility === 'outline'
+        ? 'transparent'
+        : key.style.restColor;
+    // Nothing is happening to this key: no travel worth the name, and no
+    // keystroke either.
+    //
+    // **The floor, not zero.** A key sitting on the bottom of its travel
+    // flickers 1↔0, which no branch of the emitter treats as an event, so those
+    // frames go out through the cap at 60 Hz — and `travel === 0` would read
+    // them as a key to draw. One blinking key, alone on an overlay whose whole
+    // promise is to be empty at rest.
+    //
+    // The actuation is part of the test and not a refinement of it. An
+    // actuation point set low in Wootility fires the key at a travel that
+    // rounds to nothing (spec §16.3), so a rule reading the travel alone would
+    // hide the very key the stream exists to show.
+    //
+    // Read off `state.travel` rather than off `ratio`, which is a fraction of
+    // the full travel and would need the floor divided by `MAX_TRAVEL` to say
+    // the same thing — a conversion with nothing to gain and a rounding error
+    // to lose.
+    const resting = travel <= REST_TRAVEL_FLOOR && state.active !== 1;
+    // One opacity for the whole key rather than a transparent value per part:
+    // the background, the travel, the outline and the label go out together,
+    // and the day a fifth thing is drawn there is nothing to remember.
+    const opacity = restVisibility === 'hidden' && resting && !reveal ? 0 : key.style.opacity;
 
     width = Math.max(width, (key.x - originX + key.w) * unit);
     height = Math.max(height, (key.y - originY + key.h) * unit);
@@ -249,7 +297,7 @@ export function buildScene(
       // Proportional: a frozen pixel size breaks on resize and becomes
       // unreadable at the real stream size (mockup 4b).
       fontSize: h * OVERLAY_TOKENS.keyLabelRatio,
-      opacity: key.style.opacity,
+      opacity,
       axis: key.mode === 'axis',
     };
   });

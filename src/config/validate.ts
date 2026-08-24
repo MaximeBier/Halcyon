@@ -13,6 +13,16 @@ type Loose = Record<string, unknown>;
 export const FILL_DIRECTIONS: readonly string[] = ['up', 'down', 'left', 'right'];
 
 /**
+ * The three states of a resting key (`GlobalStyle.restVisibility`).
+ *
+ * Beside `FILL_DIRECTIONS` and for its reason: a keyword the renderer switches
+ * on is a keyword both boundaries have to agree about, and an unknown one falls
+ * through every branch of that switch. Where a bad direction cost one key its
+ * travel, a bad visibility would cost the overlay its keys.
+ */
+export const REST_VISIBILITIES: readonly string[] = ['filled', 'outline', 'hidden'];
+
+/**
  * The one colour syntax accepted.
  *
  * Not because the renderer could not paint `rebeccapurple` — it hands the
@@ -46,6 +56,7 @@ export function isStyleValue(property: string, value: unknown): boolean {
   if (typeof value !== typeof fallback) return false;
   if (typeof value === 'number' && !Number.isFinite(value)) return false;
   if (property === 'fillDirection') return FILL_DIRECTIONS.includes(value as string);
+  if (property === 'restVisibility') return REST_VISIBILITIES.includes(value as string);
   if (COLOR_KEYS.includes(property)) return HEX_COLOR.test(value as string);
   // A unit of zero collapses the scene, a negative one produces an invalid SVG
   // width that browsers discard: a blank overlay, on air, in silence.
@@ -137,7 +148,7 @@ export function isResolvedConfig(value: unknown): value is ResolvedConfig {
     Number.isFinite(config.version) &&
     isExtent(config.unit) &&
     isNonNegative(config.gap) &&
-    typeof config.restFilled === 'boolean' &&
+    REST_VISIBILITIES.includes(config.restVisibility as string) &&
     HEX_COLOR.test(config.borderColor as string) &&
     isNonNegative(config.borderWidth) &&
     Array.isArray(config.keys) &&

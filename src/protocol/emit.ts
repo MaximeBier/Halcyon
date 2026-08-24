@@ -1,6 +1,6 @@
 import type { AnalogEntry } from '../keyboard/decode';
 import { createRateCounter } from './rate';
-import { MAX_TRAVEL } from '../keyboard/analog-report';
+import { MAX_TRAVEL, REST_TRAVEL_FLOOR } from '../keyboard/analog-report';
 import type { FrameKey } from './messages';
 
 export const FRAME_INTERVAL_MS = 1000 / 60;
@@ -21,19 +21,6 @@ export function buildFrame(entries: AnalogEntry[], ids: readonly number[] | null
     return entry ? ([id, entry.travel, entry.active ? 1 : 0] as const) : ([id, 0, 0] as const);
   });
 }
-
-/**
- * Travel below which a release is not worth breaking the cap for.
- *
- * The rest branch skips the frame cap by design, so it needs a floor of its
- * own: a key resting on the very bottom of its travel and flickering 1↔0 would
- * send one frame per report, up to a thousand a second, one obs-websocket
- * request each. Nothing is lost — a release from two levels out of 1023 is
- * invisible, and the cap carries it within 16 ms. This is the one-or-two-level
- * threshold spec §6.2 keeps in reserve, and it is well under the 1.4 % that
- * §7.3 measured as the smallest travel ever seen in use.
- */
-const REST_TRAVEL_FLOOR = 2;
 
 /**
  * Travel change that outranks the frame cap, out of 1023.
@@ -100,6 +87,18 @@ function compare(before: readonly FrameKey[], after: readonly FrameKey[]) {
     const was = previous.get(id) ?? RELEASED;
     const now = current.get(id) ?? RELEASED;
     if (was.active !== now.active) actuation = true;
+    // The release branch skips the frame cap by design, so it needs the floor:
+    // a key resting on the bottom of its travel and flickering 1↔0 would send
+    // one frame per report, up to a thousand a second, one obs-websocket
+    // request each. Nothing is lost — a release from two levels out of 1023 is
+    // invisible, and the cap carries it within 16 ms. This is the
+    // one-or-two-level threshold spec §6.2 keeps in reserve.
+    //
+    // The value **left this file on 2026-08-24** for `analog-report.ts`, where
+    // the reason it holds is written. It was private here, and the scene then
+    // answered "is this key resting" with `travel === 0` — a different answer
+    // to the same question, which drew a jittering key at full opacity in the
+    // one mode whose promise is an empty overlay at rest.
     if (was.travel > REST_TRAVEL_FLOOR && now.travel === 0) released = true;
     if (Math.abs(now.travel - was.travel) >= TRAVEL_STEP) jumped = true;
     if (was.travel < BOTTOM_TRAVEL_CEILING && now.travel >= BOTTOM_TRAVEL_CEILING) {

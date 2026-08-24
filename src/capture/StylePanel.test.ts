@@ -210,59 +210,97 @@ describe('StylePanel - the presets', () => {
   });
 });
 
-describe('StylePanel - whether a resting key has a background at all', () => {
+describe('StylePanel - how much of a resting key shows', () => {
   const box = (config: OverlayConfig = defaultConfig()) => {
     const view = panel(config);
     return {
       ...view,
-      input: view.container.querySelector<HTMLInputElement>('input[name="restFilled"]')!,
+      select: view.container.querySelector<HTMLSelectElement>('select[name="restVisibility"]')!,
       swatch: view.container.querySelector<HTMLInputElement>('input[name="restColor"]')!,
     };
   };
 
-  const toggle = (input: HTMLInputElement, checked: boolean) => {
-    input.checked = checked;
-    input.dispatchEvent(new Event('change', { bubbles: true }));
+  const choose = (select: HTMLSelectElement, value: string) => {
+    select.value = value;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
   };
 
-  it('switches the background off without touching the colour', () => {
-    // The whole reason it is a switch and not a colour value: the colour stays
-    // where it was, so switching back on returns what was there rather than a
-    // default nobody chose.
-    const { input, onChange } = box();
+  it('offers the three states, in the order of how much they show', () => {
+    expect([...box().select.options].map((option) => option.value)).toEqual([
+      'filled',
+      'outline',
+      'hidden',
+    ]);
+  });
 
-    toggle(input, false);
+  it('starts filled, since a keyboard that is always readable is the ordinary case', () => {
+    expect(box().select.value).toBe('filled');
+  });
 
-    expect(onChange.mock.calls[0]![0].style.restFilled).toBe(false);
+  it('drops the background without touching the colour', () => {
+    // The whole reason it is a keyword and not a colour value: the colour stays
+    // where it was, so coming back returns what was there rather than a default
+    // nobody chose.
+    const { select, onChange } = box();
+
+    choose(select, 'outline');
+
+    expect(onChange.mock.calls[0]![0].style.restVisibility).toBe('outline');
     expect(onChange.mock.calls[0]![0].style.restColor).toBe(DEFAULT_STYLE.restColor);
   });
 
-  it('switches it back on, to the colour that was waiting', () => {
+  it('comes back to the colour that was waiting', () => {
     const config = defaultConfig();
-    config.style.restFilled = false;
+    config.style.restVisibility = 'outline';
     config.style.restColor = '#334455';
-    const { input, onChange } = box(config);
+    const { select, onChange } = box(config);
 
-    toggle(input, true);
+    choose(select, 'filled');
 
     expect(onChange.mock.calls[0]![0].style).toMatchObject({
-      restFilled: true,
+      restVisibility: 'filled',
       restColor: '#334455',
     });
   });
 
-  it('starts on, since a key with no background is the exception', () => {
-    expect(box().input.checked).toBe(true);
+  it('hides the keys until they are pressed', () => {
+    const { select, onChange } = box();
+
+    choose(select, 'hidden');
+
+    expect(onChange.mock.calls[0]![0].style.restVisibility).toBe('hidden');
   });
 
-  it('takes the swatch out of use while there is no background to colour', () => {
+  it('takes the swatch out of use only where the colour paints nothing', () => {
     // Not dimmed-but-clickable: picking a colour that changes nothing on screen
     // is worse than a control that plainly says it is not in use.
-    const config = defaultConfig();
-    config.style.restFilled = false;
+    //
+    // `hidden` is **not** such a case, and that is the trap this guards. The
+    // rest colour is exactly what a hidden key wears the moment it appears, so
+    // disabling the swatch there would lock the one colour the mode shows.
+    const outlined = defaultConfig();
+    outlined.style.restVisibility = 'outline';
+    const concealed = defaultConfig();
+    concealed.style.restVisibility = 'hidden';
 
-    expect(box(config).swatch.disabled).toBe(true);
+    expect(box(outlined).swatch.disabled).toBe(true);
+    expect(box(concealed).swatch.disabled).toBe(false);
     expect(box().swatch.disabled).toBe(false);
+  });
+
+  it('says why the stage did not change when the keys go hidden', () => {
+    // Choosing the mode changes nothing on the capture page: the editor keeps
+    // drawing every key so the layout stays editable. Without a word here, the
+    // only way to tell the setting took is to open the overlay URL — the
+    // setting looks broken precisely because it is working.
+    const concealed = defaultConfig();
+    concealed.style.restVisibility = 'hidden';
+
+    expect(panel(concealed).container.textContent).toContain('editor keeps showing every key');
+  });
+
+  it('keeps quiet in the modes where the stage tells the truth on its own', () => {
+    expect(panel().container.textContent).not.toContain('editor keeps showing every key');
   });
 });
 

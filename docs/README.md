@@ -54,6 +54,10 @@ Two things to know here:
 Press a key and it appears on the overlay. Press the next one. You can move,
 resize and recolour them afterwards.
 
+Under **Keys at rest** you choose how much of the keyboard shows while your
+hands are still: the whole thing, the outlines alone, or nothing at all until a
+key goes down.
+
 ## Start it automatically
 
 Optional. Put a shortcut in your Windows Startup folder — press `Win`+`R` and

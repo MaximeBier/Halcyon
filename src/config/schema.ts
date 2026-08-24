@@ -13,6 +13,15 @@ import type { LayoutOverride } from '../keyboard/labels';
  * and the only thing shipped would have been a migration that rewrites a
  * number into itself.
  *
+ * The 2026-08-24 rename of `restFilled` to `restVisibility` is the same call
+ * made a second time, and this one is not a no-op: a stored profile carrying
+ * the old field loses it in `pickStyle`, `{ ...DEFAULT_STYLE }` fills the new
+ * one with `'filled'`, and an outline overlay comes back solid without a word
+ * — `dropped` counts keys, never settings. A `MIGRATIONS[1]` mapping the
+ * boolean onto the keyword would cost three lines and would spare exactly the
+ * profiles that do not exist. It stays at 1, deliberately, and the cost is
+ * written here so that it is a decision rather than an oversight.
+ *
  * Re-read at the first user. Until then, structure wins over compatibility.
  */
 export const CONFIG_VERSION = 1;
@@ -36,6 +45,18 @@ export type { LayoutOverride };
 
 /** Direction the fill progresses in. `up` = from the bottom upward. */
 export type FillDirection = 'up' | 'down' | 'left' | 'right';
+
+/**
+ * How much of a key shows while it is resting.
+ *
+ * - `filled` — a background in `restColor`, the default and the whole keyboard
+ *   permanently readable on the stream.
+ * - `outline` — the border alone: the keys appear as the fingers travel and
+ *   leave nothing behind.
+ * - `hidden` — nothing at all. The layout keeps its shape and every key its
+ *   place, and a key is drawn only while it is being pressed.
+ */
+export type RestVisibility = 'filled' | 'outline' | 'hidden';
 
 /** Appearance properties, the only ones subject to inheritance (spec §8.2). */
 export interface KeyStyle {
@@ -78,18 +99,24 @@ export interface GlobalStyle extends KeyStyle {
   /** In pixels. Zero draws no border at all, which is a choice. */
   borderWidth: number;
   /**
-   * Whether a key at rest has a background at all.
+   * How much of a key is drawn while nothing is happening to it.
    *
-   * A switch, not a colour value: switched off, `restColor` is untouched and
-   * waiting, so switching back on returns the colour that was there rather
-   * than a default nobody chose. It also keeps the colour rule pure — a colour
-   * is always a hex colour, never a keyword.
+   * Three states and not two booleans: `restFilled` was a switch until
+   * 2026-08-24, and the third state does not fit beside it — a pair of flags
+   * would offer four combinations of which "hidden, but with a background" and
+   * "hidden, but outlined" mean nothing, and the panel would then have to
+   * explain which pairs are real.
    *
-   * Global only, deliberately. "Does a resting key have a background" is a
-   * decision about the whole overlay; a single outlined key among filled ones
-   * is a look nobody has asked for, and adding it later costs one field.
+   * A keyword and never a colour value, which is what the switch was for and
+   * what the enum keeps: `restColor` is untouched in every state, so leaving
+   * `outline` returns the colour that was there rather than a default nobody
+   * chose — and a colour stays a hex colour, never `'transparent'`.
+   *
+   * Global only, deliberately. "How much of a resting key shows" is a decision
+   * about the whole overlay; a single hidden key among visible ones is a look
+   * nobody has asked for, and adding it later costs one field.
    */
-  restFilled: boolean;
+  restVisibility: RestVisibility;
   /** Pixels per key unit. */
   unit: number;
   /** Gap between keys, in pixels. */
@@ -137,8 +164,8 @@ export interface ResolvedConfig {
   version: number;
   unit: number;
   gap: number;
-  /** Global only, like the two above: see `GlobalStyle.restFilled`. */
-  restFilled: boolean;
+  /** Global only, like the two above: see `GlobalStyle.restVisibility`. */
+  restVisibility: RestVisibility;
   borderColor: string;
   borderWidth: number;
   keys: ResolvedKey[];
@@ -195,7 +222,7 @@ export const BORDER_WIDTH_BOUNDS = { min: 0, max: 16 } as const;
  */
 export const DEFAULT_STYLE: GlobalStyle = {
   restColor: OVERLAY_TOKENS.keyRest,
-  restFilled: true,
+  restVisibility: 'filled',
   borderColor: OVERLAY_TOKENS.keyBorder,
   borderWidth: OVERLAY_TOKENS.keyBorderWidth,
   activeColor: OVERLAY_TOKENS.keyActive,

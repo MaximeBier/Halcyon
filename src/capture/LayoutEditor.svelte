@@ -518,7 +518,7 @@
     <!-- The work surface. Its size comes from the stylesheet and never from a
          number: see `.canvas` below. -->
     <div class="canvas" onpointerdown={onStagePointerDown}>
-      <KeyboardView config={scene} {frame} decorations />
+      <KeyboardView config={scene} {frame} decorations reveal />
       {#each shown.keys as key (key.id)}
         <button
           class="handle"

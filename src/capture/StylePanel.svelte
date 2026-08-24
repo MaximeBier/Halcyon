@@ -6,6 +6,7 @@
     RADIUS_BOUNDS,
     type FillDirection,
     type OverlayConfig,
+    type RestVisibility,
   } from '../config/schema';
 
   /**
@@ -43,6 +44,20 @@
     ['down', '↓ Down'],
     ['left', '← Left'],
     ['right', '→ Right'],
+  ];
+
+  /**
+   * In the order of how much each one shows, which is the order they were
+   * invented in — and the only order in which the list reads as a scale rather
+   * than as three unrelated looks.
+   *
+   * The labels say what happens on screen, not what the field is called:
+   * "Hidden" alone invites the question the mode exists to answer.
+   */
+  const REST_STATES: [RestVisibility, string][] = [
+    ['filled', 'Filled'],
+    ['outline', 'Outline only'],
+    ['hidden', 'Hidden until pressed'],
   ];
 
   /** What each size may hold. `min` and `max` bind the spinner, not the keyboard. */
@@ -114,38 +129,67 @@
     <span class="caption">Presets · sets active, travel fill &amp; rest together</span>
   </div>
 
+  <!--
+    How much of a key shows while nothing is happening to it.
+
+    It sat on the `restColor` line as a checkbox until 2026-08-24 — a switch
+    beside the value it governed. It has its own row now because it no longer
+    governs that value alone: `hidden` takes the border and the label with it,
+    and a control that reaches past its own line does not belong on it.
+
+    A keyword and **not** a colour value: `restColor` is left untouched in
+    every state, so coming back from `outline` returns the colour that was
+    there rather than a default nobody chose — and a colour stays a hex colour,
+    never a keyword.
+  -->
+  <div class="row">
+    <label for="global-restVisibility">Keys at rest</label>
+    <select
+      id="global-restVisibility"
+      name="restVisibility"
+      value={config.style.restVisibility}
+      onchange={(event) =>
+        onChange(
+          setGlobalStyle(config, 'restVisibility', event.currentTarget.value as RestVisibility),
+        )}
+    >
+      {#each REST_STATES as [value, label] (value)}
+        <option {value}>{label}</option>
+      {/each}
+    </select>
+  </div>
+
+  <!--
+    Said only in `hidden`, and it is the one state that needs saying.
+    Everything else on this panel changes the stage the moment it is set; this
+    one changes nothing at all, because the editor draws every key whatever the
+    mode (`reveal`) so the layout stays editable. Without this line the only
+    way to tell the setting took is to open the overlay URL — the setting looks
+    broken precisely because it is working.
+  -->
+  {#if config.style.restVisibility === 'hidden'}
+    <span class="caption">
+      The editor keeps showing every key · the overlay shows none until you press one
+    </span>
+  {/if}
+
   {#each COLORS as [property, label] (property)}
     <div class="row">
       <label for={`global-${property}`}>{label}</label>
       <div class="value">
-        {#if property === 'restColor'}
-          <!--
-            Whether a resting key has a background at all, on the line of the
-            colour it governs — a switch beside its own value, not a setting
-            somewhere else that reaches over to it.
-
-            A switch and **not** a colour value: `restColor` is left untouched
-            while it is off, so switching back on returns the colour that was
-            there rather than a default nobody chose. It also keeps the colour
-            rule pure — a colour is always a hex colour, never a keyword.
-          -->
-          <input
-            name="restFilled"
-            type="checkbox"
-            checked={config.style.restFilled}
-            title="Give resting keys a background"
-            aria-label="Give resting keys a background"
-            onchange={(event) =>
-              onChange(setGlobalStyle(config, 'restFilled', event.currentTarget.checked))}
-          />
-        {/if}
         <code>{config.style[property]}</code>
+        <!--
+          The rest swatch goes out of use under `outline` and only there: that
+          is the one state where the colour paints nothing at all. Under
+          `hidden` it is precisely what a key wears the moment it appears, so
+          disabling it would lock the only colour the mode ever shows.
+        -->
         <input
           id={`global-${property}`}
           name={property}
           type="color"
           value={config.style[property]}
-          disabled={property === 'restColor' && !config.style.restFilled}
+          disabled={property === 'restColor' && config.style.restVisibility === 'outline'}
           onchange={(event) =>
             onChange(setGlobalStyle(config, property, event.currentTarget.value))}
         />
@@ -173,10 +217,14 @@
   <!--
     The outline of a key: its colour, and how thick it is.
 
-    Not in the lot, and it earned its place the hard way — with the rest
-    background switched off, the border *is* the key, and one pixel of very dark
-    grey over an arbitrary video is a key nobody can see. Both are global: this
-    is the outline of the overlay, not an argument each key has with the theme.
+    Not in the lot, and it earned its place the hard way — under `outline` the
+    border *is* the key, and one pixel of very dark grey over an arbitrary video
+    is a key nobody can see. Both are global: this is the outline of the
+    overlay, not an argument each key has with the theme.
+
+    Under `hidden` it is the outline of a key being pressed, and it goes out
+    with the rest of the key: the group opacity carries it, so nothing here
+    needs to know about that state.
   -->
   <div class="row">
     <label for="global-borderColor">Border</label>
@@ -347,9 +395,12 @@
     font-size: var(--he-size-xs, 14px);
     color: var(--he-text-ghost, #4a4f60);
   }
-  /* Out of use, and saying so: while there is no background, the control that
-     colours it does nothing. Dimmed-but-clickable would let someone pick a
-     colour and watch nothing happen. */
+  /* Out of use, and saying so: under `outline` the control that colours the
+     resting background has no background to colour. Dimmed-but-clickable would
+     let someone pick a colour and watch nothing happen.
+
+     `outline` and not "anything but filled": under `hidden` the rest colour is
+     exactly what a key wears the moment it appears. */
   input[type='color']:disabled {
     opacity: 0.35;
     cursor: default;

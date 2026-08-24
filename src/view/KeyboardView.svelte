@@ -8,6 +8,7 @@
     frame,
     decorations = false,
     pack = false,
+    reveal = false,
   }: {
     config: ResolvedConfig;
     frame: readonly FrameKey[];
@@ -27,9 +28,15 @@
      * raw coordinates and would drift away from a packed drawing.
      */
     pack?: boolean;
+    /**
+     * Draw every key even when the configuration hides the resting ones. On
+     * for the editor, and never for the overlay — where an empty stage at rest
+     * is the mode working, not a mode to correct.
+     */
+    reveal?: boolean;
   } = $props();
 
-  const scene = $derived(buildScene(config, frame, { pack }));
+  const scene = $derived(buildScene(config, frame, { pack, reveal }));
 
   /**
    * Prefix for the clip path ids, unique to this instance of the component.

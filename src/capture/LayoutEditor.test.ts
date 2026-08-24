@@ -1129,3 +1129,21 @@ describe('LayoutEditor - the popover takes the focus and gives it back', () => {
     expect(container.contains(document.activeElement)).toBe(true);
   });
 });
+
+describe('LayoutEditor - a layout you can still edit when the overlay shows nothing', () => {
+  it('reveals the keys the broadcast is hiding', () => {
+    // `hidden` empties the overlay at rest, which is its whole point. Applied
+    // here it would empty the editor too: nothing to see, nothing to drag, and
+    // no way back to another mode except by guessing where the keys are.
+    const config = twoKeys();
+    config.style.restVisibility = 'hidden';
+
+    const { container } = editor(config);
+
+    const opacities = [...container.querySelectorAll('svg g')].map((group) =>
+      group.getAttribute('opacity'),
+    );
+    expect(opacities.length).toBe(2);
+    expect(opacities.every((opacity) => opacity !== '0')).toBe(true);
+  });
+});
