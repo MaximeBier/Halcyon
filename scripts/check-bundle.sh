@@ -64,7 +64,11 @@ grep -qF 'archivo-latin-700' "${sheets[@]}" ||
   fail "the overlay draws its labels in Archivo 700 and does not load the face"
 ok   "the on-air face is loaded"
 
-for face in archivo-latin-400 archivo-latin-500 archivo-latin-600 ibm-plex-mono; do
+# 800 is the home page's, not the interface's, and it is listed here for the
+# same reason as the others: 700 is the only weight that belongs on air, and a
+# face that arrives from a third entry point is no lighter than one that arrives
+# from the second.
+for face in archivo-latin-400 archivo-latin-500 archivo-latin-600 archivo-latin-800 ibm-plex-mono; do
   if grep -qF "$face" "${sheets[@]}"; then
     fail "the interface face $face reaches the overlay bundle"
   fi

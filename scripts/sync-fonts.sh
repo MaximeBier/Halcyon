@@ -16,10 +16,12 @@ cd "$(dirname "$0")/.."
 
 DEST=src/assets/fonts
 
-# Only the weights the design actually uses (handoff, spec §16.2). Latin only:
-# the interface is English and the key labels come from the browser's layout
-# map, which returns latin for every layout we support (spec §8.6).
-ARCHIVO_WEIGHTS=(400 500 600 700)
+# Only the weights the design actually uses (handoff, spec §16.2), plus 800 for
+# the home page, whose headings and wordmark are the only thing on the site
+# drawn that heavy. Latin only: the interface is English and the key labels come
+# from the browser's layout map, which returns latin for every layout we support
+# (spec §8.6).
+ARCHIVO_WEIGHTS=(400 500 600 700 800)
 
 check=false
 [ "${1:-}" = "--check" ] && check=true
