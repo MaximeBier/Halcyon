@@ -37,26 +37,46 @@ export const READ_FAILED: Notice = {
   message: `Import failed · the file could not be read · ${KEPT}`,
 };
 
-export function importToast(result: MigrationResult): Notice {
-  if (!result.ok) {
-    return {
-      tone: 'error',
-      message:
-        result.reason === 'too-new'
-          ? `Import failed · written by a newer version of HE Overlay · ${KEPT}`
-          : `Import failed · unreadable file · ${KEPT}`,
-    };
-  }
+/**
+ * Two functions and not one taking a name it ignores half the time.
+ *
+ * They were `importToast(result)` until 2026-08-24, when an import stopped
+ * writing into the open profile and started making one of its own. The success
+ * side then needed a profile name and the failure side had none to give — an
+ * optional argument would have been a name the failure branch drops on the
+ * floor, and a name the success branch can be called without.
+ */
+export function importFailedToast(
+  reason: Extract<MigrationResult, { ok: false }>['reason'],
+): Notice {
+  return {
+    tone: 'error',
+    message:
+      reason === 'too-new'
+        ? `Import failed · written by a newer version of HE Overlay · ${KEPT}`
+        : `Import failed · unreadable file · ${KEPT}`,
+  };
+}
+
+/**
+ * `profile` is the name the store actually used, never the one asked for.
+ *
+ * `freeName` deduplicates in silence, so a file asking for "Valorant" can land
+ * in "Valorant 2". Announcing the name requested would send someone looking in
+ * a profile their keys are not in.
+ */
+export function importedToast(profile: string, dropped: number): Notice {
+  const landed = `Profile imported as "${profile}"`;
 
   // A warning, never an error: the import worked. Calling it a failure is how
   // someone concludes their file is broken when it merely came from another
   // keyboard.
-  return result.dropped > 0
+  return dropped > 0
     ? {
         tone: 'warning',
-        message: `Profile imported · ${keysLabel(result.dropped)} skipped (not on this keyboard)`,
+        message: `${landed} · ${keysLabel(dropped)} skipped (not on this keyboard)`,
       }
-    : { tone: 'success', message: 'Profile imported' };
+    : { tone: 'success', message: landed };
 }
 
 /**
@@ -110,10 +130,14 @@ export function profileStatus(name: string, keyCount: number, health: Health): s
  * A deletion is recognised by shape, not announced by the caller: two of the
  * four delete controls live in components that only hand a new config through
  * the one door, so the door itself has to tell a deletion apart. The
- * discriminator is reference identity — every editor helper keeps the
- * surviving key objects, while an import rebuilds all of them — so a smaller
- * imported profile can never masquerade as "keys deleted" and talk over the
- * import's own toast.
+ * discriminator is reference identity: every editor helper keeps the surviving
+ * key objects, and nothing that rebuilds them can pass for a deletion.
+ *
+ * It was written against imports, which used to arrive through the same door
+ * with a whole new set of keys and could otherwise have talked over their own
+ * toast. Since 2026-08-24 an import makes a profile of its own and reaches the
+ * configuration through `openProfile`, so it no longer passes here at all —
+ * the rule stands, one of its two reasons has gone.
  *
  * One key says nothing: it disappears under the cursor, the feedback is the
  * disappearance itself. Several might be Ctrl+A under a Delete meant for one —

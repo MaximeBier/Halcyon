@@ -95,6 +95,44 @@ export function exportConfig(config: OverlayConfig): string {
   return JSON.stringify(config, null, 2);
 }
 
+/**
+ * The same file, with the profile's name in front of it.
+ *
+ * **An envelope, not a field.** `name` is deliberately absent from
+ * `OverlayConfig`: the profile list already holds every name, and a second
+ * copy inside the stored configuration would go stale on the first rename,
+ * leaving two records of one fact with nothing to say which is right. So it is
+ * written here, on the way out to a file, and read back on the way in from
+ * one — it never reaches `localStorage`, never reaches `resolve()`, and never
+ * crosses obs-websocket.
+ *
+ * `migrate` needs no help ignoring it: it builds its result out of the fields
+ * it knows, so an extra one at the top level falls away by itself.
+ */
+export function exportProfile(name: string, config: OverlayConfig): string {
+  return JSON.stringify({ name, ...config }, null, 2);
+}
+
+/**
+ * The name an exported file carries, or `null` when it carries none.
+ *
+ * `null` for a missing name, a blank one, and anything that is not a string —
+ * the file may have been written by hand or come off a forum. Every one of
+ * those means the same thing to the caller: fall back to the file's own name,
+ * and let the store decide what a nameless profile is called.
+ */
+export function readProfileName(json: string): string | null {
+  try {
+    const parsed: unknown = JSON.parse(json);
+    if (typeof parsed !== 'object' || parsed === null) return null;
+    const name = (parsed as Record<string, unknown>).name;
+    if (typeof name !== 'string') return null;
+    return name.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
 export function importConfig(json: string): MigrationResult {
   try {
     return migrate(JSON.parse(json));
@@ -121,6 +159,16 @@ export interface ProfileStore {
   save(name: string, config: OverlayConfig): void;
   /** Returns the name actually used, which may not be the one asked for. */
   create(name: string): string;
+  /**
+   * Takes an imported configuration in as a profile of its own.
+   *
+   * A profile beside the others and never over one: importing used to write
+   * into whichever profile was open, which is the single way this gesture
+   * could destroy work. Like `create`, it returns the name actually used —
+   * `freeName` may have had to find another — so the caller can say which
+   * profile it landed in rather than the one it asked for.
+   */
+  importFrom(name: string, config: OverlayConfig): string;
   duplicate(from: string): string;
   remove(name: string): void;
   /** False when the name was empty or already belonged to another profile. */
@@ -216,6 +264,12 @@ export function createProfileStore(storage: ProfileStorage): ProfileStore {
 
     create(name) {
       return add(name, exportConfig(defaultConfig()));
+    },
+
+    // `exportConfig` and not `exportProfile`: what goes into storage carries
+    // no name. The name is the store's, held once, in the profile list.
+    importFrom(name, config) {
+      return add(name, exportConfig(config));
     },
 
     duplicate(from) {

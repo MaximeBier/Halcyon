@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { loadConfig, saveConfig, exportConfig, importConfig, createProfileStore } from './storage';
+import {
+  loadConfig,
+  saveConfig,
+  exportConfig,
+  exportProfile,
+  importConfig,
+  readProfileName,
+  createProfileStore,
+} from './storage';
 import { defaultConfig, CONFIG_VERSION, type KeyConfig } from './schema';
 
 function memoryStorage(initial: Record<string, string> = {}) {
@@ -482,5 +490,92 @@ describe('a profile named like a backup', () => {
     store.remove('Default');
 
     expect(store.load('Default.backup').config.keys).toHaveLength(1);
+  });
+});
+
+describe('the name an exported profile carries with it', () => {
+  it('writes the profile name beside the configuration', () => {
+    const written: unknown = JSON.parse(exportProfile('Valorant', defaultConfig()));
+
+    expect(written).toMatchObject({ name: 'Valorant', version: CONFIG_VERSION });
+  });
+
+  it('reads that name back', () => {
+    expect(readProfileName(exportProfile('Valorant', defaultConfig()))).toBe('Valorant');
+  });
+
+  it('keeps the configuration importable, name and all', () => {
+    // The name is an envelope, not a field: `migrate` builds its result from
+    // the fields it knows, so it drops the name on its own and nothing has to
+    // strip it first.
+    const config = defaultConfig();
+
+    const result = importConfig(exportProfile('Valorant', config));
+
+    expect(result).toEqual({ ok: true, config, dropped: 0 });
+  });
+
+  it('never lets the name reach what is stored', () => {
+    // The profile list already holds every profile's name. A second copy in
+    // the stored configuration would go stale on the first rename, and the two
+    // would then disagree with nothing to say which is right.
+    expect(readProfileName(exportConfig(defaultConfig()))).toBe(null);
+  });
+
+  it('answers nothing for a file that carries no name', () => {
+    expect(readProfileName(JSON.stringify({ version: 1, keys: [] }))).toBe(null);
+  });
+
+  it('answers nothing for a name that is not a name', () => {
+    // The file may come from a forum post. A `name` of `42` reaches a store
+    // that keys on strings, and an empty one would create a profile with no
+    // name at all.
+    expect(readProfileName(JSON.stringify({ name: 42 }))).toBe(null);
+    expect(readProfileName(JSON.stringify({ name: '   ' }))).toBe(null);
+  });
+
+  it('answers nothing for a file that is not JSON at all', () => {
+    expect(readProfileName('not json')).toBe(null);
+  });
+});
+
+describe('an import lands beside the open profile, never on top of it', () => {
+  it('creates a profile under the name it was given, and makes it active', () => {
+    const store = createProfileStore(profileStorage());
+    const config = defaultConfig();
+    config.keys.push(aKey);
+
+    const named = store.importFrom('Valorant', config);
+
+    expect(named).toBe('Valorant');
+    expect(store.list()).toContain('Valorant');
+    expect(store.active()).toBe('Valorant');
+    expect(store.load('Valorant').config.keys).toHaveLength(1);
+  });
+
+  it('leaves the profile that was open exactly as it was', () => {
+    // The whole point of the change: importing used to overwrite the open
+    // profile, which is the one way this gesture could lose work.
+    const store = createProfileStore(profileStorage());
+    const before = defaultConfig();
+    before.keys.push(aKey);
+    store.save('Default', before);
+
+    store.importFrom('Valorant', defaultConfig());
+
+    expect(store.load('Default').config.keys).toHaveLength(1);
+  });
+
+  it('finds a free name rather than burying a profile that exists', () => {
+    const store = createProfileStore(profileStorage());
+    store.create('Valorant');
+
+    expect(store.importFrom('Valorant', defaultConfig())).toBe('Valorant 2');
+  });
+
+  it('names a nameless import rather than creating a profile with no name', () => {
+    const store = createProfileStore(profileStorage());
+
+    expect(store.importFrom('', defaultConfig())).toBe('Profile');
   });
 });

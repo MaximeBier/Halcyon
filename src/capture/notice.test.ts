@@ -1,42 +1,55 @@
 import { describe, it, expect } from 'vitest';
-import { deletionToast, importToast, loadToast, profileStatus, READ_FAILED } from './notice';
+import {
+  deletionToast,
+  importedToast,
+  importFailedToast,
+  loadToast,
+  profileStatus,
+  READ_FAILED,
+} from './notice';
 import { defaultConfig } from '../config/schema';
 
 describe('what an import says, once', () => {
-  it('confirms a clean import in the success tone', () => {
-    expect(importToast({ ok: true, config: defaultConfig(), dropped: 0 })).toEqual({
+  it('names the profile the file landed in', () => {
+    // An import no longer touches what is open: it makes a profile of its own,
+    // and the only way to know which one is to be told.
+    expect(importedToast('Valorant', 0)).toEqual({
       tone: 'success',
-      message: 'Profile imported',
+      message: 'Profile imported as "Valorant"',
     });
+  });
+
+  it('names the profile it actually landed in, not the one it asked for', () => {
+    // `freeName` deduplicates in silence. Saying "Valorant" while the keys are
+    // in "Valorant 2" sends someone looking in the wrong profile.
+    expect(importedToast('Valorant 2', 0).message).toContain('"Valorant 2"');
   });
 
   it('warns, rather than confirms, when keys were skipped', () => {
     // The import worked: nothing was lost, and calling it an error is how
     // someone concludes their file is broken when it is merely from another
     // keyboard (spec §16.6).
-    expect(importToast({ ok: true, config: defaultConfig(), dropped: 2 })).toEqual({
+    expect(importedToast('Valorant', 2)).toEqual({
       tone: 'warning',
-      message: 'Profile imported · 2 keys skipped (not on this keyboard)',
+      message: 'Profile imported as "Valorant" · 2 keys skipped (not on this keyboard)',
     });
   });
 
   it('counts one skipped key without pluralising it', () => {
-    expect(importToast({ ok: true, config: defaultConfig(), dropped: 1 }).message).toContain(
-      '1 key skipped',
-    );
+    expect(importedToast('Valorant', 1).message).toContain('1 key skipped');
   });
 
   it('says the current profile was kept when the file was unreadable', () => {
     // The one thing to say here is what did *not* happen. A bare "import
     // failed" leaves people reloading to check they still have their layout.
-    expect(importToast({ ok: false, reason: 'unreadable' })).toEqual({
+    expect(importFailedToast('unreadable')).toEqual({
       tone: 'error',
       message: 'Import failed · unreadable file · current profile kept',
     });
   });
 
   it('names the version as the reason when that is what it is', () => {
-    const message = importToast({ ok: false, reason: 'too-new' }).message;
+    const message = importFailedToast('too-new').message;
 
     expect(message).toContain('newer version');
     expect(message).toContain('current profile kept');

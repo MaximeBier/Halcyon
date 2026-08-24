@@ -32,7 +32,8 @@
   import KeyLearner from './KeyLearner.svelte';
   import LayoutEditor from './LayoutEditor.svelte';
   import StylePanel from './StylePanel.svelte';
-  import { createProfileStore, exportConfig, importConfig } from '../config/storage';
+  import { createProfileStore, exportProfile, importConfig } from '../config/storage';
+  import { importedProfileName, profileFileName } from './profile-file';
   import type { OverlayConfig } from '../config/schema';
   import StatusBar from './StatusBar.svelte';
   import Wizard from './Wizard.svelte';
@@ -56,7 +57,8 @@
   import Toast from './Toast.svelte';
   import {
     deletionToast,
-    importToast,
+    importedToast,
+    importFailedToast,
     loadToast,
     profileStatus,
     READ_FAILED,
@@ -671,13 +673,14 @@
   }
 
   function downloadProfile() {
-    const blob = new Blob([exportConfig(config)], { type: 'application/json' });
+    // `exportProfile` and not `exportConfig`: the file carries the profile's
+    // name, so importing it elsewhere lands under the name it left under
+    // rather than under whatever the browser called the download.
+    const blob = new Blob([exportProfile(profile, config)], { type: 'application/json' });
     const href = URL.createObjectURL(blob);
     const link = Object.assign(document.createElement('a'), {
       href,
-      // A profile name is free text and lands in a file name: anything a path
-      // could read as a separator becomes a dash.
-      download: `he-overlay-${profile.replace(/[^\w.-]+/g, '-')}.json`,
+      download: profileFileName(profile),
     });
     link.click();
     URL.revokeObjectURL(href);
@@ -696,14 +699,26 @@
     }
 
     const result = importConfig(text);
-    toast = importToast(result);
     // Nothing is lost on a failure: the open profile is untouched, and the
     // toast is the only thing that changes. The permanent line still describes
     // what is actually loaded.
-    if (!result.ok) return;
+    if (!result.ok) {
+      toast = importFailedToast(result.reason);
+      return;
+    }
 
+    // A profile of its own, and never the open one. Until 2026-08-24 this
+    // called `updateConfig`, which wrote the imported keys straight into
+    // whatever profile happened to be loaded — the single gesture in the
+    // application that could destroy a layout with nothing to undo it.
+    const landed = profiles.importFrom(importedProfileName(text, file.name), result.config);
+    openProfile(landed);
+    // After `openProfile`, which sets `health` from a re-read of what we have
+    // just written — where the dropped count is zero, because the keys were
+    // dropped on the way in and the stored file no longer has them. The count
+    // worth showing is the one from the import.
     health = { problem: null, dropped: result.dropped, from: 'import' };
-    updateConfig(result.config);
+    toast = importedToast(landed, result.dropped);
   }
 
   /**
