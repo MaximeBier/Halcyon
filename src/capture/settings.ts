@@ -164,6 +164,21 @@ export function overlayTally(
 }
 
 /**
+ * The throughput pill, or `null` when its figure could only be zero.
+ *
+ * Same reasoning as `overlayTally`, and the same shape: the rate counts frames
+ * leaving for OBS, and the page zeroes it itself the moment the socket stops
+ * being identified (`App.svelte`). With OBS down, «0 fps» is not a measurement
+ * — it is a constant, printed beside a dot that has already said the link is
+ * dead. A number above zero is still shown, so the transient between the socket
+ * dropping and the reset never reads as the stream having stopped on its own.
+ */
+export function rateLabel(rate: number, obsConnected: boolean): string | null {
+  if (!obsConnected && rate === 0) return null;
+  return `${rate} fps`;
+}
+
+/**
  * What the status bar says when a second capture page is on the bus, or `null`
  * when this one is alone.
  *

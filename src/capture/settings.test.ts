@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   overlayTally,
+  rateLabel,
   captureWarning,
   sourceState,
   loadSettings,
@@ -175,6 +176,26 @@ describe('status bar wording', () => {
     // measurement: what it guards is that nobody appends a fourth instruction
     // here without noticing what it costs the bar.
     expect(obsHint('unreachable').length).toBeLessThan(140);
+  });
+});
+
+describe('rateLabel', () => {
+  it('shows the throughput once there is a socket to measure', () => {
+    expect(rateLabel(0, true)).toBe('0 fps');
+    expect(rateLabel(58, true)).toBe('58 fps');
+  });
+
+  it('says nothing when OBS is down and zero is the only figure possible', () => {
+    // The rate counts frames leaving for OBS, and the page zeroes it itself
+    // when the socket stops being identified. Printed there it is a constant,
+    // not a measurement.
+    expect(rateLabel(0, false)).toBeNull();
+  });
+
+  it('keeps a figure above zero even with OBS gone', () => {
+    // The socket drops a tick before the reset runs. A pill that vanished in
+    // between would read as the stream having stopped on its own.
+    expect(rateLabel(58, false)).toBe('58 fps');
   });
 });
 

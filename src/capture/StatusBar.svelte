@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { KeyboardStatus } from '../keyboard/device';
   import type { ObsStatus } from '../transport/obs';
-  import { captureWarning, keyboardHint, obsHint, overlayTally } from './settings';
+  import { captureWarning, keyboardHint, obsHint, overlayTally, rateLabel } from './settings';
   import { UI_TOKENS } from '../styles/ui-tokens';
 
   let {
@@ -20,9 +20,12 @@
   } = $props();
 
   let rivals = $derived(captureWarning(otherCapture));
-  // Null when OBS is down and nothing is listening: the count only travels
-  // through OBS, so there it repeats the pill beside it (see `overlayTally`).
-  let tally = $derived(overlayTally(overlays, obs === 'identified'));
+  // Both null when OBS is down and their figure is zero: neither number is
+  // measured then — the count only travels through OBS and the rate is reset
+  // when the socket goes, so both would just repeat the OBS pill in red.
+  let obsConnected = $derived(obs === 'identified');
+  let tally = $derived(overlayTally(overlays, obsConnected));
+  let throughput = $derived(rateLabel(rate, obsConnected));
 
   // Permanent, never modal (spec §11): a dialog would have to be dismissed,
   // and what is wrong is exactly what one needs to keep seeing.
@@ -38,7 +41,9 @@
     <span class="dot" style:background={dot(obs === 'identified')}></span>
     {obsHint(obs)}
   </span>
-  <span class="pill">{rate} fps</span>
+  {#if throughput}
+    <span class="pill">{throughput}</span>
+  {/if}
   {#if tally}
     <span class="pill">
       <span class="dot" style:background={dot(overlays.inObs > 0)}></span>
