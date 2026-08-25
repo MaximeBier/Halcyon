@@ -179,21 +179,39 @@ describe('status bar wording', () => {
 });
 
 describe('overlayTally', () => {
-  it('says nobody has reported in', () => {
-    expect(overlayTally({ inObs: 0, inBrowser: 0 })).toMatch(/no overlay/i);
+  it('says nobody has reported in, once OBS is there to report through', () => {
+    expect(overlayTally({ inObs: 0, inBrowser: 0 }, true)).toMatch(/no overlay/i);
+  });
+
+  it('says nothing at all when OBS is down and the zero is arithmetic', () => {
+    // Heartbeats only arrive over the OBS socket, and the registry is cleared
+    // when it drops — so "no overlay" there is not an observation, it is the
+    // OBS pill said twice, in red, on a row of its own.
+    expect(overlayTally({ inObs: 0, inBrowser: 0 }, false)).toBeNull();
+  });
+
+  it('still names whoever is listening when OBS has just gone', () => {
+    // Between the socket dropping and the registry being cleared, a count that
+    // vanished would read as the overlays having left. Only the empty case is
+    // redundant; a number never is.
+    expect(overlayTally({ inObs: 1, inBrowser: 0 }, false)).toBe('1 overlay in OBS');
   });
 
   it('names the one that matters on its own', () => {
     // The overlay in OBS is the one on air. It is the figure someone is looking
     // for, so it comes first and it is never folded into a total.
-    expect(overlayTally({ inObs: 1, inBrowser: 0 })).toBe('1 overlay in OBS');
-    expect(overlayTally({ inObs: 2, inBrowser: 0 })).toBe('2 overlays in OBS');
+    expect(overlayTally({ inObs: 1, inBrowser: 0 }, true)).toBe('1 overlay in OBS');
+    expect(overlayTally({ inObs: 2, inBrowser: 0 }, true)).toBe('2 overlays in OBS');
   });
 
   it('counts a tab apart, since opening one is how the count got useless', () => {
-    expect(overlayTally({ inObs: 0, inBrowser: 1 })).toBe('1 overlay in a browser');
-    expect(overlayTally({ inObs: 1, inBrowser: 1 })).toBe('1 overlay in OBS · 1 in a browser');
-    expect(overlayTally({ inObs: 2, inBrowser: 3 })).toBe('2 overlays in OBS · 3 in a browser');
+    expect(overlayTally({ inObs: 0, inBrowser: 1 }, true)).toBe('1 overlay in a browser');
+    expect(overlayTally({ inObs: 1, inBrowser: 1 }, true)).toBe(
+      '1 overlay in OBS · 1 in a browser',
+    );
+    expect(overlayTally({ inObs: 2, inBrowser: 3 }, true)).toBe(
+      '2 overlays in OBS · 3 in a browser',
+    );
   });
 });
 

@@ -20,6 +20,9 @@
   } = $props();
 
   let rivals = $derived(captureWarning(otherCapture));
+  // Null when OBS is down and nothing is listening: the count only travels
+  // through OBS, so there it repeats the pill beside it (see `overlayTally`).
+  let tally = $derived(overlayTally(overlays, obs === 'identified'));
 
   // Permanent, never modal (spec §11): a dialog would have to be dismissed,
   // and what is wrong is exactly what one needs to keep seeing.
@@ -36,10 +39,12 @@
     {obsHint(obs)}
   </span>
   <span class="pill">{rate} fps</span>
-  <span class="pill">
-    <span class="dot" style:background={dot(overlays.inObs > 0)}></span>
-    {overlayTally(overlays)}
-  </span>
+  {#if tally}
+    <span class="pill">
+      <span class="dot" style:background={dot(overlays.inObs > 0)}></span>
+      {tally}
+    </span>
+  {/if}
   <!-- Shown only when it is true, and then on a line of its own under the four
        states: an overlay obeying two masters is a failure in which both pages
        look entirely correct, so it has to be visible without being looked for —

@@ -134,18 +134,30 @@ export function obsHint(status: ObsStatus): string {
 }
 
 /**
- * How many overlays are listening, and where — in one line for the status bar.
+ * How many overlays are listening, and where — in one line for the status bar,
+ * or `null` when that line would only restate the one above it.
  *
  * **The one in OBS is never folded into a total.** It is the one on air, so it
  * is the figure someone is looking for — and a single number stopped answering
  * that the day anyone opened `overlay.html` in a tab to check that it worked,
  * because the tab is an overlay too (spec §16.7). A diagnostic that its own use
  * invalidates is not a diagnostic.
+ *
+ * **Silent when nobody is listening and OBS is not answering.** Every heartbeat
+ * rides the OBS socket, and the registry is emptied the moment that socket goes
+ * (`OverlayRegistry.clear`) — so with OBS down the zero is arithmetic, not an
+ * observation. Printing it there adds a second red dot saying nothing the OBS
+ * pill has not already said, and wraps the bar onto a third row at the one
+ * moment the user has a single thing to fix.
  */
-export function overlayTally(counts: { inObs: number; inBrowser: number }): string {
+export function overlayTally(
+  counts: { inObs: number; inBrowser: number },
+  obsConnected: boolean,
+): string | null {
   const overlays = (count: number) => `${count} overlay${count === 1 ? '' : 's'}`;
 
-  if (counts.inObs === 0 && counts.inBrowser === 0) return 'No overlay connected';
+  if (counts.inObs === 0 && counts.inBrowser === 0)
+    return obsConnected ? 'No overlay connected' : null;
   if (counts.inObs === 0) return `${overlays(counts.inBrowser)} in a browser`;
   if (counts.inBrowser === 0) return `${overlays(counts.inObs)} in OBS`;
   return `${overlays(counts.inObs)} in OBS · ${counts.inBrowser} in a browser`;
