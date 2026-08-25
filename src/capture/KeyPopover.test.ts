@@ -457,6 +457,36 @@ describe('KeyPopover - the Style block', () => {
     expect(onChange.mock.calls[0]![0].keys[0].style).toEqual({ fillColor: '#123456' });
   });
 
+  it('sets how one key rests, against what the whole overlay does', () => {
+    // The point of the property being per key at all: an overlay hidden at
+    // rest, and three keys kept on the stream.
+    const { container, onChange } = popover();
+
+    row(container, 'restVisibility')
+      .querySelector<HTMLButtonElement>('[data-rest="hidden"]')!
+      .click();
+
+    expect(onChange.mock.calls[0]![0].keys[0].style).toEqual({ restVisibility: 'hidden' });
+  });
+
+  it('shows the global value on a key that overrides nothing', () => {
+    const config = twoKeys();
+    config.style = { ...config.style, restVisibility: 'outline' };
+    const { container } = popover(config);
+
+    const pressed = row(container, 'restVisibility').querySelector('[aria-pressed="true"]');
+
+    expect(pressed?.getAttribute('data-rest')).toBe('outline');
+  });
+
+  it('gives the resting group a name that resolves', () => {
+    const { container } = popover();
+    const group = container.querySelector('[aria-labelledby="key-restVisibility-name"]');
+
+    expect(group).not.toBeNull();
+    expect(container.querySelector('#key-restVisibility-name')?.textContent).toBe('At rest');
+  });
+
   it('keeps the fill direction inside the block, where the lot puts it', () => {
     const { container, onChange } = popover();
 

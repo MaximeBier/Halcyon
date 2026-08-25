@@ -1,7 +1,18 @@
 import { isResolvedConfig } from '../config/validate';
 import type { ResolvedConfig } from '../config/schema';
 
-export const PROTOCOL_VERSION = 3;
+/**
+ * Bumped when the shape on the wire changes, so that an overlay left open
+ * across a deployment is told to reload rather than quietly rendering nothing
+ * it recognises (spec §11, `onForeignVersion`).
+ *
+ * 4 since 2026-08-25: `restVisibility` became a per-key property, so it left
+ * the root of `ResolvedConfig` for `keys[].style`. A v3 overlay validates the
+ * root field and rejects the whole configuration; a v4 overlay handed a v3
+ * message would read `undefined` on every key. Neither can be told apart from
+ * a broken overlay without this number.
+ */
+export const PROTOCOL_VERSION = 4;
 
 /** [matrix index, travel 0..1023, actuation]. `active` is always transmitted. */
 export type FrameKey = readonly [id: number, travel: number, active: 0 | 1];

@@ -73,6 +73,30 @@ export interface KeyStyle {
   /** Corner radius, in pixels. */
   radius: number;
   /**
+   * How much of this key is drawn while nothing is happening to it.
+   *
+   * Three states and not two booleans: `restFilled` was a switch until
+   * 2026-08-24, and the third state does not fit beside it — a pair of flags
+   * would offer four combinations of which "hidden, but with a background" and
+   * "hidden, but outlined" mean nothing, and the panel would then have to
+   * explain which pairs are real.
+   *
+   * A keyword and never a colour value, which is what the switch was for and
+   * what the enum keeps: `restColor` is untouched in every state, so leaving
+   * `outline` returns the colour that was there rather than a default nobody
+   * chose — and a colour stays a hex colour, never `'transparent'`.
+   *
+   * **Inheritable since 2026-08-25**, and global-only before that. The reason
+   * given then was that "how much of a resting key shows" is a decision about
+   * the whole overlay, and it holds for the decision — which is why the global
+   * one stays exactly where it was, on `GlobalStyle`, through this very field.
+   * What it missed is the exception: an overlay that hides at rest with three
+   * keys kept on screen is the reason anyone reaches for the mode at all, and
+   * every one of those keys had to be answered with "no". The same note
+   * costed the change in advance — one field.
+   */
+  restVisibility: RestVisibility;
+  /**
    * Family and weight only: the label size is computed from the key height
    * (spec §16.3), so it is never set here.
    */
@@ -98,25 +122,6 @@ export interface GlobalStyle extends KeyStyle {
   borderColor: string;
   /** In pixels. Zero draws no border at all, which is a choice. */
   borderWidth: number;
-  /**
-   * How much of a key is drawn while nothing is happening to it.
-   *
-   * Three states and not two booleans: `restFilled` was a switch until
-   * 2026-08-24, and the third state does not fit beside it — a pair of flags
-   * would offer four combinations of which "hidden, but with a background" and
-   * "hidden, but outlined" mean nothing, and the panel would then have to
-   * explain which pairs are real.
-   *
-   * A keyword and never a colour value, which is what the switch was for and
-   * what the enum keeps: `restColor` is untouched in every state, so leaving
-   * `outline` returns the colour that was there rather than a default nobody
-   * chose — and a colour stays a hex colour, never `'transparent'`.
-   *
-   * Global only, deliberately. "How much of a resting key shows" is a decision
-   * about the whole overlay; a single hidden key among visible ones is a look
-   * nobody has asked for, and adding it later costs one field.
-   */
-  restVisibility: RestVisibility;
   /** Pixels per key unit. */
   unit: number;
   /** Gap between keys, in pixels. */
@@ -164,8 +169,6 @@ export interface ResolvedConfig {
   version: number;
   unit: number;
   gap: number;
-  /** Global only, like the two above: see `GlobalStyle.restVisibility`. */
-  restVisibility: RestVisibility;
   borderColor: string;
   borderWidth: number;
   keys: ResolvedKey[];
@@ -188,6 +191,7 @@ const INHERITABLE: Record<keyof KeyStyle, true> = {
   fillDirection: true,
   opacity: true,
   radius: true,
+  restVisibility: true,
   fontFamily: true,
   fontWeight: true,
 };

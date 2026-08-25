@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { migrate } from './migrate';
+import { resolve } from './resolve';
 import { CONFIG_VERSION, defaultConfig, DEFAULT_STYLE } from './schema';
 
 const aKey = { id: 174, usage: 0x50, mode: 'key', label: 'Q', x: 0, y: 0, w: 1, h: 1 };
@@ -379,11 +380,15 @@ describe('migrate - a profile comes back normalised', () => {
 describe('migrate - a key may not carry a global-only setting', () => {
   // The list of what a key may hold used to be built by subtracting a
   // hand-kept `['unit', 'gap']` from the global style. Three settings arrived
-  // on 2026-08-22 that no key can override — `restVisibility`, `borderColor`,
+  // on 2026-08-22 that no key could override — `restVisibility`, `borderColor`,
   // `borderWidth` — and none of them was added to it. Any profile written
   // before that day could legitimately carry `keys[].style.borderColor`, since
   // it *was* inheritable until then.
-  it('drops the three global-only settings from a key', () => {
+  //
+  // `restVisibility` went back to being inheritable on 2026-08-25, so it is two
+  // settings now — and a key that carries it is a key the renderer reads, not a
+  // stray value to sweep up.
+  it('drops the two global-only settings from a key, and keeps the resting mode', () => {
     const result = migrate({
       version: 1,
       layout: 'iso',
@@ -402,9 +407,11 @@ describe('migrate - a key may not carry a global-only setting', () => {
     });
 
     expect(result.ok).toBe(true);
-    // The legitimate override survives; the three do not — so the file cannot
-    // hold a value the renderer ignores and no reset can reach.
-    if (result.ok) expect(result.config.keys[0]?.style).toEqual({ opacity: 0.5 });
+    // The legitimate overrides survive; the two border settings do not — so the
+    // file cannot hold a value the renderer ignores and no reset can reach.
+    if (result.ok) {
+      expect(result.config.keys[0]?.style).toEqual({ opacity: 0.5, restVisibility: 'outline' });
+    }
   });
 
   it('leaves those three alone on the global style, where they belong', () => {
@@ -422,5 +429,50 @@ describe('migrate - a key may not carry a global-only setting', () => {
         borderWidth: 9,
         restVisibility: 'outline',
       });
+  });
+});
+
+describe('migrate - a profile written before the resting mode was per key', () => {
+  // `restVisibility` moved from the global style to `KeyStyle` on 2026-08-25,
+  // and `CONFIG_VERSION` did not move with it — deliberately. A file from
+  // before that day carries the mode on the global and nothing on its keys,
+  // which is exactly what "every key inherits" looks like today. If that were
+  // ever untrue, the mode would come back as `filled` on an overlay someone had
+  // set to hide, and nothing would say so: `dropped` counts keys, not settings.
+  it('keeps an outline overlay an outline overlay, with nothing to migrate', () => {
+    const stored = {
+      version: CONFIG_VERSION,
+      layout: 'iso',
+      layoutOverride: 'auto',
+      style: { ...DEFAULT_STYLE, restVisibility: 'outline' },
+      keys: [aKey],
+    };
+
+    const result = migrate(structuredClone(stored));
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.config.style.restVisibility).toBe('outline');
+      expect(result.config.keys[0]?.style).toBeUndefined();
+      expect(result.dropped).toBe(0);
+    }
+  });
+
+  it('resolves that profile onto every key, which is what inheritance is', () => {
+    const stored = {
+      version: CONFIG_VERSION,
+      layout: 'iso',
+      layoutOverride: 'auto',
+      style: { ...DEFAULT_STYLE, restVisibility: 'hidden' },
+      keys: [aKey, { ...aKey, id: 9, x: 1 }],
+    };
+
+    const result = migrate(stored);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const modes = resolve(result.config).keys.map((key) => key.style.restVisibility);
+      expect(modes).toEqual(['hidden', 'hidden']);
+    }
   });
 });

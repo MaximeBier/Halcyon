@@ -299,6 +299,31 @@ describe('StylePanel - how much of a resting key shows', () => {
     expect(panel(concealed).container.textContent).toContain('editor keeps showing every key');
   });
 
+  it('stops claiming the overlay is empty once a key is kept on screen', () => {
+    // "shows none until you press one" was true while the mode was global. A
+    // key overriding it is exactly what the property became per key for, and
+    // the sentence would then be describing an overlay nobody is looking at.
+    const concealed = defaultConfig();
+    concealed.style.restVisibility = 'hidden';
+    concealed.keys.push({
+      id: 1,
+      usage: 0x14,
+      mode: 'key',
+      label: 'A',
+      x: 0,
+      y: 0,
+      w: 1,
+      h: 1,
+      style: { restVisibility: 'filled' },
+    });
+
+    const { container } = panel(concealed);
+
+    expect(container.textContent).toContain('editor keeps showing every key');
+    expect(container.textContent).not.toContain('shows none');
+    expect(container.textContent).toMatch(/1 key/);
+  });
+
   it('keeps quiet in the modes where the stage tells the truth on its own', () => {
     expect(panel().container.textContent).not.toContain('editor keeps showing every key');
   });

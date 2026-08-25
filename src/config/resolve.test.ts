@@ -45,6 +45,7 @@ describe('resolve', () => {
       fillDirection: DEFAULT_STYLE.fillDirection,
       opacity: DEFAULT_STYLE.opacity,
       radius: DEFAULT_STYLE.radius,
+      restVisibility: DEFAULT_STYLE.restVisibility,
       fontFamily: DEFAULT_STYLE.fontFamily,
       fontWeight: DEFAULT_STYLE.fontWeight,
     });
@@ -58,6 +59,33 @@ describe('resolve', () => {
 
     expect(keys[0]?.style.fillDirection).toBe('down');
     expect(keys[1]?.style.fillDirection).toBe('left');
+  });
+
+  it('lets a key keep itself on screen while the overlay hides at rest', () => {
+    // The case the whole change exists for: nothing showing until a finger
+    // moves, except the handful of keys worth keeping on the stream.
+    const config = withKeys(key(), key({ id: 9, style: { restVisibility: 'filled' } }));
+    config.style.restVisibility = 'hidden';
+
+    const { keys } = resolve(config);
+
+    expect(keys[0]?.style.restVisibility).toBe('hidden');
+    expect(keys[1]?.style.restVisibility).toBe('filled');
+  });
+
+  it('lets a key hide while the overlay stays visible', () => {
+    const config = withKeys(key({ style: { restVisibility: 'hidden' } }));
+
+    expect(config.style.restVisibility).toBe('filled');
+    expect(resolve(config).keys[0]?.style.restVisibility).toBe('hidden');
+  });
+
+  it('no longer lifts the resting visibility above the keys', () => {
+    // It is resolved per key now, and a flattened shape carrying it twice is
+    // two truths — the type promises no inheritance left to resolve.
+    const resolved = resolve(withKeys(key()));
+
+    expect('restVisibility' in resolved).toBe(false);
   });
 
   it('lets the key override win, property by property', () => {

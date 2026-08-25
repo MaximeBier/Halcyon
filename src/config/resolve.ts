@@ -97,7 +97,6 @@ export function resolve(config: OverlayConfig): ResolvedConfig {
     version: config.version,
     unit: config.style.unit,
     gap: config.style.gap,
-    restVisibility: config.style.restVisibility,
     borderColor: config.style.borderColor,
     borderWidth: config.style.borderWidth,
     keys: config.keys.map((key) => ({

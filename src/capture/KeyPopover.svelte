@@ -15,6 +15,7 @@
     RADIUS_BOUNDS,
     type FillDirection,
     type KeyMode,
+    type RestVisibility,
     type KeyStyle,
     type OverlayConfig,
   } from '../config/schema';
@@ -146,6 +147,20 @@
     ['down', '↓'],
     ['left', '←'],
     ['right', '→'],
+  ];
+
+  /**
+   * Shorter than the global panel's wording, and the same three states.
+   *
+   * The panel spells them out in a <select> it has the width for; this block is
+   * 284 px wide and already carries a segmented group, so the states are read
+   * side by side rather than one at a time — and 'Hidden until pressed' would
+   * not fit a third of that.
+   */
+  const REST_STATES: [RestVisibility, string][] = [
+    ['filled', 'Filled'],
+    ['outline', 'Outline'],
+    ['hidden', 'Hidden'],
   ];
 
   const COLORS: [keyof KeyStyle & ('activeColor' | 'fillColor' | 'restColor'), string][] = [
@@ -348,6 +363,35 @@
                   onclick={() => apply('fillDirection', value)}
                 >
                   {glyph}
+                </button>
+              {/each}
+            </div>
+          </div>
+        </div>
+
+        <!--
+          Per key since 2026-08-25, and the reason the property moved at all: an
+          overlay hidden at rest exists to be empty, and the keys worth keeping
+          on the stream are a handful, not a mode of their own. Under the fill
+          direction because both are shape rather than colour, and above the
+          radius because it is the one that changes whether a key is seen.
+
+          The editor keeps drawing every key whatever this says (`reveal`), so a
+          key hidden here is still there to be selected and given back.
+        -->
+        <div class="row" data-style-row="restVisibility">
+          {@render named('restVisibility', 'At rest', 'key-restVisibility', true)}
+          <div class="value">
+            <div class="segmented small" role="group" aria-labelledby="key-restVisibility-name">
+              {#each REST_STATES as [value, label] (value)}
+                <button
+                  type="button"
+                  data-rest={value}
+                  class:on={effective.restVisibility === value}
+                  aria-pressed={effective.restVisibility === value}
+                  onclick={() => apply('restVisibility', value)}
+                >
+                  {label}
                 </button>
               {/each}
             </div>

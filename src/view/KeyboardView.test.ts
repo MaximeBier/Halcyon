@@ -20,7 +20,6 @@ const config: ResolvedConfig = {
   version: 1,
   unit: 100,
   gap: 10,
-  restVisibility: 'filled',
   borderColor: DEFAULT_STYLE.borderColor,
   borderWidth: DEFAULT_STYLE.borderWidth,
   keys: [
@@ -40,6 +39,7 @@ const config: ResolvedConfig = {
         fillDirection: 'up',
         opacity: 1,
         radius: 4,
+        restVisibility: 'filled',
         fontFamily: DEFAULT_STYLE.fontFamily,
         fontWeight: DEFAULT_STYLE.fontWeight,
       },
@@ -246,7 +246,10 @@ describe('KeyboardView - the keys that are being pressed, and no others', () => 
   // The mode itself is the scene's business; what belongs here is that the
   // component hands the option through, and that one opacity really does take
   // the whole key off the screen — border and label with it.
-  const hidden: ResolvedConfig = { ...config, restVisibility: 'hidden' };
+  const hidden: ResolvedConfig = {
+    ...config,
+    keys: config.keys.map((key) => ({ ...key, style: { ...key.style, restVisibility: 'hidden' } })),
+  };
 
   it('draws a resting key at no opacity at all', () => {
     const { container } = render(KeyboardView, { props: { config: hidden, frame: [] } });

@@ -27,6 +27,16 @@
     onChange: (next: OverlayConfig) => void;
   } = $props();
 
+  /**
+   * Keys that answer for their own resting state, and so are not covered by
+   * what this panel says about the overlay.
+   *
+   * Counted rather than merely detected: "some keys" leaves the reader
+   * searching the layout for how many, and the figure is one property read off
+   * the keys already in hand.
+   */
+  const kept = $derived(config.keys.filter((key) => key.style?.restVisibility).length);
+
   const COLORS: [
     keyof typeof config.style & ('activeColor' | 'fillColor' | 'restColor'),
     string,
@@ -169,7 +179,19 @@
   -->
   {#if config.style.restVisibility === 'hidden'}
     <span class="caption">
-      The editor keeps showing every key · the overlay shows none until you press one
+      The editor keeps showing every key ·
+      <!-- The second half stopped being true on 2026-08-25, when the mode became
+           something a key can override: "shows none" would describe an overlay
+           nobody is looking at the moment one key is kept on the stream — and
+           keeping a few is the reason this mode gets chosen at all. The count is
+           of keys that answer for themselves, whatever they answer: a key set to
+           `outline` under a hidden global is not shown either, but it is not
+           obeying this line, and folding it in would need a second sentence. -->
+      {#if kept > 0}
+        the overlay shows only the {kept} key{kept === 1 ? '' : 's'} set apart
+      {:else}
+        the overlay shows none until you press one
+      {/if}
     </span>
   {/if}
 

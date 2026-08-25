@@ -156,7 +156,7 @@ export function buildScene(
   frame: readonly FrameKey[],
   { pack = false, reveal = false }: SceneOptions = {},
 ): Scene {
-  const { unit, gap, restVisibility, borderColor, borderWidth } = config;
+  const { unit, gap, borderColor, borderWidth } = config;
   const states = new Map(frame.map(([id, travel, active]) => [id, { travel, active }]));
 
   let width = 0;
@@ -226,7 +226,7 @@ export function buildScene(
     // nobody chose.
     const baseFill = actuated
       ? key.style.fillColor
-      : restVisibility === 'outline'
+      : key.style.restVisibility === 'outline'
         ? 'transparent'
         : key.style.restColor;
     // Nothing is happening to this key: no travel worth the name, and no
@@ -251,7 +251,8 @@ export function buildScene(
     // One opacity for the whole key rather than a transparent value per part:
     // the background, the travel, the outline and the label go out together,
     // and the day a fifth thing is drawn there is nothing to remember.
-    const opacity = restVisibility === 'hidden' && resting && !reveal ? 0 : key.style.opacity;
+    const opacity =
+      key.style.restVisibility === 'hidden' && resting && !reveal ? 0 : key.style.opacity;
 
     width = Math.max(width, (key.x - originX + key.w) * unit);
     height = Math.max(height, (key.y - originY + key.h) * unit);

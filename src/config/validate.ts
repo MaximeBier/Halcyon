@@ -148,7 +148,9 @@ export function isResolvedConfig(value: unknown): value is ResolvedConfig {
     Number.isFinite(config.version) &&
     isExtent(config.unit) &&
     isNonNegative(config.gap) &&
-    REST_VISIBILITIES.includes(config.restVisibility as string) &&
+    // `restVisibility` is checked on each key instead, by `isResolvedKey`
+    // through `STYLE_KEYS`: it became inheritable on 2026-08-25 and left this
+    // shape's root, where it would now be a second, disagreeing truth.
     HEX_COLOR.test(config.borderColor as string) &&
     isNonNegative(config.borderWidth) &&
     Array.isArray(config.keys) &&
