@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   overlayTally,
   rateLabel,
+  canPickDevice,
+  canRetryObs,
   captureWarning,
   sourceState,
   loadSettings,
@@ -133,9 +135,42 @@ describe('overlayUrl', () => {
   });
 });
 
+describe('what a pill offers to do about itself', () => {
+  it('offers the device picker for every keyboard state a picker could fix', () => {
+    // The three states the panel's own button already covers: nothing chosen
+    // yet, nothing plugged in, and the wrong interface chosen out of the ones
+    // Chrome lists for the vendor.
+    expect(canPickDevice('no-permission')).toBe(true);
+    expect(canPickDevice('disconnected')).toBe(true);
+    expect(canPickDevice('no-analog-interface')).toBe(true);
+  });
+
+  it('offers nothing when a picker cannot help', () => {
+    // A keyboard that works needs no gesture, and on a browser without WebHID
+    // the picker does not exist — offering it is how someone clicks four times.
+    expect(canPickDevice('connected')).toBe(false);
+    expect(canPickDevice('unsupported')).toBe(false);
+  });
+
+  it('offers a retry only where a fresh attempt is the way in', () => {
+    // Unreachable is the one that a click can change: the attempt itself is
+    // what raises Chrome's local network prompt, and the WebSocket server may
+    // have been switched on since. A refused password wants the field, not
+    // another identical attempt.
+    expect(canRetryObs('unreachable')).toBe(true);
+    expect(canRetryObs('auth-failed')).toBe(false);
+    expect(canRetryObs('identified')).toBe(false);
+    expect(canRetryObs('connecting')).toBe(false);
+    expect(canRetryObs('idle')).toBe(false);
+  });
+});
+
 describe('status bar wording', () => {
   it('says what to do, not what failed', () => {
-    expect(keyboardHint('no-permission')).toMatch(/allow/i);
+    // The pill is the button now, so it names the gesture rather than sending
+    // the reader to a control somewhere else on the page.
+    expect(keyboardHint('no-permission')).toMatch(/pick/i);
+    expect(keyboardHint('no-permission')).not.toMatch(/click/i);
     expect(keyboardHint('disconnected')).toMatch(/plug|connect/i);
     expect(keyboardHint('unsupported')).toMatch(/chrome|edge/i);
     expect(keyboardHint('no-analog-interface')).toMatch(/analog/i);
@@ -146,6 +181,22 @@ describe('status bar wording', () => {
     expect(obsHint('unreachable')).toMatch(/local network/i);
     expect(obsHint('unreachable')).toMatch(/site settings/i);
     expect(obsHint('auth-failed')).toMatch(/password/i);
+  });
+
+  it('names the firmware first when no analog interface is found', () => {
+    // Observed 2026-08-24: same keyboard model, an out-of-date firmware, and
+    // the 0xFF53 usage page simply absent. Wootility is the fix, and it is the
+    // first thing to try — the old wording sent people to a diagnostics panel
+    // that shows neither the vendor id nor the usage pages.
+    expect(keyboardHint('no-analog-interface')).toMatch(/wootility/i);
+    expect(keyboardHint('no-analog-interface')).toMatch(/firmware/i);
+    expect(keyboardHint('no-analog-interface')).not.toMatch(/diagnostics/i);
+  });
+
+  it('keeps every clickable hint short enough to sit in a run of pills', () => {
+    // Same cap and same reason as the unreachable hint below: the bar is a
+    // wrapping flex row, so a long sentence pushes every pill after it down.
+    expect(keyboardHint('no-analog-interface').length).toBeLessThan(140);
   });
 
   it('tells a refused password apart from an unreachable server', () => {

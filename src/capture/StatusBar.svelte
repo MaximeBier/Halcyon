@@ -1,7 +1,15 @@
 <script lang="ts">
   import type { KeyboardStatus } from '../keyboard/device';
   import type { ObsStatus } from '../transport/obs';
-  import { captureWarning, keyboardHint, obsHint, overlayTally, rateLabel } from './settings';
+  import {
+    canPickDevice,
+    canRetryObs,
+    captureWarning,
+    keyboardHint,
+    obsHint,
+    overlayTally,
+    rateLabel,
+  } from './settings';
   import { UI_TOKENS } from '../styles/ui-tokens';
 
   let {
@@ -10,6 +18,8 @@
     rate,
     overlays,
     otherCapture,
+    onPickDevice,
+    onRetryObs,
   }: {
     keyboard: KeyboardStatus;
     obs: ObsStatus;
@@ -17,6 +27,14 @@
     overlays: { inObs: number; inBrowser: number };
     /** Whether another capture page has been heard on the bus. */
     otherCapture: boolean;
+    /**
+     * Opens Chrome's HID picker. Called straight from the click, never through
+     * an await or a timer: WebHID grants the picker to a user gesture and to
+     * nothing else, and a gesture does not survive being handed to a task.
+     */
+    onPickDevice: () => void;
+    /** One fresh attempt at the OBS socket. */
+    onRetryObs: () => void;
   } = $props();
 
   let rivals = $derived(captureWarning(otherCapture));
@@ -33,19 +51,39 @@
 </script>
 
 <header>
-  <span class="pill">
-    <span class="dot" style:background={dot(keyboard === 'connected')}></span>
-    {keyboardHint(keyboard)}
-  </span>
-  <span class="pill">
-    <span class="dot" style:background={dot(obs === 'identified')}></span>
-    {obsHint(obs)}
-  </span>
+  <!-- A pill that can fix what it reports is the button for it, whole: dot and
+       sentence in one target. The gesture it takes is the one someone makes
+       anyway — the cursor goes to the line that says something is wrong — and
+       the panel's own button stays where it is for anyone who looks there
+       instead. A `<button>` only when there is something to do, because a
+       control that answers a click with silence is worse than plain text. -->
+  {#if canPickDevice(keyboard)}
+    <button type="button" class="pill act" data-pill="keyboard" onclick={onPickDevice}>
+      <span class="dot" style:background={UI_TOKENS.danger}></span>
+      {keyboardHint(keyboard)}
+    </button>
+  {:else}
+    <span class="pill" data-pill="keyboard">
+      <span class="dot" style:background={dot(keyboard === 'connected')}></span>
+      {keyboardHint(keyboard)}
+    </span>
+  {/if}
+  {#if canRetryObs(obs)}
+    <button type="button" class="pill act" data-pill="obs" onclick={onRetryObs}>
+      <span class="dot" style:background={UI_TOKENS.danger}></span>
+      {obsHint(obs)}
+    </button>
+  {:else}
+    <span class="pill" data-pill="obs">
+      <span class="dot" style:background={dot(obs === 'identified')}></span>
+      {obsHint(obs)}
+    </span>
+  {/if}
   {#if throughput}
-    <span class="pill">{throughput}</span>
+    <span class="pill" data-pill="rate">{throughput}</span>
   {/if}
   {#if tally}
-    <span class="pill">
+    <span class="pill" data-pill="overlays">
       <span class="dot" style:background={dot(overlays.inObs > 0)}></span>
       {tally}
     </span>
@@ -84,6 +122,38 @@
     width: 0.6rem;
     height: 0.6rem;
     border-radius: 50%;
+  }
+  /* An actionable pill is drawn exactly like the others at rest: same face,
+     same weight, no border, no underline. Nothing advertises the click, and
+     nothing needs to — the pills that answer one are the pills wearing a red
+     dot and an instruction, which is where the cursor goes on its own. The
+     button's own chrome is stripped rather than restyled, `font: inherit`
+     included: a bare <button> would otherwise arrive at 13px in its own face
+     and break the run. */
+  button.pill {
+    appearance: none;
+    background: none;
+    border: 0;
+    margin: 0;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+  }
+  /* The reward for arriving, not a signal to look for: the cursor changes and
+     the sentence underlines once the pointer is on it. */
+  .act {
+    cursor: pointer;
+  }
+  .act:hover {
+    text-decoration: underline;
+  }
+  /* Keyboard users get the one mark the mouse never needs. Without it a pill
+     that became a button is a trap: focusable, and invisible while focused. */
+  .act:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 3px;
+    border-radius: 2px;
   }
   /* The only pill that colours its text: the others report a state, this one
      reports a fault, and a red dot alone reads as one status among four.

@@ -91,14 +91,57 @@ export function keyboardHint(status: KeyboardStatus): string {
     case 'connected':
       return 'Keyboard connected.';
     case 'no-permission':
-      return 'Click “Allow keyboard” and pick your Wooting.';
+      // Names the gesture, not a control elsewhere on the page: the pill is
+      // the button now (`canPickDevice`), and pointing at the panel's “Allow
+      // keyboard” from a line that does the same thing sends the reader away
+      // from the thing under their cursor.
+      return 'Pick your Wooting keyboard.';
     case 'disconnected':
       return 'Plug in your Wooting keyboard.';
     case 'no-analog-interface':
-      return 'This device exposes no analog interface. Open the diagnostics panel.';
+      // **The firmware first, because it is what it turns out to be.** Seen on
+      // 2026-08-24: a supported model, a firmware left behind, and the 0xFF53
+      // usage page simply absent. The old wording sent people to the
+      // diagnostics panel, which shows neither the vendor id nor the usage
+      // pages — it could not answer the question it invited. The picker is the
+      // other half: Chrome lists every HID interface this vendor exposes, and
+      // the wrong one is easy to choose.
+      return 'No analog interface. Update the firmware in Wootility, or pick another device.';
     case 'unsupported':
       return 'WebHID is required. Use Chrome or Edge on desktop.';
   }
+}
+
+/**
+ * Whether the keyboard pill is worth clicking — the device picker as its own
+ * gesture (spec §11).
+ *
+ * The same three states the panel's button already covers, for the same
+ * reason: nothing chosen yet, nothing plugged in, or the wrong interface
+ * chosen out of the several Chrome lists for the vendor. A working keyboard
+ * needs no gesture, and a browser without WebHID has no picker to open — a
+ * control that cannot help is how someone presses it four times.
+ */
+export function canPickDevice(status: KeyboardStatus): boolean {
+  return (
+    status === 'no-permission' || status === 'disconnected' || status === 'no-analog-interface'
+  );
+}
+
+/**
+ * Whether the OBS pill is worth clicking — one fresh attempt at the socket.
+ *
+ * Only `unreachable`. The attempt is itself what raises Chrome's local network
+ * prompt, and the WebSocket server may have been switched on since the last
+ * one, so a click has two ways to succeed. **It has one way to do nothing:**
+ * a local network permission already refused cannot be asked for again from
+ * the page — Chrome allows no way back but its own site settings, which is why
+ * `obsHint` keeps naming them. A refused password wants the field rather than
+ * another identical attempt, and the three healthy states have nothing to
+ * retry.
+ */
+export function canRetryObs(status: ObsStatus): boolean {
+  return status === 'unreachable';
 }
 
 export function obsHint(status: ObsStatus): string {

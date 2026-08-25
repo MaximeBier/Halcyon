@@ -851,6 +851,8 @@
       {rate}
       overlays={listeners}
       {otherCapture}
+      onPickDevice={() => link.requestPermission()}
+      onRetryObs={reconnect}
     />
 
     <!-- Document-level controls, next to the only other document control on
