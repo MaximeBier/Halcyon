@@ -46,6 +46,7 @@ describe('resolve', () => {
       opacity: DEFAULT_STYLE.opacity,
       radius: DEFAULT_STYLE.radius,
       restVisibility: DEFAULT_STYLE.restVisibility,
+      activeBorder: DEFAULT_STYLE.activeBorder,
       fontFamily: DEFAULT_STYLE.fontFamily,
       fontWeight: DEFAULT_STYLE.fontWeight,
     });
@@ -206,6 +207,7 @@ function other(property: keyof GlobalStyle): unknown {
     if (typeof value === 'number') return value + 1;
     if (property === 'fillDirection') return 'down';
     if (property === 'restVisibility') return 'hidden';
+    if (property === 'activeBorder') return 'active';
     if (COLOR_KEYS.includes(property)) return '#abcdef';
     return `${value}-changed`;
   })();
@@ -239,7 +241,7 @@ describe('whether the global style has been touched', () => {
   // `GlobalStyle`, so TypeScript refuses to compile it incomplete. This holds
   // the count as a second guard against someone replacing it with a literal.
   it('covers the whole of GlobalStyle, and is kept honest by the type', () => {
-    expect(GLOBAL_STYLE_KEYS).toHaveLength(13);
+    expect(GLOBAL_STYLE_KEYS).toHaveLength(14);
     expect(GLOBAL_STYLE_KEYS).toEqual(expect.arrayContaining([...STYLE_KEYS]));
   });
 });

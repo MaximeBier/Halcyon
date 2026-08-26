@@ -35,6 +35,15 @@ describe('migrate', () => {
     }
   });
 
+  it('gives a profile written before the border setting existed a fixed border', () => {
+    // Why the setting needs no migration and no version bump: the merge over
+    // `DEFAULT_STYLE` above hands an absent field its default. This test is
+    // what keeps that true the day the merge is rewritten.
+    const result = migrate({ version: 1, layout: 'iso', keys: [], style: { unit: 40 } });
+
+    expect(result).toMatchObject({ ok: true, config: { style: { activeBorder: 'fixed' } } });
+  });
+
   it('keeps the layout override, which decides every label', () => {
     const result = migrate({ ...defaultConfig(), layoutOverride: 'qwertz' });
 

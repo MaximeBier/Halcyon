@@ -23,6 +23,16 @@ export const FILL_DIRECTIONS: readonly string[] = ['up', 'down', 'left', 'right'
 export const REST_VISIBILITIES: readonly string[] = ['filled', 'outline', 'hidden'];
 
 /**
+ * What the border of an engaged key may do (`KeyStyle.activeBorder`).
+ *
+ * Beside `REST_VISIBILITIES` and for its reason: an unknown keyword falls
+ * through the ternary the scene builds its border colour with, which would
+ * leave the border its resting colour for ever — a setting the editor stores
+ * and the renderer ignores.
+ */
+export const ACTIVE_BORDERS: readonly string[] = ['fixed', 'active'];
+
+/**
  * The one colour syntax accepted.
  *
  * Not because the renderer could not paint `rebeccapurple` — it hands the
@@ -57,6 +67,7 @@ export function isStyleValue(property: string, value: unknown): boolean {
   if (typeof value === 'number' && !Number.isFinite(value)) return false;
   if (property === 'fillDirection') return FILL_DIRECTIONS.includes(value as string);
   if (property === 'restVisibility') return REST_VISIBILITIES.includes(value as string);
+  if (property === 'activeBorder') return ACTIVE_BORDERS.includes(value as string);
   if (COLOR_KEYS.includes(property)) return HEX_COLOR.test(value as string);
   // A unit of zero collapses the scene, a negative one produces an invalid SVG
   // width that browsers discard: a blank overlay, on air, in silence.

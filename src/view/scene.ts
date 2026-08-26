@@ -248,6 +248,12 @@ export function buildScene(
     // the same thing — a conversion with nothing to gain and a rounding error
     // to lose.
     const resting = travel <= REST_TRAVEL_FLOOR && state.active !== 1;
+    // One notion for both modes, each with its own reading of "active". A key
+    // answers to the actuation, which is what the signal reports; an axis never
+    // fires, so it answers to `resting` — already the judge of whether anything
+    // is happening to this key. A second threshold of its own could disagree
+    // with that one about the same key on the same frame.
+    const engaged = key.mode === 'axis' ? !resting : actuated;
     // One opacity for the whole key rather than a transparent value per part:
     // the background, the travel, the outline and the label go out together,
     // and the day a fifth thing is drawn there is nothing to remember.
@@ -277,17 +283,20 @@ export function buildScene(
         // the reduction exists to avoid.
         radius: Math.max(0, key.style.radius - borderWidth / 2),
         width: borderWidth,
-        // One colour, whatever the key is doing. It was the second actuation
-        // signal until 2026-08-23 — it turned to the active colour, which on an
-        // actuated key is also the fill colour, so the outline dissolved into
-        // the face it framed. Beside an axis key, whose border never moves, the
-        // effect was a layout that came apart under the fingers rather than a
-        // key that announced itself.
+        // Frozen from 2026-08-23 to 2026-08-26, a setting since. It was the
+        // second actuation signal before that, unconditionally — it turned to
+        // the active colour, which on an actuated key is also the fill colour,
+        // so the outline dissolved into the face it framed. Beside an axis key,
+        // whose border never moved, the effect was a layout that came apart
+        // under the fingers rather than a key that announced itself.
         //
-        // What it cost: a key at full travel that never fired and a key that
-        // fired at zero travel now draw alike. The colour swap still reports
-        // every ordinary press.
-        color: borderColor,
+        // Both griefs are answered rather than dodged. The axis follows its own
+        // engagement now, so nothing stands still beside a border that moves;
+        // and the dissolution is what somebody chose instead of what everybody
+        // got. `fixed` keeps the frozen behaviour, and stays the default — with
+        // it, a key at full travel that never fired and a key that fired at
+        // zero travel still draw alike, which the colour swap already reports.
+        color: key.style.activeBorder === 'active' && engaged ? key.style.activeColor : borderColor,
       },
       fill: { ...fillRect(x, y, w, h, ratio, key.style.fillDirection), color: fillColor },
       labelFill: OVERLAY_TOKENS.keyLabel,

@@ -58,6 +58,21 @@ export type FillDirection = 'up' | 'down' | 'left' | 'right';
  */
 export type RestVisibility = 'filled' | 'outline' | 'hidden';
 
+/**
+ * What the border of an engaged key does with its colour.
+ *
+ * - `fixed` — one colour, whatever the key is doing. The default, and what
+ *   every key did between 2026-08-23 and 2026-08-26.
+ * - `active` — the border takes `activeColor` while the key is engaged: the
+ *   second actuation signal, back as a choice.
+ *
+ * A keyword and not a boolean, on the precedent of `restFilled` becoming
+ * `restVisibility`. The third state is already in reserve — a border
+ * interpolated along an axis's travel — and it would arrive as one more value
+ * here rather than as a second field.
+ */
+export type ActiveBorder = 'fixed' | 'active';
+
 /** Appearance properties, the only ones subject to inheritance (spec §8.2). */
 export interface KeyStyle {
   restColor: string;
@@ -97,6 +112,15 @@ export interface KeyStyle {
    */
   restVisibility: RestVisibility;
   /**
+   * Whether this key's border follows its active colour (spec §7.4).
+   *
+   * Here rather than on `GlobalStyle`, where `borderColor` stays: the resting
+   * colour is the outline of the whole overlay, while following the active
+   * state is an argument each key is allowed to have — this one announces
+   * itself, that one does not.
+   */
+  activeBorder: ActiveBorder;
+  /**
    * Family and weight only: the label size is computed from the key height
    * (spec §16.3), so it is never set here.
    */
@@ -115,9 +139,12 @@ export interface GlobalStyle extends KeyStyle {
    * `#232838` over an arbitrary video is a key nobody can see.
    *
    * Here rather than in `KeyStyle`, so it is the outline of the overlay and not
-   * an argument each key has with the theme. The **actuated** border stays
-   * `activeColor`, which is per key: that asymmetry is §7.4 asking for it — the
-   * second actuation signal has to follow the key that fired.
+   * an argument each key has with the theme. The **actuated** border may follow
+   * `activeColor` instead, which is per key: that asymmetry is §7.4 asking for
+   * it, and `KeyStyle.activeBorder` is where each key answers for itself.
+   *
+   * That last sentence stood here unconditionally from 2026-08-22 to
+   * 2026-08-26, describing a behaviour `1eb5457` had removed in between.
    */
   borderColor: string;
   /** In pixels. Zero draws no border at all, which is a choice. */
@@ -192,6 +219,7 @@ const INHERITABLE: Record<keyof KeyStyle, true> = {
   opacity: true,
   radius: true,
   restVisibility: true,
+  activeBorder: true,
   fontFamily: true,
   fontWeight: true,
 };
@@ -227,6 +255,7 @@ export const BORDER_WIDTH_BOUNDS = { min: 0, max: 16 } as const;
 export const DEFAULT_STYLE: GlobalStyle = {
   restColor: OVERLAY_TOKENS.keyRest,
   restVisibility: 'filled',
+  activeBorder: 'fixed',
   borderColor: OVERLAY_TOKENS.keyBorder,
   borderWidth: OVERLAY_TOKENS.keyBorderWidth,
   activeColor: OVERLAY_TOKENS.keyActive,

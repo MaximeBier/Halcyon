@@ -94,6 +94,16 @@ describe('isResolvedConfig', () => {
     expect(isResolvedConfig({ ...config, keys: [{ ...keys[0]!, style }] })).toBe(false);
   });
 
+  it('refuses a border behaviour the scene cannot switch on', () => {
+    // An unknown keyword would fall through the border's ternary and leave the
+    // outline its resting colour for ever: a setting stored and never applied.
+    const config = resolved();
+    const keys = config.keys as Record<string, unknown>[];
+    const style = { ...(keys[0]!.style as Record<string, unknown>), activeBorder: 'sometimes' };
+
+    expect(isResolvedConfig({ ...config, keys: [{ ...keys[0]!, style }] })).toBe(false);
+  });
+
   it('accepts every default style property as resolve emits it', () => {
     const config = resolved();
     const keys = config.keys as Record<string, unknown>[];

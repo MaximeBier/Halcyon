@@ -40,6 +40,7 @@ const config: ResolvedConfig = {
         opacity: 1,
         radius: 4,
         restVisibility: 'filled',
+        activeBorder: 'fixed',
         fontFamily: DEFAULT_STYLE.fontFamily,
         fontWeight: DEFAULT_STYLE.fontWeight,
       },

@@ -18,6 +18,7 @@ const style = {
   opacity: DEFAULT_STYLE.opacity,
   radius: DEFAULT_STYLE.radius,
   restVisibility: DEFAULT_STYLE.restVisibility,
+  activeBorder: DEFAULT_STYLE.activeBorder,
   fontFamily: DEFAULT_STYLE.fontFamily,
   fontWeight: DEFAULT_STYLE.fontWeight,
 };
@@ -197,10 +198,91 @@ describe('buildScene - the border, which may be all there is to see', () => {
     expect(scene.keys[0]?.border.color).toBe('#ff00aa');
   });
 
-  it('keeps that colour when the key fires', () => {
+  it('keeps that colour when the key fires, which is what `fixed` means', () => {
     const scene = buildScene({ ...config(key()), borderColor: '#ff00aa' }, [[174, 300, 1]]);
 
     expect(scene.keys[0]?.border.color).toBe('#ff00aa');
+  });
+
+  // Restored on 2026-08-26 as a setting. It was the second actuation signal
+  // until 2026-08-23, when `1eb5457` froze the border: the colour it took is
+  // also what fills an actuated face, so the outline dissolved into it. That
+  // dissolution is now something chosen rather than something imposed, which is
+  // the whole difference a setting makes.
+  const following = (over: Partial<ResolvedKey> = {}): ResolvedKey =>
+    key({ ...over, style: { ...style, activeBorder: 'active', activeColor: '#00ff88' } });
+
+  it('takes the active colour when the key fires and the setting asks for it', () => {
+    const scene = buildScene({ ...config(following()), borderColor: '#ff00aa' }, [[174, 300, 1]]);
+
+    expect(scene.keys[0]?.border.color).toBe('#00ff88');
+  });
+
+  it('keeps the resting colour on a key that travels without firing', () => {
+    // A key in `key` mode answers to the actuation and not to the travel: that
+    // is what the signal reports. Full travel, never fired, resting colour.
+    const scene = buildScene({ ...config(following()), borderColor: '#ff00aa' }, [
+      [174, MAX_TRAVEL, 0],
+    ]);
+
+    expect(scene.keys[0]?.border.color).toBe('#ff00aa');
+  });
+
+  it('follows an axis the moment it leaves its rest, since it never fires', () => {
+    // An axis is never `actuated`, so it would have kept a frozen border beside
+    // keys whose border moved — the layout coming apart under the fingers that
+    // `1eb5457` named. Its engagement is `resting`, the same judge that decides
+    // whether a `hidden` key appears: one judge cannot contradict itself.
+    const scene = buildScene({ ...config(following({ mode: 'axis' })), borderColor: '#ff00aa' }, [
+      [174, REST_TRAVEL_FLOOR + 1, 0],
+    ]);
+
+    expect(scene.keys[0]?.border.color).toBe('#00ff88');
+  });
+
+  it('leaves an axis at rest its resting colour', () => {
+    const scene = buildScene({ ...config(following({ mode: 'axis' })), borderColor: '#ff00aa' }, [
+      [174, REST_TRAVEL_FLOOR, 0],
+    ]);
+
+    expect(scene.keys[0]?.border.color).toBe('#ff00aa');
+  });
+
+  // The two settings answer for different fields of the same key:
+  // `restVisibility` decides the face and the opacity, `activeBorder` decides
+  // the border colour, and no branch of either reads the other. These two build
+  // their own key: the spread inside `following` would drop a style handed to
+  // it.
+  it('colours the border of an outlined key, whose border is all there is', () => {
+    const outlined = key({
+      style: {
+        ...style,
+        activeBorder: 'active',
+        activeColor: '#00ff88',
+        restVisibility: 'outline',
+      },
+    });
+    const scene = buildScene({ ...config(outlined), borderColor: '#ff00aa' }, [[174, 300, 1]]);
+
+    expect(scene.keys[0]?.border.color).toBe('#00ff88');
+  });
+
+  it('keeps a hidden key invisible at rest whatever its border is set to', () => {
+    const hidden = key({
+      style: { ...style, activeBorder: 'active', restVisibility: 'hidden' },
+    });
+
+    expect(buildScene(config(hidden), []).keys[0]?.opacity).toBe(0);
+  });
+
+  it('draws nothing to colour at a width of zero', () => {
+    // The setting has no effect where there is no stroke. Written rather than
+    // deduced: a border of zero is a legitimate choice, not an edge case.
+    const scene = buildScene({ ...config(following()), borderColor: '#ff00aa', borderWidth: 0 }, [
+      [174, 300, 1],
+    ]);
+
+    expect(scene.keys[0]?.border.width).toBe(0);
   });
 
   it('insets the stroke by half its width, so it stays inside the key', () => {

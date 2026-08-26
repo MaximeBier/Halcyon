@@ -47,6 +47,7 @@ describe('default values', () => {
         'radius',
         'restColor',
         'restVisibility',
+        'activeBorder',
       ].sort(),
     );
   });
