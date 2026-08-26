@@ -37,6 +37,16 @@ describe('StylePanel', () => {
     expect(onChange.mock.calls[0]![0].style.fillDirection).toBe('left');
   });
 
+  it('writes the global border behaviour', () => {
+    const { container, onChange } = panel();
+    const select = container.querySelector<HTMLSelectElement>('select[name="activeBorder"]')!;
+
+    select.value = 'active';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(onChange.mock.calls[0]![0].style.activeBorder).toBe('active');
+  });
+
   it('never touches a key', () => {
     // This panel is global and nothing else. It sat next to a per-key editor
     // in the plan, sharing one `apply` that chose its target from the

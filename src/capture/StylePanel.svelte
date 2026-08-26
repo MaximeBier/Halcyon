@@ -4,6 +4,7 @@
   import {
     BORDER_WIDTH_BOUNDS,
     RADIUS_BOUNDS,
+    type ActiveBorder,
     type FillDirection,
     type OverlayConfig,
     type RestVisibility,
@@ -68,6 +69,16 @@
     ['filled', 'Filled'],
     ['outline', 'Outline only'],
     ['hidden', 'Hidden until pressed'],
+  ];
+
+  /**
+   * Named for what the border does, not for what the field is called: "Takes
+   * the active colour" answers "what happens when I press it", which is the
+   * question somebody arriving at this row is asking.
+   */
+  const BORDER_STATES: [ActiveBorder, string][] = [
+    ['fixed', 'Always the same'],
+    ['active', 'Takes the active colour'],
   ];
 
   /** What each size may hold. `min` and `max` bind the spinner, not the keyboard. */
@@ -194,6 +205,30 @@
       {/if}
     </span>
   {/if}
+
+  <!--
+    After the resting row and its caption, because it answers the next
+    question: how much of a key shows while nothing happens, then what its
+    outline does when something does.
+
+    Global here and overridable per key in the popover — `borderColor` is the
+    outline of the overlay, while announcing itself is an argument each key is
+    allowed to have. This row governs the behaviour and never the colour.
+  -->
+  <div class="row">
+    <label for="global-activeBorder">Border on press</label>
+    <select
+      id="global-activeBorder"
+      name="activeBorder"
+      value={config.style.activeBorder}
+      onchange={(event) =>
+        onChange(setGlobalStyle(config, 'activeBorder', event.currentTarget.value as ActiveBorder))}
+    >
+      {#each BORDER_STATES as [value, label] (value)}
+        <option {value}>{label}</option>
+      {/each}
+    </select>
+  </div>
 
   {#each COLORS as [property, label] (property)}
     <div class="row">
