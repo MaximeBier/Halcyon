@@ -13,13 +13,33 @@ import type { KeyConfig, OverlayConfig } from '../config/schema';
  */
 export const LEARN_TRAVEL_THRESHOLD = 200;
 
-export function pickLearned(entries: readonly AnalogEntry[]): AnalogEntry | null {
-  let best: AnalogEntry | null = null;
+/**
+ * Adds every key a report shows pressed on purpose (spec §8.4).
+ *
+ * All of them, not the deepest one: capture stays armed until it is stopped,
+ * so there is no single key to elect, and a chord pressed together would
+ * otherwise be added one report at a time — the key that never happens to be
+ * the deepest never being added at all.
+ *
+ * Reports arrive by the thousand while a key is held down, and every one of
+ * them repeats it. `addLearnedKey` ignores a key already on the layout, so the
+ * argument comes straight back out: handing the same reference back is what
+ * keeps a held key from reaching `updateConfig`, which would persist,
+ * broadcast and stack an undo step for each report. It is what replaces the
+ * mode closing itself after one key.
+ */
+export function learnKeys(
+  config: OverlayConfig,
+  entries: readonly AnalogEntry[],
+  layout: LayoutMapLike | null,
+  surface: Rect,
+): OverlayConfig {
+  let next = config;
   for (const entry of entries) {
     if (entry.travel < LEARN_TRAVEL_THRESHOLD) continue;
-    if (!best || entry.travel > best.travel) best = entry;
+    next = addLearnedKey(next, entry, layout, surface);
   }
-  return best;
+  return next;
 }
 
 /**

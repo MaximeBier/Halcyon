@@ -21,7 +21,7 @@
   import { createOverlayRegistry } from './overlays';
   import { createConfigBroadcaster } from './broadcast';
   import { newPageId } from '../protocol/identity';
-  import { addLearnedKey, pickLearned, removeKey, removeKeys } from './learn';
+  import { learnKeys, removeKey, removeKeys } from './learn';
   import { keysOutside, surfaceOf } from './layout';
   import { pickedFromList } from './gestures';
   import { loadLayoutMap, resolveLayout, type LayoutMapLike } from '../keyboard/labels';
@@ -750,36 +750,20 @@
       // seen, not from the moment someone happens to be adding one.
       if (suggester.observe(entries)) observed += 1;
       if (!learning) return;
-      const learned = pickLearned(entries);
-      if (!learned) return;
-      // One key per activation: the mode closes itself, so holding the key
-      // down cannot add it a second time.
-      learning = false;
       // The same surface the editor draws on, derived from the same box and
       // the same unit: a key learned onto a surface the stage does not have
       // would land where nobody can reach it.
-      const next = addLearnedKey(
-        config,
-        learned,
-        activeLayout,
-        surfaceOf(stageBox, config.style.unit),
-      );
-      // `addLearnedKey` hands the same reference back when the key is already
-      // on the layout. Ending the mode in silence there reads as "the press
-      // did not register", and the person tries again — so the toast names
-      // the key instead, and the selection points at which one it is.
-      if (next === config) {
-        const existing = config.keys.find((key) => key.id === learned.index);
-        if (existing) {
-          selectedIds = [existing.id];
-          toast = { tone: 'warning', message: `“${existing.label}” is already in the layout` };
-        }
-        return;
-      }
+      const next = learnKeys(config, entries, activeLayout, surfaceOf(stageBox, config.style.unit));
+      // The mode is never closed here: it stays armed until it is stopped, so
+      // a whole layout can be captured in one pass. `learnKeys` hands the same
+      // configuration back when a report adds nothing — a key held down, or
+      // one already placed — which is what keeps the thousands of reports a
+      // single press produces from reaching `updateConfig`.
+      if (next === config) return;
       // Read from the result, not from the report: the label is the layout's
       // business, and the wizard's third step names the key it just saw.
       const before = config.keys.map((key) => key.id);
-      lastKey = next.keys.find((key) => !before.includes(key.id))?.label ?? null;
+      lastKey = next.keys.filter((key) => !before.includes(key.id)).at(-1)?.label ?? null;
       updateConfig(next);
     },
     onKeys: (k) => {

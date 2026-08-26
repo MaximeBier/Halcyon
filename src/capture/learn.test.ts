@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { addLearnedKey, pickLearned, removeKey, removeKeys, LEARN_TRAVEL_THRESHOLD } from './learn';
-import { DEFAULT_STYLE, defaultConfig } from '../config/schema';
+import { addLearnedKey, learnKeys, removeKey, removeKeys, LEARN_TRAVEL_THRESHOLD } from './learn';
+import { DEFAULT_STYLE, defaultConfig, type OverlayConfig } from '../config/schema';
 import { surfaceOf } from './layout';
 import type { AnalogEntry } from '../keyboard/decode';
 
@@ -21,20 +21,47 @@ const entry = (index: number, usage: number, travel: number): AnalogEntry => ({
   active: false,
 });
 
-describe('pickLearned', () => {
-  it('keeps the key pressed the deepest', () => {
-    const picked = pickLearned([entry(1, 0x14, 300), entry(2, 0x1a, 900)]);
+describe('learnKeys', () => {
+  const learn = (config: OverlayConfig, entries: readonly AnalogEntry[]) =>
+    learnKeys(config, entries, azerty, SURFACE);
 
-    expect(picked?.index).toBe(2);
+  it('adds every key a report shows pressed, not just the deepest one', () => {
+    // Capture stays armed, so there is no longer one key to elect: a chord
+    // pressed together is a chord meant to be added together.
+    const config = learn(defaultConfig(), [entry(1, 0x14, 300), entry(2, 0x1a, 900)]);
+
+    expect(config.keys.map((k) => k.id)).toEqual([1, 2]);
+  });
+
+  it('hands the same configuration back for a key held down', () => {
+    // What replaces the mode closing itself after one key. The reports arrive
+    // by the thousand while a key is held, and every one of them repeats it —
+    // returning the same reference is what keeps that from reaching
+    // `updateConfig`, which would persist, broadcast and stack an undo step.
+    const config = learn(defaultConfig(), [entry(1, 0x14, 900)]);
+
+    expect(learn(config, [entry(1, 0x14, 900)])).toBe(config);
+  });
+
+  it('adds the keys of a chord still held when a new one joins it', () => {
+    const config = learn(defaultConfig(), [entry(1, 0x14, 900)]);
+
+    const next = learn(config, [entry(1, 0x14, 900), entry(2, 0x1a, 400)]);
+
+    expect(next.keys.map((k) => k.id)).toEqual([1, 2]);
   });
 
   it('ignores a brush below the learning threshold', () => {
-    expect(pickLearned([entry(1, 0x14, LEARN_TRAVEL_THRESHOLD - 1)])).toBeNull();
+    const config = defaultConfig();
+
+    expect(learn(config, [entry(1, 0x14, LEARN_TRAVEL_THRESHOLD - 1)])).toBe(config);
   });
 
-  it('keeps nothing from a report at rest', () => {
-    expect(pickLearned([entry(1, 0x14, 0)])).toBeNull();
-    expect(pickLearned([])).toBeNull();
+  it('hands the same configuration back for a report at rest', () => {
+    const config = defaultConfig();
+
+    expect(learn(config, [entry(1, 0x14, 0)])).toBe(config);
+    expect(learn(config, [])).toBe(config);
   });
 
   it('stays below the firmware actuation point, which is around 375', () => {
