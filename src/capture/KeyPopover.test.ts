@@ -487,6 +487,34 @@ describe('KeyPopover - the Style block', () => {
     expect(container.querySelector('#key-restVisibility-name')?.textContent).toBe('At rest');
   });
 
+  it('sets whether one key announces itself with its border', () => {
+    const { container, onChange } = popover();
+
+    row(container, 'activeBorder')
+      .querySelector<HTMLButtonElement>('[data-border="active"]')!
+      .click();
+
+    expect(onChange.mock.calls[0]![0].keys[0].style).toEqual({ activeBorder: 'active' });
+  });
+
+  it('shows the global border behaviour on a key that overrides nothing', () => {
+    const config = twoKeys();
+    config.style = { ...config.style, activeBorder: 'active' };
+    const { container } = popover(config);
+
+    const pressed = row(container, 'activeBorder').querySelector('[aria-pressed="true"]');
+
+    expect(pressed?.getAttribute('data-border')).toBe('active');
+  });
+
+  it('gives the border group a name that resolves', () => {
+    const { container } = popover();
+    const group = container.querySelector('[aria-labelledby="key-activeBorder-name"]');
+
+    expect(group).not.toBeNull();
+    expect(container.querySelector('#key-activeBorder-name')?.textContent).toBe('On press');
+  });
+
   it('keeps the fill direction inside the block, where the lot puts it', () => {
     const { container, onChange } = popover();
 

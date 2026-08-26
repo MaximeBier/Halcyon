@@ -13,6 +13,7 @@
   import Collapsible from './Collapsible.svelte';
   import {
     RADIUS_BOUNDS,
+    type ActiveBorder,
     type FillDirection,
     type KeyMode,
     type RestVisibility,
@@ -161,6 +162,12 @@
     ['filled', 'Filled'],
     ['outline', 'Outline'],
     ['hidden', 'Hidden'],
+  ];
+
+  /** Shorter than the panel's, for the same reason the resting labels are. */
+  const BORDER_STATES: [ActiveBorder, string][] = [
+    ['fixed', 'Fixed'],
+    ['active', 'Active'],
   ];
 
   const COLORS: [keyof KeyStyle & ('activeColor' | 'fillColor' | 'restColor'), string][] = [
@@ -390,6 +397,35 @@
                   class:on={effective.restVisibility === value}
                   aria-pressed={effective.restVisibility === value}
                   onclick={() => apply('restVisibility', value)}
+                >
+                  {label}
+                </button>
+              {/each}
+            </div>
+          </div>
+        </div>
+
+        <!--
+          Beside the resting row, which is the setting it reads next to: one
+          says what a key shows while nothing happens, the other what its
+          outline does when something does. Per key because a border that
+          announces itself is worth having on the two keys that matter and not
+          on the twenty around them.
+
+          `borderColor` stays global on purpose — this row governs the
+          behaviour, never the resting colour.
+        -->
+        <div class="row" data-style-row="activeBorder">
+          {@render named('activeBorder', 'On press', 'key-activeBorder', true)}
+          <div class="value">
+            <div class="segmented small" role="group" aria-labelledby="key-activeBorder-name">
+              {#each BORDER_STATES as [value, label] (value)}
+                <button
+                  type="button"
+                  data-border={value}
+                  class:on={effective.activeBorder === value}
+                  aria-pressed={effective.activeBorder === value}
+                  onclick={() => apply('activeBorder', value)}
                 >
                   {label}
                 </button>
