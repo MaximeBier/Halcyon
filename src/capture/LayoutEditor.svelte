@@ -753,6 +753,15 @@
        anyone means to copy. */
     user-select: none;
   }
+  /* The focus arrives here by script and never by Tab: a closing popover parks
+     it when the key it came from has just been deleted. The browser's own ring
+     then framed the whole work surface in white — the largest thing on screen,
+     outlined to say something nobody asked. The `-1` above keeps this off the
+     keyboard path, so unlike `.handle:focus` below there is no keyboard half to
+     give the ring back to. */
+  .stage:focus {
+    outline: none;
+  }
   /**
    * Filled by the stylesheet, never sized from a measurement — and that is a
    * bug fix, not a preference.
