@@ -1,6 +1,8 @@
 <script lang="ts">
   import { setGlobalStyle } from '../config/edit';
   import { PRESETS, presetFor, withPreset } from './presets';
+  /** Shared with `KeyPopover`, whose three choices are the same three since 2026-08-26. */
+  import { BORDER_STATES, FILL_DIRECTIONS, REST_STATES } from './style-choices';
   import {
     BORDER_WIDTH_BOUNDS,
     RADIUS_BOUNDS,
@@ -49,37 +51,6 @@
 
   /** The preset the three colours currently spell, or null once one has moved. */
   const worn = $derived(presetFor(config.style));
-
-  const DIRECTIONS: [FillDirection, string][] = [
-    ['up', '↑ Up'],
-    ['down', '↓ Down'],
-    ['left', '← Left'],
-    ['right', '→ Right'],
-  ];
-
-  /**
-   * In the order of how much each one shows, which is the order they were
-   * invented in — and the only order in which the list reads as a scale rather
-   * than as three unrelated looks.
-   *
-   * The labels say what happens on screen, not what the field is called:
-   * "Hidden" alone invites the question the mode exists to answer.
-   */
-  const REST_STATES: [RestVisibility, string][] = [
-    ['filled', 'Filled'],
-    ['outline', 'Outline only'],
-    ['hidden', 'Hidden until pressed'],
-  ];
-
-  /**
-   * Named for what the border does, not for what the field is called: "Takes
-   * the active colour" answers "what happens when I press it", which is the
-   * question somebody arriving at this row is asking.
-   */
-  const BORDER_STATES: [ActiveBorder, string][] = [
-    ['fixed', 'Always the same'],
-    ['active', 'Takes the active colour'],
-  ];
 
   /** What each size may hold. `min` and `max` bind the spinner, not the keyboard. */
   const BOUNDS = {
@@ -265,7 +236,7 @@
           setGlobalStyle(config, 'fillDirection', event.currentTarget.value as FillDirection),
         )}
     >
-      {#each DIRECTIONS as [value, label] (value)}
+      {#each FILL_DIRECTIONS as [value, label] (value)}
         <option {value}>{label}</option>
       {/each}
     </select>

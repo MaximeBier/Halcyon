@@ -362,6 +362,12 @@ describe('KeyPopover - the Style block', () => {
     row(c, property).querySelector<HTMLInputElement>('input')!;
   const marker = (c: Element, property: string) =>
     row(c, property).querySelector<HTMLElement>('[data-marker]');
+  const dropdown = (c: Element, property: string) =>
+    row(c, property).querySelector<HTMLSelectElement>('select')!;
+  const choose = (select: HTMLSelectElement, value: string) => {
+    select.value = value;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  };
 
   it('overrides the travel fill, which nothing could reach before', () => {
     // `KeyStyle` has carried nine properties since task 13 and the popover
@@ -462,9 +468,7 @@ describe('KeyPopover - the Style block', () => {
     // rest, and three keys kept on the stream.
     const { container, onChange } = popover();
 
-    row(container, 'restVisibility')
-      .querySelector<HTMLButtonElement>('[data-rest="hidden"]')!
-      .click();
+    choose(dropdown(container, 'restVisibility'), 'hidden');
 
     expect(onChange.mock.calls[0]![0].keys[0].style).toEqual({ restVisibility: 'hidden' });
   });
@@ -474,25 +478,22 @@ describe('KeyPopover - the Style block', () => {
     config.style = { ...config.style, restVisibility: 'outline' };
     const { container } = popover(config);
 
-    const pressed = row(container, 'restVisibility').querySelector('[aria-pressed="true"]');
-
-    expect(pressed?.getAttribute('data-rest')).toBe('outline');
+    expect(dropdown(container, 'restVisibility').value).toBe('outline');
   });
 
-  it('gives the resting group a name that resolves', () => {
+  it('spells the resting states out, which the narrow group could not', () => {
+    // The short forms existed for a 284 px row of buttons. A `<select>` opens
+    // over the popover, so the panel's own wording fits — and is the wording.
     const { container } = popover();
-    const group = container.querySelector('[aria-labelledby="key-restVisibility-name"]');
+    const options = [...dropdown(container, 'restVisibility').options].map((o) => o.textContent);
 
-    expect(group).not.toBeNull();
-    expect(container.querySelector('#key-restVisibility-name')?.textContent).toBe('At rest');
+    expect(options).toEqual(['Filled', 'Outline only', 'Hidden until pressed']);
   });
 
   it('sets whether one key announces itself with its border', () => {
     const { container, onChange } = popover();
 
-    row(container, 'activeBorder')
-      .querySelector<HTMLButtonElement>('[data-border="active"]')!
-      .click();
+    choose(dropdown(container, 'activeBorder'), 'active');
 
     expect(onChange.mock.calls[0]![0].keys[0].style).toEqual({ activeBorder: 'active' });
   });
@@ -502,25 +503,13 @@ describe('KeyPopover - the Style block', () => {
     config.style = { ...config.style, activeBorder: 'active' };
     const { container } = popover(config);
 
-    const pressed = row(container, 'activeBorder').querySelector('[aria-pressed="true"]');
-
-    expect(pressed?.getAttribute('data-border')).toBe('active');
-  });
-
-  it('gives the border group a name that resolves', () => {
-    const { container } = popover();
-    const group = container.querySelector('[aria-labelledby="key-activeBorder-name"]');
-
-    expect(group).not.toBeNull();
-    expect(container.querySelector('#key-activeBorder-name')?.textContent).toBe('On press');
+    expect(dropdown(container, 'activeBorder').value).toBe('active');
   });
 
   it('keeps the fill direction inside the block, where the lot puts it', () => {
     const { container, onChange } = popover();
 
-    row(container, 'fillDirection')
-      .querySelector<HTMLButtonElement>('[data-direction="left"]')!
-      .click();
+    choose(dropdown(container, 'fillDirection'), 'left');
 
     expect(onChange.mock.calls[0]![0].keys[0].style).toEqual({ fillDirection: 'left' });
   });
@@ -747,14 +736,16 @@ describe('KeyPopover - a field never shows a figure nothing holds', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  // The label of a group of buttons cannot be a `<label for>`: nothing there is
+  // A group of buttons could not take a `<label for>` — nothing in it is
   // labelable, so the `for` dangled and the `aria-labelledby` beside it pointed
-  // at no element at all.
-  it('gives the fill direction group a name that resolves', () => {
+  // at no element. The three style choices are `<select>`s since 2026-08-26, so
+  // the plain label is available again, and it is what is asserted: a `for`
+  // that resolves to a real control names it in every reader.
+  it('names the fill direction with a label that resolves to its control', () => {
     const { container } = popover(twoKeys(), [1]);
-    const group = container.querySelector('[aria-labelledby="key-fillDirection-name"]');
+    const label = container.querySelector<HTMLLabelElement>('label[for="key-fillDirection"]');
 
-    expect(group).not.toBeNull();
-    expect(container.querySelector('#key-fillDirection-name')?.textContent).toBe('Fill direction');
+    expect(label?.textContent).toBe('Fill direction');
+    expect(container.querySelector('#key-fillDirection')?.tagName).toBe('SELECT');
   });
 });

@@ -11,6 +11,17 @@
   import { moveKey, resizeKeys, GRID, type Rect } from './layout';
   import { ICON_SET, labelFor, type LayoutMapLike } from '../keyboard/labels';
   import Collapsible from './Collapsible.svelte';
+  /**
+   * The wording of the three style choices, shared with the global panel.
+   *
+   * They were lists of this component's own, wearing shortened labels: `↑` for
+   * `↑ Up`, `Hidden` for `Hidden until pressed`, because this block is 284 px
+   * wide and three words do not fit a third of a row of buttons. Those choices
+   * are dropdowns since 2026-08-26, and a dropdown opens over the popover
+   * instead of inside its row — so the width stopped deciding the wording, and
+   * two lists that no longer differ became one.
+   */
+  import { BORDER_STATES, FILL_DIRECTIONS, REST_STATES } from './style-choices';
   import {
     RADIUS_BOUNDS,
     type ActiveBorder,
@@ -143,33 +154,6 @@
     onChange(setKeyStyle(config, selectedIds, property, value));
   }
 
-  const DIRECTIONS: [FillDirection, string][] = [
-    ['up', '↑'],
-    ['down', '↓'],
-    ['left', '←'],
-    ['right', '→'],
-  ];
-
-  /**
-   * Shorter than the global panel's wording, and the same three states.
-   *
-   * The panel spells them out in a <select> it has the width for; this block is
-   * 284 px wide and already carries a segmented group, so the states are read
-   * side by side rather than one at a time — and 'Hidden until pressed' would
-   * not fit a third of that.
-   */
-  const REST_STATES: [RestVisibility, string][] = [
-    ['filled', 'Filled'],
-    ['outline', 'Outline'],
-    ['hidden', 'Hidden'],
-  ];
-
-  /** Shorter than the panel's, for the same reason the resting labels are. */
-  const BORDER_STATES: [ActiveBorder, string][] = [
-    ['fixed', 'Fixed'],
-    ['active', 'Active'],
-  ];
-
   const COLORS: [keyof KeyStyle & ('activeColor' | 'fillColor' | 'restColor'), string][] = [
     ['activeColor', 'Active color'],
     ['fillColor', 'Travel fill'],
@@ -235,17 +219,15 @@
   beside it — and it is exactly where one would click to undo it. Padded well
   past its six pixels, so the target is a target.
 -->
-{#snippet named(property: keyof KeyStyle, label: string, control: string, group: boolean)}
+{#snippet named(property: keyof KeyStyle, label: string, control: string)}
   <span class="name">
-    <!-- A `<label for>` only where a labelable control answers to that id. The
-         fill direction is a group of buttons, and pointing a label at it named
-         nothing at all: the `for` dangled, so the `aria-labelledby` beside it
-         resolved to no element and the group went nameless. -->
-    {#if group}
-      <span class="label" id={`${control}-name`}>{label}</span>
-    {:else}
-      <label for={control}>{label}</label>
-    {/if}
+    <!-- Always a `<label for>`, because a labelable control always answers to
+         that id now. It took a `group` flag until 2026-08-26: the three style
+         choices were groups of buttons, nothing in them was labelable, and the
+         `for` dangled — so those rows named themselves through an
+         `aria-labelledby` on the group instead. They are `<select>`s since, and
+         the flag had no caller left asking for the other branch. -->
+    <label for={control}>{label}</label>
     {#if overridden.includes(property)}
       <button
         type="button"
@@ -343,7 +325,7 @@
       >
         {#each COLORS as [property, label] (property)}
           <div class="row" data-style-row={property}>
-            {@render named(property, label, `key-${property}`, false)}
+            {@render named(property, label, `key-${property}`)}
             <div class="value">
               <input
                 id={`key-${property}`}
@@ -357,22 +339,19 @@
         {/each}
 
         <div class="row" data-style-row="fillDirection">
-          {@render named('fillDirection', 'Fill direction', 'key-fillDirection', true)}
+          {@render named('fillDirection', 'Fill direction', 'key-fillDirection')}
           <div class="value">
-            <div class="segmented small" role="group" aria-labelledby="key-fillDirection-name">
-              {#each DIRECTIONS as [value, glyph] (value)}
-                <button
-                  type="button"
-                  data-direction={value}
-                  class:on={effective.fillDirection === value}
-                  aria-pressed={effective.fillDirection === value}
-                  aria-label={value}
-                  onclick={() => apply('fillDirection', value)}
-                >
-                  {glyph}
-                </button>
+            <select
+              id="key-fillDirection"
+              name="key-fillDirection"
+              value={effective.fillDirection}
+              onchange={(event) =>
+                apply('fillDirection', event.currentTarget.value as FillDirection)}
+            >
+              {#each FILL_DIRECTIONS as [value, label] (value)}
+                <option {value}>{label}</option>
               {/each}
-            </div>
+            </select>
           </div>
         </div>
 
@@ -387,21 +366,19 @@
           key hidden here is still there to be selected and given back.
         -->
         <div class="row" data-style-row="restVisibility">
-          {@render named('restVisibility', 'At rest', 'key-restVisibility', true)}
+          {@render named('restVisibility', 'At rest', 'key-restVisibility')}
           <div class="value">
-            <div class="segmented small" role="group" aria-labelledby="key-restVisibility-name">
+            <select
+              id="key-restVisibility"
+              name="key-restVisibility"
+              value={effective.restVisibility}
+              onchange={(event) =>
+                apply('restVisibility', event.currentTarget.value as RestVisibility)}
+            >
               {#each REST_STATES as [value, label] (value)}
-                <button
-                  type="button"
-                  data-rest={value}
-                  class:on={effective.restVisibility === value}
-                  aria-pressed={effective.restVisibility === value}
-                  onclick={() => apply('restVisibility', value)}
-                >
-                  {label}
-                </button>
+                <option {value}>{label}</option>
               {/each}
-            </div>
+            </select>
           </div>
         </div>
 
@@ -416,26 +393,23 @@
           behaviour, never the resting colour.
         -->
         <div class="row" data-style-row="activeBorder">
-          {@render named('activeBorder', 'On press', 'key-activeBorder', true)}
+          {@render named('activeBorder', 'On press', 'key-activeBorder')}
           <div class="value">
-            <div class="segmented small" role="group" aria-labelledby="key-activeBorder-name">
+            <select
+              id="key-activeBorder"
+              name="key-activeBorder"
+              value={effective.activeBorder}
+              onchange={(event) => apply('activeBorder', event.currentTarget.value as ActiveBorder)}
+            >
               {#each BORDER_STATES as [value, label] (value)}
-                <button
-                  type="button"
-                  data-border={value}
-                  class:on={effective.activeBorder === value}
-                  aria-pressed={effective.activeBorder === value}
-                  onclick={() => apply('activeBorder', value)}
-                >
-                  {label}
-                </button>
+                <option {value}>{label}</option>
               {/each}
-            </div>
+            </select>
           </div>
         </div>
 
         <div class="row" data-style-row="radius">
-          {@render named('radius', 'Radius', 'key-radius', false)}
+          {@render named('radius', 'Radius', 'key-radius')}
           <div class="value">
             <input
               id="key-radius"
@@ -906,8 +880,28 @@
   input[type='text'] {
     inline-size: 118px;
   }
+  /* The global panel's own select, at this block's density: same colours, same
+     border, the smaller of the two type sizes. A select left unstyled is not
+     merely plainer — the browser paints it in its own light chrome, which on a
+     dark popover reads as a foreign control someone forgot.
+
+     `max-inline-size` rather than a width: 'Takes the active colour' is the
+     longest option and would otherwise set the row, pushing the label off a
+     284 px block. The chosen value is what shows; the list opens over the
+     popover at whatever width it needs. */
+  select {
+    max-inline-size: 148px;
+    font: inherit;
+    font-size: var(--he-size-sm, 15px);
+    color: var(--he-text, #dde1e9);
+    background: var(--he-stage, #0b0d11);
+    border: 1px solid var(--he-border-control, #232838);
+    border-radius: var(--he-radius, 4px);
+    padding: 4px 6px;
+  }
   button:focus-visible,
-  input:focus-visible {
+  input:focus-visible,
+  select:focus-visible {
     outline: 2px solid var(--he-accent, #7c9eff);
     outline-offset: 1px;
   }
