@@ -1,0 +1,286 @@
+<script lang="ts">
+  import { autostartPath, browserFlavor, installHint, installState } from './startup';
+  import { copyToClipboard } from './clipboard';
+
+  /**
+   * The "Start with Windows" guide: a header trigger and the three steps.
+   *
+   * It teaches the only part the page cannot do for itself. Opened at sign-in,
+   * the capture already takes the keyboard back without a gesture and retries
+   * OBS until it answers — so the guide is install the app, tick the browser's
+   * run-on-login option, and leave the window alone.
+   */
+  let {
+    /** Overridable for the tests; the flavor only picks which address to show. */
+    agent = navigator.userAgent,
+    standalone = runsStandalone(),
+  }: {
+    agent?: string;
+    standalone?: boolean;
+  } = $props();
+
+  /** What Chrome's `beforeinstallprompt` carries, which the DOM types do not name. */
+  interface InstallPromptLike {
+    prompt(): Promise<unknown>;
+  }
+
+  let open = $state(false);
+  /** The stashed `beforeinstallprompt`, single-use: spent on the button's click. */
+  let prompt = $state<InstallPromptLike | null>(null);
+  /** `appinstalled` seen — this tab stayed a tab, but the install happened. */
+  let installed = $state(false);
+  let copied = $state<'idle' | 'done' | 'failed'>('idle');
+  let root = $state<HTMLElement | null>(null);
+
+  /** jsdom has no `matchMedia`; a page that cannot ask is not in an app window. */
+  function runsStandalone(): boolean {
+    return globalThis.matchMedia?.('(display-mode: standalone)').matches ?? false;
+  }
+
+  const step = $derived(installState({ standalone, installed, promptAvailable: prompt !== null }));
+  const path = $derived(autostartPath(browserFlavor(agent)));
+
+  function toggle() {
+    open = !open;
+    copied = 'idle';
+  }
+
+  async function install() {
+    const held = prompt;
+    // Cleared before the ask, not after: the browser allows one call ever, and
+    // a second click during the dialog must find no button to press.
+    prompt = null;
+    await held?.prompt();
+  }
+
+  async function copy() {
+    copied = (await copyToClipboard(navigator, path.address)) ? 'done' : 'failed';
+  }
+
+  $effect(() => {
+    // On the window for the page's whole life, not the popover's: the event
+    // fires once, early, and a guide opened later must still hold it.
+    const onPrompt = (event: Event) => {
+      event.preventDefault();
+      prompt = event as unknown as InstallPromptLike;
+    };
+    const onInstalled = () => (installed = true);
+
+    window.addEventListener('beforeinstallprompt', onPrompt);
+    window.addEventListener('appinstalled', onInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onPrompt);
+      window.removeEventListener('appinstalled', onInstalled);
+    };
+  });
+
+  $effect(() => {
+    if (!open) return;
+
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') open = false;
+    };
+    // `pointerdown`, not `click`: the guide must be gone before whatever was
+    // clicked underneath it reacts (the ProfileBar menu's reasoning).
+    const onPointer = (event: PointerEvent) => {
+      if (!root?.contains(event.target as Node)) open = false;
+    };
+
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', onPointer);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', onPointer);
+    };
+  });
+</script>
+
+<div class="startup" bind:this={root}>
+  <button
+    class="trigger"
+    data-startup-trigger
+    type="button"
+    aria-expanded={open}
+    aria-haspopup="dialog"
+    onclick={toggle}
+  >
+    Start with Windows
+  </button>
+
+  {#if open}
+    <div
+      class="menu"
+      data-startup-guide
+      role="dialog"
+      aria-label="Start with Windows"
+      tabindex="-1"
+    >
+      <p class="lead">
+        Opened at sign-in, this page reconnects on its own — keyboard, OBS, overlay. These three
+        steps make Windows open it.
+      </p>
+
+      <ol>
+        <li data-step="install" class:done={step === 'standalone' || step === 'installed'}>
+          <span class="title">Install Halcyon as an app</span>
+          {#if step === 'installable'}
+            <button class="install" data-install type="button" onclick={install}>
+              Install Halcyon…
+            </button>
+          {:else}
+            <span class="hint">{installHint(step)}</span>
+          {/if}
+        </li>
+
+        <li data-step="autostart">
+          <span class="title">Let it start when you sign in</span>
+          <span class="hint">
+            <!-- Shown to copy, never to click: the browser refuses to follow a
+                 chrome:// link from a page, so pretending it is one would only
+                 teach that the guide is broken. -->
+            Go to <code data-address>{path.address}</code>
+            <button
+              class="link"
+              data-copy
+              type="button"
+              onclick={copy}
+              onblur={() => (copied = 'idle')}
+              title={copied === 'failed' ? 'Select the address and copy it by hand' : undefined}
+            >
+              {copied === 'done' ? 'Copied' : copied === 'failed' ? 'Failed' : 'Copy'}
+            </button>
+            — then {path.instruction}
+          </span>
+        </li>
+
+        <li data-step="background">
+          <span class="title">Leave the window running</span>
+          <span class="hint">
+            Minimise it rather than close it: capture keeps streaming from the background.
+          </span>
+        </li>
+      </ol>
+    </div>
+  {/if}
+</div>
+
+<style>
+  .startup {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    font: var(--he-font, 400 16px system-ui, sans-serif);
+  }
+  /* The Resume-setup recipe in the accent colour: bordered, bold, its own
+     pill. Muted text was the first draft, and it made the one feature that
+     changes how the product is *used* — open once, never touch again — look
+     like a footnote next to the profile menu. */
+  .trigger {
+    all: unset;
+    cursor: pointer;
+    padding: 5px 11px;
+    border: 1px solid var(--he-accent, #7c9eff);
+    border-radius: var(--he-radius-control, 5px);
+    font-size: var(--he-size-md, 16px);
+    font-weight: 600;
+    color: var(--he-accent, #7c9eff);
+  }
+  .trigger:hover,
+  .trigger[aria-expanded='true'] {
+    color: var(--he-stage, #0b0d11);
+    background: var(--he-accent, #7c9eff);
+  }
+  .trigger:focus-visible {
+    outline: 2px solid var(--he-accent, #7c9eff);
+    outline-offset: 1px;
+  }
+
+  .menu {
+    position: absolute;
+    top: 30px;
+    right: 0;
+    z-index: 9;
+    inline-size: 320px;
+
+    padding: 12px 14px;
+
+    background: var(--he-popover, #141722);
+    border: 1px solid var(--he-border-popover, #262b3a);
+    border-radius: var(--he-radius-panel, 6px);
+
+    font-size: var(--he-size-sm, 15px);
+    color: var(--he-text-muted, #8b90a0);
+  }
+  .menu:focus {
+    outline: none;
+  }
+
+  .lead {
+    margin: 0 0 10px;
+    line-height: 1.45;
+  }
+
+  ol {
+    margin: 0;
+    padding-inline-start: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  li {
+    line-height: 1.45;
+  }
+  li::marker {
+    color: var(--he-text-faint, #5a5f70);
+  }
+  li.done::marker {
+    color: var(--he-accent, #7c9eff);
+  }
+
+  .title {
+    display: block;
+    font-weight: 600;
+    color: var(--he-text, #dde1e9);
+  }
+  .hint {
+    display: block;
+  }
+
+  code {
+    font: var(--he-font-mono, 400 14px monospace);
+    color: var(--he-text, #dde1e9);
+    background: var(--he-stage, #0b0d11);
+    border: 1px solid var(--he-border-control, #232838);
+    border-radius: var(--he-radius, 4px);
+    padding: 1px 5px;
+  }
+
+  .install {
+    all: unset;
+    cursor: pointer;
+    margin-block-start: 4px;
+    padding: 4px 10px;
+    border-radius: var(--he-radius, 4px);
+    font-weight: 600;
+    color: var(--he-stage, #0b0d11);
+    background: var(--he-accent, #7c9eff);
+  }
+  .install:focus-visible {
+    outline: 2px solid var(--he-text, #dde1e9);
+    outline-offset: 1px;
+  }
+
+  .link {
+    all: unset;
+    cursor: pointer;
+    color: var(--he-accent, #7c9eff);
+  }
+  .link:hover {
+    text-decoration: underline;
+  }
+  .link:focus-visible {
+    outline: 2px solid var(--he-accent, #7c9eff);
+    outline-offset: 1px;
+    border-radius: var(--he-radius, 4px);
+  }
+</style>

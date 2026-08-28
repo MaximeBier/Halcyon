@@ -54,6 +54,7 @@
     type WizardStatus,
   } from './wizard';
   import ProfileBar from './ProfileBar.svelte';
+  import StartupPopover from './StartupPopover.svelte';
   import Toast from './Toast.svelte';
   import {
     deletionToast,
@@ -850,6 +851,10 @@
       <!-- The spoken half of the two buttons: it follows, it never interrupts. -->
       <p class="sr" role="status">{announced}</p>
     </div>
+
+    <!-- In the header for the same reason undo is: the guide must be findable
+         from every state of the page, and it anchors to nothing on the stage. -->
+    <StartupPopover />
 
     {#if canResume}
       <!-- Amber, and in the header: findable long after the card was put
