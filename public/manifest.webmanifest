@@ -1,0 +1,13 @@
+{
+  "name": "Halcyon",
+  "short_name": "Halcyon",
+  "description": "Show your Wooting's analog key travel live in OBS.",
+  "start_url": "/capture.html",
+  "display": "standalone",
+  "background_color": "#0E1015",
+  "theme_color": "#0E1015",
+  "icons": [
+    { "src": "/icons/halcyon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/halcyon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
