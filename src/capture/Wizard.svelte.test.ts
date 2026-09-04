@@ -122,6 +122,84 @@ describe('the last step is not a card', () => {
   });
 });
 
+describe('the banner tells the truth about whether it is listening', () => {
+  /**
+   * Mounts on the last step already armed — as `armed`'s once-only effect
+   * always leaves it, regardless of what `learning` is handed in — then
+   * simulates the stage disarming it on its own (Escape, `blur`,
+   * `visibilitychange`) the way task 8 lets it. A fresh mount with
+   * `learning: false` cannot stand in for this: `armed` starts `false` too,
+   * so the arrival effect would force it back to listening on the very first
+   * render.
+   */
+  async function disarmedAtKeys(overrides: Record<string, unknown> = {}) {
+    let value = true;
+    const view = render(Wizard, {
+      props: {
+        step: 'keys' as WizardStep,
+        keyboard: 'connected' as KeyboardStatus,
+        device: 'Wooting 60HE',
+        obs: 'identified' as ObsStatus,
+        overlaysInObs: 1,
+        settings: { port: 4455, password: '' },
+        url: 'https://halcyon.example/overlay.html?port=4455',
+        get learning() {
+          return value;
+        },
+        set learning(next: boolean) {
+          value = next;
+        },
+        added: null,
+        onAllowKeyboard: vi.fn(),
+        onReconnect: vi.fn(),
+        onSkip: vi.fn(),
+        ...overrides,
+      },
+    });
+    await tick();
+
+    value = false;
+    await view.rerender({});
+    await tick();
+
+    return { ...view, getLearning: () => value };
+  }
+
+  it('says so while it is', () => {
+    const { container } = wizard('keys', { keyboard: 'connected', learning: true });
+
+    expect(banner(container)!.textContent).toContain('Listening · press any key');
+  });
+
+  it('says so once Escape or a lost tab has stopped it', async () => {
+    // Task 8 gave the stage (LayoutEditor) the right to disarm `learning` on
+    // its own while this step is still open. The banner used to assert
+    // "Listening" unconditionally on the step alone, which turns into a lie
+    // the moment that happens.
+    const { container } = await disarmedAtKeys();
+
+    expect(banner(container)!.textContent).not.toContain('Listening · press any key');
+    expect(banner(container)!.textContent).toContain('stopped');
+  });
+
+  it('still confirms the last key landed, even while stopped', async () => {
+    const { container } = await disarmedAtKeys({ added: 'D' });
+
+    expect(banner(container)!.textContent).toContain('D added');
+  });
+
+  it('re-arms from the banner itself, the same write "+ Add key" performs', async () => {
+    // Not a new arming route: `learning = true` is exactly what the panel's
+    // button does, since `learning` is bound the same way in both places.
+    const { container, getLearning } = await disarmedAtKeys();
+
+    container.querySelector<HTMLButtonElement>('[data-action="resume"]')!.click();
+    await tick();
+
+    expect(getLearning()).toBe(true);
+  });
+});
+
 describe('arming the capture', () => {
   it('starts listening the moment the last step opens', async () => {
     // The mockup shows step 3 already listening: asking for one more click to

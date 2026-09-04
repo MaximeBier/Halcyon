@@ -23,6 +23,8 @@
     layout = null,
     suggestAxis = false,
     onDismissSuggestion = () => {},
+    learning = $bindable(false),
+    learningBanner = false,
   }: {
     config: OverlayConfig;
     frame: readonly FrameKey[];
@@ -52,6 +54,26 @@
     layout?: LayoutMapLike | null;
     suggestAxis?: boolean;
     onDismissSuggestion?: () => void;
+    /**
+     * Mirrors the page's capture flag (spec §8.4), bindable because the stage
+     * is where the one accident this flag can cause actually happens: a key
+     * pressed to abandon a gesture, or a game brought to the foreground, both
+     * land here first. `Escape` and losing the tab both disarm it from this
+     * component rather than asking the page to watch its own window — the
+     * stage already owns the `Escape` conflict this needs to win.
+     */
+    learning?: boolean;
+    /**
+     * Whether the stage should draw its own "Listening" banner.
+     *
+     * Kept apart from `learning`: the wizard's third step (`Wizard.svelte`,
+     * board 6c) already draws the identical recipe over this same flag while
+     * it walks someone through adding their first keys, and a second banner
+     * underneath it would say the same thing twice. The page above passes
+     * `false` for exactly that one step; everywhere else `learning` is armed
+     * without a card already announcing it, this follows it one for one.
+     */
+    learningBanner?: boolean;
   } = $props();
 
   /**
@@ -459,6 +481,15 @@
   }
 
   function onKeyDown(event: KeyboardEvent) {
+    // Learning claims Escape before anything else on the stage reads it, and
+    // returns without falling through to the block below: a key pressed to
+    // stop the capture must do exactly that, not also clear a selection or
+    // close a popover that has nothing to do with why the hand went there.
+    if (learning && event.key === 'Escape') {
+      learning = false;
+      return;
+    }
+
     // The mode selector is not an input, and Ctrl+A inside it belongs to it.
     const typing =
       event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement;
@@ -499,6 +530,24 @@
     event.preventDefault();
     open(id);
   }
+
+  /**
+   * Disarms learning the moment the tab stops being the one on screen.
+   *
+   * The only scenario in which this page can sabotage someone's stream:
+   * capture left armed by an "+ Add key" nobody remembered to stop, then
+   * alt-tabbed into the game. From that moment every key the game receives
+   * would otherwise join the overlay live, on air, one report at a time —
+   * `blur` catches the alt-tab itself, `visibilitychange` the cases a blur
+   * misses (a minimized window, a switch to another virtual desktop).
+   */
+  function disarmOnHidden() {
+    if (learning) learning = false;
+  }
+
+  function onVisibilityChange() {
+    if (document.hidden) disarmOnHidden();
+  }
 </script>
 
 <!-- The release and the cancellation are watched on the window, not on the
@@ -510,7 +559,10 @@
   onpointerup={gestures.release}
   onpointercancel={gestures.cancel}
   onresize={measure}
+  onblur={disarmOnHidden}
 />
+<!-- `visibilitychange` fires on the document, never on the window. -->
+<svelte:document onvisibilitychange={onVisibilityChange} />
 
 <div class="editor">
   <!-- The one place the AXIS tag appears: the broadcast never shows it
@@ -521,6 +573,16 @@
        somewhere real when the key it would return to has been deleted. -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="stage" tabindex="-1" bind:this={stage}>
+    {#if learningBanner}
+      <!-- The wizard's own third step (Wizard.svelte) draws this exact recipe
+           over the same flag while it walks someone through their first keys.
+           This is it again for every other moment learning is armed — manual
+           "+ Add key" most of all — so the stage never listens in silence. -->
+      <div class="learning" data-learning-banner role="status">
+        <span class="beacon" aria-hidden="true"></span>
+        <strong>Listening · press any key — Esc stops</strong>
+      </div>
+    {/if}
     <!-- The work surface. Its size comes from the stylesheet and never from a
          number: see `.canvas` below. -->
     <div class="canvas" onpointerdown={onStagePointerDown}>
@@ -761,6 +823,40 @@
      give the ring back to. */
   .stage:focus {
     outline: none;
+  }
+  /* The wizard's own banner recipe (Wizard.svelte `.banner`/`.beacon`),
+     repeated here rather than shared: Svelte styles are scoped per component,
+     and the two never render at once — `learningBanner` sees to that. */
+  .learning {
+    position: absolute;
+    inset-block-start: 16px;
+    inset-inline: 0;
+    z-index: 4;
+    inline-size: fit-content;
+    margin-inline: auto;
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    padding: 13px 18px;
+    font: var(--he-font, 400 16px system-ui, sans-serif);
+    color: var(--he-text, #dde1e9);
+    background: var(--he-popover, #141722);
+    border: 1px solid var(--he-accent, #7c9eff);
+    border-radius: var(--he-radius-panel, 6px);
+    /* Informational only — unlike the wizard's, this banner carries no
+       button, and must not steal a click meant for the keys under it. */
+    pointer-events: none;
+  }
+  .learning .beacon {
+    flex: none;
+    inline-size: 9px;
+    block-size: 9px;
+    border-radius: 50%;
+    background: var(--he-accent, #7c9eff);
+  }
+  .learning strong {
+    font-size: var(--he-size-lg, 18px);
+    font-weight: 700;
   }
   /**
    * Filled by the stylesheet, never sized from a measurement — and that is a

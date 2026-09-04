@@ -1185,3 +1185,120 @@ describe('LayoutEditor - a layout you can still edit when the overlay shows noth
     expect(opacities.every((opacity) => opacity !== '0')).toBe(true);
   });
 });
+
+describe('LayoutEditor - learning shows itself and lets go of the stream', () => {
+  afterEach(() => Reflect.deleteProperty(document, 'hidden'));
+
+  /**
+   * `learning` is bound the way the page above binds it: through a
+   * getter/setter pair, so a disarm written inside the component is visible
+   * to the test the same way it would be to `App.svelte`.
+   */
+  function armed(overrides: { learning?: boolean; learningBanner?: boolean } = {}) {
+    laidOut(STAGE);
+    let learning = overrides.learning ?? true;
+    const onChange = vi.fn();
+    const view = render(LayoutEditor, {
+      props: {
+        config: twoKeys(),
+        frame: [],
+        selectedIds: [1],
+        stageBox: { ...STAGE },
+        onChange,
+        storage: { getItem: () => null, setItem: () => {} },
+        get learning() {
+          return learning;
+        },
+        set learning(value: boolean) {
+          learning = value;
+        },
+        learningBanner: overrides.learningBanner ?? true,
+      },
+    });
+    const handles = [...view.container.querySelectorAll('button.handle')] as HTMLElement[];
+    return { ...view, onChange, handles, isLearning: () => learning };
+  }
+
+  it('shows a banner on the stage while it is armed', () => {
+    const { container } = armed();
+
+    expect(container.querySelector('[data-learning-banner]')!.textContent).toContain(
+      'Listening · press any key — Esc stops',
+    );
+  });
+
+  it('stays out of the way when the wizard is already showing its own banner', () => {
+    // One banner, never two: the wizard's third step (Wizard.svelte) draws
+    // the same recipe over the very same flag.
+    const { container } = armed({ learningBanner: false });
+
+    expect(container.querySelector('[data-learning-banner]')).toBeNull();
+  });
+
+  it('draws nothing while learning is not armed', () => {
+    const { container } = armed({ learning: false, learningBanner: false });
+
+    expect(container.querySelector('[data-learning-banner]')).toBeNull();
+  });
+
+  it('lets Escape disarm it before the stage reads the same key', async () => {
+    // Learning owns Escape while it is armed: the stage's own reading of that
+    // key — clearing the selection — must not also fire, or a single press
+    // would do two things and the second would pass unnoticed under the
+    // first.
+    const { isLearning, container } = armed();
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await tick();
+
+    expect(isLearning()).toBe(false);
+    // The selection made before the press is exactly what a plain Escape
+    // would have cleared — proof that only the learning guard fired.
+    expect(container.querySelector('.handle[aria-pressed="true"]')).not.toBeNull();
+  });
+
+  it('gives learning the escape before a popover open underneath it', async () => {
+    const { handles, container, isLearning } = armed();
+
+    handles[0]!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    await tick();
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await tick();
+
+    expect(isLearning()).toBe(false);
+    expect(container.querySelector('[role="dialog"]')).not.toBeNull();
+  });
+
+  it('leaves Escape to the stage once nothing is armed', async () => {
+    // With learning already off, Escape must fall through to the stage's own
+    // handling — the guard must never swallow a press that is not its own.
+    const { container, isLearning } = armed({ learning: false, learningBanner: false });
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await tick();
+
+    expect(isLearning()).toBe(false);
+    expect(container.querySelector('.handle[aria-pressed="true"]')).toBeNull();
+  });
+
+  it('disarms when the tab is hidden', () => {
+    // The one scenario this task exists for: capture left armed, then
+    // alt-tabbed into the game. Every key the game receives from that moment
+    // on would otherwise join the overlay live, on air.
+    const { isLearning } = armed();
+
+    Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+
+    expect(isLearning()).toBe(false);
+  });
+
+  it('disarms when the window loses focus', () => {
+    const { isLearning } = armed();
+
+    window.dispatchEvent(new Event('blur'));
+
+    expect(isLearning()).toBe(false);
+  });
+});

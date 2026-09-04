@@ -140,17 +140,40 @@
       learning = true;
     }
   });
+
+  /**
+   * Re-arms the capture from the banner itself (task 8).
+   *
+   * `armed` above only fires once per arrival at this step, so it does not
+   * notice — let alone undo — a disarm the stage performs on its own: Escape,
+   * or the tab losing focus. Nothing new is invented here: `learning = true`
+   * is the exact write the panel's "+ Add key" button already performs, since
+   * both sides bind the same flag.
+   */
+  function resume() {
+    learning = true;
+  }
 </script>
 
 {#if step === 'keys'}
   <!-- No card here: a 410 px panel in the middle of the stage would cover the
        one thing this step exists to show (board 6c). -->
   <div class="banner" data-banner role="status">
-    <span class="beacon" aria-hidden="true"></span>
+    <!-- Dimmed rather than accented while stopped: the colour is the only
+         part of this banner a glance actually reads. -->
+    <span class="beacon" class:idle={!learning} aria-hidden="true"></span>
     <span class="lines">
-      <strong>Listening · press any key</strong>
+      <!-- `learning` can go false without this step ever changing — the
+           stage disarms it on its own (Escape, alt-tab) — so the banner reads
+           that flag rather than asserting "Listening" for the whole step. -->
+      <strong>{learning ? 'Listening · press any key' : 'Capture stopped'}</strong>
       {#if added}<span class="added">{added} added</span>{/if}
     </span>
+    {#if !learning}
+      <button class="secondary" data-action="resume" type="button" onclick={resume}>
+        Resume listening
+      </button>
+    {/if}
     <button class="skip" data-action="skip" type="button" onclick={skip}>Skip setup</button>
   </div>
 {:else if step === 'keyboard' || step === 'obs'}
@@ -472,6 +495,9 @@
     block-size: 9px;
     border-radius: 50%;
     background: var(--he-accent, #7c9eff);
+  }
+  .beacon.idle {
+    background: var(--he-text-faint, #5a5f70);
   }
   .lines {
     display: flex;

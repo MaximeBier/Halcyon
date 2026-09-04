@@ -913,6 +913,10 @@
 
       <!-- The same component OBS renders, from the same resolved shape — with
            the editor decorations on, which the broadcast never gets. -->
+      <!-- `learningBanner` is suppressed for exactly the one step where
+           Wizard.svelte already draws the same banner over this same flag
+           (board 6c) — every other moment learning is armed, wizard or not,
+           the stage carries its own. -->
       <LayoutEditor
         bind:this={editor}
         {config}
@@ -929,6 +933,8 @@
           suggester.dismiss(selectedIds[0]!);
           observed += 1;
         }}
+        bind:learning
+        learningBanner={learning && !(wizardOpen && step === 'keys')}
       />
     </main>
 
