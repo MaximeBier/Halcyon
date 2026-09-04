@@ -94,4 +94,46 @@ describe('the undo pile', () => {
   it('ships a depth measured in gestures nobody remembers past', () => {
     expect(HISTORY_DEPTH).toBe(50);
   });
+
+  it('starts at a version nothing has moved yet', () => {
+    expect(createHistory<object>().version()).toBe(0);
+  });
+
+  it('moves the version only on a call that could flip canUndo or canRedo', () => {
+    const history = createHistory<object>();
+    const same = state('same');
+
+    const v0 = history.version();
+    history.push(same);
+    const v1 = history.version();
+    expect(v1).toBeGreaterThan(v0);
+
+    // Deduped: the pile already holds this state on top.
+    history.push(same);
+    expect(history.version()).toBe(v1);
+
+    history.undo(state('now'));
+    const v2 = history.version();
+    expect(v2).toBeGreaterThan(v1);
+
+    // Nothing left to undo.
+    expect(history.undo(state('now'))).toBeNull();
+    expect(history.version()).toBe(v2);
+
+    history.redo(same);
+    const v3 = history.version();
+    expect(v3).toBeGreaterThan(v2);
+
+    // Nothing left to redo.
+    expect(history.redo(same)).toBeNull();
+    expect(history.version()).toBe(v3);
+
+    history.clear();
+    const v4 = history.version();
+    expect(v4).toBeGreaterThan(v3);
+
+    // Already empty: clearing again changes nothing.
+    history.clear();
+    expect(history.version()).toBe(v4);
+  });
 });

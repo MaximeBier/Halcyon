@@ -27,6 +27,17 @@ export interface History<T> {
   clear(): void;
   canUndo(): boolean;
   canRedo(): boolean;
+  /**
+   * Bumped by every call above that could have changed what `canUndo` or
+   * `canRedo` would answer — never by one that finds nothing to do.
+   *
+   * Plain data, like the rest of this module: the pile holds no runes of its
+   * own, so a component cannot know it moved just by calling `canUndo()`
+   * again. This is the one thing worth reading into a `$derived` — the
+   * single signal both flags key off, rather than each being mirrored by
+   * hand at every call site that mutates the pile.
+   */
+  version(): number;
 }
 
 /**
@@ -39,6 +50,7 @@ export const HISTORY_DEPTH = 50;
 export function createHistory<T>(depth: number = HISTORY_DEPTH): History<T> {
   let past: T[] = [];
   let future: T[] = [];
+  let rev = 0;
 
   // Shared by push and redo: both grow the past, and both must respect the
   // depth — a redo landing on a full pile would otherwise stretch it by one.
@@ -57,22 +69,31 @@ export function createHistory<T>(depth: number = HISTORY_DEPTH): History<T> {
       // After undoing and then editing, "redo" would have two futures to
       // choose from, and it must never guess.
       future = [];
+      rev += 1;
     },
     undo(current) {
       if (past.length === 0) return null;
       future.push(current);
+      rev += 1;
       return past.pop()!;
     },
     redo(current) {
       if (future.length === 0) return null;
       remember(current);
+      rev += 1;
       return future.pop()!;
     },
     clear() {
+      // Nothing about canUndo/canRedo moves when both piles were already
+      // empty — an idle keyboard shortcut, or a profile switch right after
+      // opening one, must not spend a redraw on a no-op.
+      if (past.length === 0 && future.length === 0) return;
       past = [];
       future = [];
+      rev += 1;
     },
     canUndo: () => past.length > 0,
     canRedo: () => future.length > 0,
+    version: () => rev,
   };
 }

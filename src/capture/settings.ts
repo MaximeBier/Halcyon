@@ -131,18 +131,18 @@ export function keyboardHint(status: KeyboardStatus): string {
  * Whether the keyboard pill is worth clicking — the device picker as its own
  * gesture (spec §11).
  *
- * The same three states the panel's button already covers, for the same
- * reason: nothing chosen yet, nothing plugged in, or the wrong interface
- * chosen out of the several Chrome lists for the vendor. A working keyboard
- * needs no gesture, and a browser without WebHID has no picker to open — a
- * control that cannot help is how someone presses it four times.
+ * The panel's own button already covers three of these, for the same reason:
+ * nothing chosen yet, nothing plugged in, or the wrong interface chosen out
+ * of the several Chrome lists for the vendor. `open-failed` joins them:
+ * `keyboardHint` tells the reader to "try again", and requestPermission() is
+ * that retry — reopening the picker and choosing the same device calls
+ * open() a second time. Leaving it out made the pill an inert `<span>`
+ * (`StatusBar.svelte` only wraps a `<button>` when this returns true) under
+ * copy that explicitly invites a click — found in review on 2026-09-04.
  *
- * `open-failed` belongs here too: `keyboardHint` tells the reader to "try
- * again", and requestPermission() is the retry — reopening the picker and
- * choosing the same device calls open() a second time. Leaving it out made
- * the pill an inert `<span>` (`StatusBar.svelte` only wraps a `<button>` when
- * this returns true) under copy that explicitly invites a click — found in
- * review on 2026-09-04.
+ * A working keyboard needs no gesture, and a browser without WebHID has no
+ * picker to open — a control that cannot help is how someone presses it four
+ * times.
  */
 export function canPickDevice(status: KeyboardStatus): boolean {
   return (

@@ -10,14 +10,18 @@ export interface Notice {
   /**
    * An optional way back, offered at the moment of the mistake.
    *
-   * For every caller but one, the toast doctrine survives it: missing the
+   * For most callers the toast doctrine survives losing it: missing the
    * toast still costs nothing, because the action is only ever a shortcut to
    * something the page offers permanently (the undo lives in the header and
-   * under Ctrl+Z). `profileDeletedToast` below is the deliberate exception —
-   * a deleted profile has no permanent way back, so its button *is* the way
-   * back, and losing this toast (a later one replacing it, the four seconds
-   * running out) really does cost the profile. Accepted, not fought: see the
-   * toast-replace behaviour this file already documents.
+   * under Ctrl+Z). Two callers carve out the deliberate exception:
+   * `profileDeletedToast` below, whose Undo is the only way back for a
+   * profile with no other undo, and the `replace` action on `importedToast`,
+   * whose button is the only route to overwriting the profile an import
+   * collided with. For both, losing this toast (a later one replacing it,
+   * the four seconds running out) really does cost something. Accepted, not
+   * fought: see the toast-replace behaviour this file already documents, and
+   * `importedToast`'s own doc below for why its exception is shaped the way
+   * it is.
    */
   action?: { label: string; run: () => void };
 }

@@ -12,8 +12,10 @@
  * Five faces, and no more. The landing mockup uses Archivo 400 for body copy,
  * 600 for the navigation, 700 for card titles and buttons, 800 for the
  * headings and the wordmark, and IBM Plex Mono 400 for the status pills and
- * the step numbers. Archivo 500 is shipped for the settings interface and has
- * no job here, so it is not declared.
+ * the step numbers. The settings interface ships Archivo 400, 600 and 700
+ * (the last one declared in `fonts-broadcast.css`) — all three already
+ * covered above for the home page's own use — and no weight of its own that
+ * this file would need to add.
  *
  * Only `woff2`, and `swap`, for the reasons given in `fonts-broadcast.css`.
  */

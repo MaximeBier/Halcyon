@@ -8,8 +8,10 @@
    * It never carries anything one *has* to act on. Whatever the profile is
    * worth is written permanently in the profile menu, so missing this costs
    * nothing — which is the licence a four-second message needs. An optional
-   * action button keeps that licence: it is only ever a shortcut to something
-   * the page offers permanently (see `Notice.action`).
+   * action button keeps that licence by default: it is a shortcut to
+   * something the page offers permanently. Two calls carve out the
+   * deliberate exception — the profile-delete Undo and the import Replace
+   * are each the only way back — reasoned on `Notice.action` in `notice.ts`.
    */
   let {
     notice,

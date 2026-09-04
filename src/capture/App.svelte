@@ -33,8 +33,7 @@
   import KeyLearner from './KeyLearner.svelte';
   import LayoutEditor from './LayoutEditor.svelte';
   import StylePanel from './StylePanel.svelte';
-  import { createProfileStore, exportProfile, importConfig } from '../config/storage';
-  import { importedProfileName, profileFileName } from './profile-file';
+  import { createProfileStore } from '../config/storage';
   import type { OverlayConfig } from '../config/schema';
   import StatusBar from './StatusBar.svelte';
   import Wizard from './Wizard.svelte';
@@ -57,18 +56,9 @@
   import ProfileBar from './ProfileBar.svelte';
   import StartupPopover from './StartupPopover.svelte';
   import Toast from './Toast.svelte';
-  import {
-    deletionToast,
-    importedToast,
-    importFailedToast,
-    loadToast,
-    profileDeletedToast,
-    profileStatus,
-    READ_FAILED,
-    type Health,
-    type Notice,
-  } from './notice';
+  import { deletionToast, loadToast, profileStatus, type Health, type Notice } from './notice';
   import { createHistory } from './history';
+  import { createProfileActions } from './profile-actions';
   import type { DecodeAnomaly } from '../keyboard/decode';
   import type { FrameKey } from '../protocol/messages';
 
@@ -107,13 +97,24 @@
   let toast = $state<Notice | null>(loadToast(opened.problem));
 
   /**
-   * The pile behind the door (`history.ts`), mirrored into two flags because
-   * the pile is plain data: the two header buttons need to follow it, and
-   * nothing else here polls.
+   * The pile behind the door (`history.ts`) holds no runes of its own — it
+   * is plain data, like the rest of this module — so the two header buttons
+   * cannot read it directly and expect Svelte to notice when it moves.
+   * `historyVersion` is the one signal every mutation bumps (see
+   * `history.version()`); `canUndo` and `canRedo` below both key off it and
+   * nothing else, so there is exactly one point of truth for whether the
+   * pile changed, however many places changed it.
    */
   const history = createHistory<OverlayConfig>();
-  let canUndo = $state(false);
-  let canRedo = $state(false);
+  let historyVersion = $state(history.version());
+  const canUndo = $derived.by(() => {
+    void historyVersion;
+    return history.canUndo();
+  });
+  const canRedo = $derived.by(() => {
+    void historyVersion;
+    return history.canRedo();
+  });
   /**
    * What the hidden status line beside the buttons reads out.
    *
@@ -483,8 +484,7 @@
     const deleted = deletionToast(config, next, undo);
     history.push(config);
     apply(next);
-    canUndo = history.canUndo();
-    canRedo = history.canRedo();
+    historyVersion = history.version();
     if (deleted) toast = deleted;
   }
 
@@ -519,8 +519,7 @@
 
   function restore(state: OverlayConfig) {
     apply(state);
-    canUndo = history.canUndo();
-    canRedo = history.canRedo();
+    historyVersion = history.version();
     // Pruned, never guessed at: the popover already closes itself when its
     // selection is gone, and a selection of keys that no longer exist would
     // hand "Delete N selected keys" a set nobody chose.
@@ -558,88 +557,47 @@
   const statusWarn = $derived(health.problem !== null || health.dropped > 0);
 
   /**
-   * Opens a profile, and puts the overlay on it.
-   *
-   * The broadcast is not optional: OBS is showing the previous profile's keys
-   * and nothing about switching would reach it otherwise.
+   * The profile CRUD — open / create / duplicate / rename / remove / import /
+   * download — lives in `profile-actions.ts`: one coherent unit (store,
+   * health, toast, history.clear, broadcast) that touches App's runes only
+   * through the getters and setters handed in here. This component owns the
+   * reactivity; the module owns the sequencing.
    */
-  function openProfile(name: string) {
-    profiles.select(name);
-    profile = name;
-    profileNames = profiles.list();
+  const profileActions = createProfileActions({
+    store: profiles,
+    broadcaster,
+    current: () => ({ profile, config }),
+    setProfile: (name) => (profile = name),
+    setConfig: (next) => (config = next),
+    setProfileNames: (names) => (profileNames = names),
+    setHealth: (next) => (health = next),
+    setToast: (notice) => (toast = notice),
+    resetSelection: () => {
+      selectedIds = [];
+      keysAnchor = null;
+      lastKey = null;
+    },
+    clearHistory: () => {
+      history.clear();
+      historyVersion = history.version();
+    },
+    download: (fileName, content) => {
+      const blob = new Blob([content], { type: 'application/json' });
+      const href = URL.createObjectURL(blob);
+      const link = Object.assign(document.createElement('a'), { href, download: fileName });
+      link.click();
+      URL.revokeObjectURL(href);
+    },
+  });
 
-    const next = profiles.load(name);
-    health = { problem: next.problem, dropped: next.dropped, from: 'load' };
-    config = next.config;
-    // Both name keys of the profile being left. Two profiles can share a matrix
-    // index, so a stale selection does not merely look wrong — "Delete 3
-    // selected keys" would act on a set nobody chose in this profile.
-    selectedIds = [];
-    keysAnchor = null;
-    lastKey = null;
-    // A pile that survived the switch would make Ctrl+Z rewrite a document
-    // that is no longer on screen — inside OBS. Renaming keeps it: the name
-    // changed, not the content this pile remembers.
-    history.clear();
-    canUndo = false;
-    canRedo = false;
-    broadcaster.publish(config);
-
-    return loadToast(next.problem);
-  }
-
+  /**
+   * The one caller that needs `openProfile`'s return value: every other
+   * action decides its own toast, but a plain switch has none of its own to
+   * show beyond whatever `openProfile` found wrong with the profile it
+   * opened.
+   */
   function switchProfile(name: string) {
-    toast = openProfile(name);
-  }
-
-  function createProfile(name: string) {
-    // `create` returns the name it really took: asking for one that exists
-    // gets "Apex 2" rather than the layout that was already there.
-    const created = profiles.create(name);
-    openProfile(created);
-    toast = { tone: 'success', message: `Profile “${created}” created` };
-  }
-
-  function duplicateProfile() {
-    // Saved first: `duplicate` copies what is in storage, and the difference
-    // would be exactly whatever has not been written yet.
-    profiles.save(profile, config);
-    const copy = profiles.duplicate(profile);
-    openProfile(copy);
-    toast = { tone: 'success', message: `Duplicated to “${copy}”` };
-  }
-
-  function renameProfile(name: string) {
-    // Nothing is loaded or broadcast: the configuration did not change, only
-    // the name it is filed under. Reopening it here would push an identical
-    // profile back at OBS for no reason.
-    if (!profiles.rename(profile, name)) {
-      toast = { tone: 'error', message: `A profile named “${name}” already exists` };
-      return;
-    }
-
-    profile = name;
-    profileNames = profiles.list();
-    toast = { tone: 'success', message: `Renamed to “${name}”` };
-  }
-
-  function removeProfile() {
-    const gone = profile;
-    // Snapshotted before `openProfile` moves `config` on to whatever opens
-    // next: `config` is a rune, so reading it from the Undo closure below —
-    // pressed seconds or minutes later — would hand back today's profile
-    // instead of the one that just left.
-    const deletedConfig = config;
-    profiles.remove(gone);
-    openProfile(profiles.active());
-    toast = profileDeletedToast(gone, () => {
-      // `importFrom` is the store's own door for landing a configuration
-      // beside the others without overwriting one — the exact collision
-      // handling `freeName` gives every import, reused rather than
-      // reimplemented: a same-named profile created between the delete and
-      // this click gets the resurrection suffixed onto it instead of erased.
-      openProfile(profiles.importFrom(gone, deletedConfig));
-    });
+    toast = profileActions.openProfile(name);
   }
 
   /**
@@ -686,83 +644,6 @@
         ? 'Overlay URL copied.'
         : 'Overlay URL could not be copied — select the field and copy it by hand.',
     );
-  }
-
-  function downloadProfile() {
-    // `exportProfile` and not `exportConfig`: the file carries the profile's
-    // name, so importing it elsewhere lands under the name it left under
-    // rather than under whatever the browser called the download.
-    const blob = new Blob([exportProfile(profile, config)], { type: 'application/json' });
-    const href = URL.createObjectURL(blob);
-    const link = Object.assign(document.createElement('a'), {
-      href,
-      download: profileFileName(profile),
-    });
-    link.click();
-    URL.revokeObjectURL(href);
-  }
-
-  async function importProfile(file: File) {
-    let text: string;
-    try {
-      // `File.text()` rejects when the file moved, changed, or sat on a volume
-      // that went away between the picker closing and the read. Unhandled, the
-      // rejection belongs to nobody: no message, and nothing to retry against.
-      text = await file.text();
-    } catch {
-      toast = READ_FAILED;
-      return;
-    }
-
-    const result = importConfig(text);
-    // Nothing is lost on a failure: the open profile is untouched, and the
-    // toast is the only thing that changes. The permanent line still describes
-    // what is actually loaded.
-    if (!result.ok) {
-      toast = importFailedToast(result.reason);
-      return;
-    }
-
-    // A profile of its own, and never the open one. Until 2026-08-24 this
-    // called `updateConfig`, which wrote the imported keys straight into
-    // whatever profile happened to be loaded — the single gesture in the
-    // application that could destroy a layout with nothing to undo it.
-    const requestedName = importedProfileName(text, file.name);
-    // Judged against the list as it stood *before* the import, and against
-    // the same nameless fallback `freeName` applies to `requestedName` — a
-    // nameless import comparing itself against '' would call it a collision
-    // only once a profile happened to be named "" too, which never happens,
-    // instead of the "Profile" it will actually land beside.
-    const before = profiles.list();
-    const collidedWith = requestedName || 'Profile';
-    const collided = before.includes(collidedWith);
-
-    const landed = profiles.importFrom(requestedName, result.config);
-    openProfile(landed);
-    // After `openProfile`, which sets `health` from a re-read of what we have
-    // just written — where the dropped count is zero, because the keys were
-    // dropped on the way in and the stored file no longer has them. The count
-    // worth showing is the one from the import.
-    health = { problem: null, dropped: result.dropped, from: 'import' };
-
-    // No collision: exactly the toast this feature always showed, no action
-    // attached (spec's constat — the free-name path never changes).
-    toast = collided
-      ? importedToast(landed, result.dropped, {
-          name: collidedWith,
-          run: () => {
-            // `replaceFrom` refuses if `collidedWith` stopped existing between
-            // the toast appearing and this click (renamed, removed elsewhere)
-            // — nothing to reopen or clean up in that case, and the click has
-            // already dismissed the toast regardless (see Toast.svelte).
-            if (!profiles.replaceFrom(collidedWith, landed, result.config)) return;
-            openProfile(collidedWith);
-            // Same override as above, and for the same reason: a fresh read
-            // of what `replaceFrom` just wrote reports zero dropped keys.
-            health = { problem: null, dropped: result.dropped, from: 'import' };
-          },
-        })
-      : importedToast(landed, result.dropped);
   }
 
   /**
@@ -915,12 +796,12 @@
       {status}
       {statusWarn}
       onSelect={switchProfile}
-      onCreate={createProfile}
-      onDuplicate={duplicateProfile}
-      onRename={renameProfile}
-      onRemove={removeProfile}
-      onExport={downloadProfile}
-      onImport={importProfile}
+      onCreate={profileActions.createProfile}
+      onDuplicate={profileActions.duplicateProfile}
+      onRename={profileActions.renameProfile}
+      onRemove={profileActions.removeProfile}
+      onExport={profileActions.downloadProfile}
+      onImport={profileActions.importProfile}
     />
   </header>
 
