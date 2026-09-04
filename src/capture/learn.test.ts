@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { addLearnedKey, learnKeys, removeKey, removeKeys, LEARN_TRAVEL_THRESHOLD } from './learn';
+import { addLearnedKey, learnKeys, LEARN_TRAVEL_THRESHOLD } from './learn';
 import { DEFAULT_STYLE, defaultConfig, type OverlayConfig } from '../config/schema';
 import { surfaceOf } from './layout';
 import type { AnalogEntry } from '../keyboard/decode';
@@ -181,28 +181,5 @@ describe('addLearnedKey', () => {
     addLearnedKey(before, entry(1, 0x14, 900), azerty, SURFACE);
 
     expect(before.keys).toEqual([]);
-  });
-});
-
-describe('removeKey', () => {
-  it('removes the requested key and leaves the others untouched', () => {
-    let config = addLearnedKey(defaultConfig(), entry(1, 0x14, 900), azerty, SURFACE);
-    config = addLearnedKey(config, entry(2, 0x1a, 900), azerty, SURFACE);
-
-    expect(removeKey(config, 1).keys.map((k) => k.id)).toEqual([2]);
-  });
-
-  it('removes every selected key at once', () => {
-    let config = addLearnedKey(defaultConfig(), entry(1, 0x14, 900), azerty, SURFACE);
-    config = addLearnedKey(config, entry(2, 0x1a, 900), azerty, SURFACE);
-    config = addLearnedKey(config, entry(3, 0x16, 900), azerty, SURFACE);
-
-    expect(removeKeys(config, [1, 3]).keys.map((k) => k.id)).toEqual([2]);
-  });
-
-  it('does nothing for a key that is not there', () => {
-    const config = addLearnedKey(defaultConfig(), entry(1, 0x14, 900), azerty, SURFACE);
-
-    expect(removeKey(config, 99).keys).toHaveLength(1);
   });
 });

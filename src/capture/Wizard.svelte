@@ -297,7 +297,7 @@
   }
   h2 {
     margin: 0;
-    font-size: 27px;
+    font-size: var(--he-size-title, 27px);
     font-weight: 700;
   }
   .lede {

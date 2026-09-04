@@ -329,10 +329,10 @@
 
   .menu {
     position: absolute;
-    top: 30px;
+    top: var(--he-menu-offset, 30px);
     right: 0;
     z-index: 9;
-    inline-size: 240px;
+    inline-size: var(--he-menu-width, 240px);
 
     display: flex;
     flex-direction: column;

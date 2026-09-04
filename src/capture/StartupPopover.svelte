@@ -236,10 +236,10 @@
 
   .menu {
     position: absolute;
-    top: 30px;
+    top: var(--he-menu-offset, 30px);
     right: 0;
     z-index: 9;
-    inline-size: 320px;
+    inline-size: var(--he-guide-width, 320px);
 
     padding: 12px 14px;
 

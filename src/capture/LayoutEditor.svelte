@@ -6,9 +6,17 @@
   import { detectedLabelFor } from '../config/edit';
   import { UI_TOKENS } from '../styles/ui-tokens';
   import { recommendedSize } from '../view/scene';
-  import { onSurface, pixelsToUnits, surfaceOf, type Edge, type Point, type Rect } from './layout';
-  import { createGestures, toggled } from './gestures';
-  import { removeKeys } from './learn';
+  import {
+    onSurface,
+    pixelsToUnits,
+    removeKeys,
+    surfaceOf,
+    toggled,
+    type Edge,
+    type Point,
+    type Rect,
+  } from './layout';
+  import { createGestures } from './gestures';
   import type { OverlayConfig } from '../config/schema';
   import type { LayoutMapLike } from '../keyboard/labels';
   import type { FrameKey } from '../protocol/messages';

@@ -171,7 +171,8 @@ export function canPickDevice(status: KeyboardStatus): boolean {
  * it and nothing happens. Found in review on 2026-09-04.
  *
  * A refused password wants the field rather than another identical attempt,
- * and the two healthy/in-progress states have nothing to retry.
+ * and the three healthy/in-progress states — identified, connecting, idle —
+ * have nothing to retry.
  */
 export function canRetryObs(status: ObsStatus): boolean {
   return status === 'unreachable' || status === 'disconnected';

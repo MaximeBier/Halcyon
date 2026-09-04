@@ -83,11 +83,3 @@ export function addLearnedKey(
 
   return { ...config, keys: [...config.keys, key] };
 }
-
-export function removeKey(config: OverlayConfig, id: number): OverlayConfig {
-  return removeKeys(config, [id]);
-}
-
-export function removeKeys(config: OverlayConfig, ids: readonly number[]): OverlayConfig {
-  return { ...config, keys: config.keys.filter((key) => !ids.includes(key.id)) };
-}

@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, vi } from 'vitest';
-import { createGestures, pickedFromList, toggled, type GestureContext } from './gestures';
+import { createGestures, type GestureContext } from './gestures';
 import { surfaceOf } from './layout';
 import { DEFAULT_STYLE, defaultConfig, type OverlayConfig } from '../config/schema';
 
@@ -230,59 +230,5 @@ describe('cancelling', () => {
     expect(last(out.marquee)).toBeNull();
     gestures.release();
     expect(out.commit).not.toHaveBeenCalled();
-  });
-});
-
-describe('toggled', () => {
-  it('adds an absent id and removes a present one', () => {
-    expect(toggled([1], 2)).toEqual([1, 2]);
-    expect(toggled([1, 2], 2)).toEqual([1]);
-  });
-});
-
-describe('pickedFromList', () => {
-  const ORDER = [10, 20, 30, 40];
-
-  it('selects the row alone on a plain pick and anchors there', () => {
-    expect(pickedFromList(ORDER, [10, 30], null, 20, {})).toEqual({ ids: [20], anchor: 20 });
-  });
-
-  it('toggles the row on ctrl and moves the anchor to it', () => {
-    expect(pickedFromList(ORDER, [10], null, 30, { ctrl: true })).toEqual({
-      ids: [10, 30],
-      anchor: 30,
-    });
-    expect(pickedFromList(ORDER, [10, 30], null, 30, { ctrl: true })).toEqual({
-      ids: [10],
-      anchor: 30,
-    });
-  });
-
-  it('takes the contiguous range from the anchor on shift, either way round', () => {
-    expect(pickedFromList(ORDER, [20], 20, 40, { shift: true })).toEqual({
-      ids: [20, 30, 40],
-      anchor: 20,
-    });
-    // Upward too: the range is between the two rows, not "downward from".
-    expect(pickedFromList(ORDER, [30], 30, 10, { shift: true })).toEqual({
-      ids: [10, 20, 30],
-      anchor: 30,
-    });
-  });
-
-  it('falls back to a plain pick when shift has no anchor to reach from', () => {
-    expect(pickedFromList(ORDER, [], null, 30, { shift: true })).toEqual({
-      ids: [30],
-      anchor: 30,
-    });
-  });
-
-  it('forgets an anchor whose key has been deleted', () => {
-    // The anchor names a key, and keys get deleted: a range reaching for a
-    // row that no longer exists must not throw or select everything.
-    expect(pickedFromList(ORDER, [], 99, 30, { shift: true })).toEqual({
-      ids: [30],
-      anchor: 30,
-    });
   });
 });

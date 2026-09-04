@@ -23,9 +23,8 @@
   import { createOverlayRegistry } from './overlays';
   import { createConfigBroadcaster } from './broadcast';
   import { newPageId } from '../protocol/identity';
-  import { learnKeys, removeKey, removeKeys } from './learn';
-  import { keysOutside, surfaceOf } from './layout';
-  import { pickedFromList } from './gestures';
+  import { learnKeys } from './learn';
+  import { keysOutside, pickedFromList, removeKey, removeKeys, surfaceOf } from './layout';
   import { loadLayoutMap, resolveLayout, type LayoutMapLike } from '../keyboard/labels';
   import { detectedLabelFor, setLayoutOverride } from '../config/edit';
   import { createAxisSuggester } from './suggest';
@@ -1258,12 +1257,6 @@
     min-block-size: var(--he-header-height, 62px);
     padding: 0 22px;
     border-block-end: 1px solid var(--he-border, #1b1e27);
-  }
-  .bar :global(header) {
-    /* StatusBar brings its own header element; here it is a run of pills. */
-    flex: 1;
-    background: none;
-    padding: 0;
   }
   .edits {
     display: flex;

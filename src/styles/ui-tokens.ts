@@ -46,6 +46,8 @@ export const UI_TOKENS = {
   sizeSm: '15px',
   sizeMd: '16px',
   sizeLg: '18px',
+  /** The wizard's own step title, one notch above `sizeLg` (spec's mockup). */
+  sizeTitle: '27px',
   font: "400 16px 'Archivo', system-ui, sans-serif",
   fontMono: "400 15px 'IBM Plex Mono', ui-monospace, monospace",
   /**
@@ -56,10 +58,18 @@ export const UI_TOKENS = {
   radius: '4px',
   radiusControl: '5px',
   radiusPanel: '6px',
+  /** KeyPopover's override badge: a full pill, rounder than any panel gets. */
+  radiusPill: '20px',
   headerHeight: '62px',
   panelWidth: '380px',
   /** Read by the editor too, which has to keep the popover inside the stage. */
   popoverWidth: '284px',
+  /** How far the two dropdown menus (profiles, startup guide) hang below their trigger. */
+  menuOffset: '30px',
+  /** ProfileBar's profile menu. */
+  menuWidth: '240px',
+  /** StartupPopover's onboarding menu — wider, it carries the setup steps. */
+  guideWidth: '320px',
 } as const;
 
 const CSS_PREFIX = '--he-';

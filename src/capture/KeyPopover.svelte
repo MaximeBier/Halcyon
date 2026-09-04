@@ -7,8 +7,7 @@
     setKeyStyle,
   } from '../config/edit';
   import { effectiveStyle, overriddenInAny } from '../config/resolve';
-  import { removeKeys } from './learn';
-  import { moveKey, resizeKeys, GRID, type Rect } from './layout';
+  import { GRID, moveKey, removeKeys, resizeKeys, type Rect } from './layout';
   import { ICON_SET, labelFor, type LayoutMapLike } from '../keyboard/labels';
   import Collapsible from './Collapsible.svelte';
   /**
@@ -662,7 +661,7 @@
     text-transform: uppercase;
     color: var(--he-override, #d9a05b);
     border: 1px solid var(--he-override, #d9a05b);
-    border-radius: 20px;
+    border-radius: var(--he-radius-pill, 20px);
     padding: 1px 7px;
   }
   .row {

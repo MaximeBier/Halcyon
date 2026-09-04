@@ -105,12 +105,18 @@
 <style>
   header {
     display: flex;
+    /* Fills the rest of App's `.bar` row, leaving the undo/redo buttons their
+       own width instead of splitting the row evenly with them. */
+    flex: 1;
     gap: 0.75rem;
     align-items: center;
     flex-wrap: wrap;
     font: var(--he-font, 400 16px system-ui, sans-serif);
-    padding: 0.5rem 0.75rem;
-    background: var(--he-surface);
+    /* `.bar` already frames this header with its own padding and background
+       (spec §11's run of pills reads as part of the bar, not a panel inside
+       it) — a second one here would double both. */
+    padding: 0;
+    background: none;
     color: var(--he-text);
   }
   .pill {
