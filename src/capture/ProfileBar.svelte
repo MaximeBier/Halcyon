@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import { keysLabel } from './notice';
 
   /**
@@ -53,6 +54,8 @@
   let editing = $state<'new' | 'rename' | null>(null);
   let confirming = $state(false);
   let root = $state<HTMLElement | null>(null);
+  let popoverEl = $state<HTMLElement | null>(null);
+  let triggerEl = $state<HTMLButtonElement | null>(null);
   let nameField = $state<HTMLInputElement | null>(null);
 
   function close() {
@@ -62,6 +65,10 @@
     // delete two clicks from a layout nobody meant to lose.
     editing = null;
     confirming = false;
+    // The popover took the focus when it opened, so closing hands it back —
+    // otherwise it lands on `<body>` and the next Tab starts from the top of
+    // the page, whatever closed it: the trigger, Escape, or a click outside.
+    triggerEl?.focus();
   }
 
   function toggle() {
@@ -69,13 +76,20 @@
     else open = true;
   }
 
-  /** Acts, then closes — in that order, so the callback still reads the menu's state. */
+  /**
+   * Acts, then closes — for the actions that finish here in one click:
+   * selecting, duplicating, exporting, deleting. Rename and import are not
+   * routed through this: people chain them into further work more often than
+   * not (import then rename, or either then export), so they call their
+   * callback directly and leave the popover open instead — see `submitName`
+   * and `pick`.
+   */
   function act(run: () => void) {
     run();
     close();
   }
 
-  function submitName(event: SubmitEvent) {
+  async function submitName(event: SubmitEvent) {
     event.preventDefault();
     const name = nameField?.value.trim() ?? '';
     // The store would name a blank creation "Profile" for us, and refuse a
@@ -83,7 +97,22 @@
     // an empty name on purpose.
     if (!name) return;
 
-    act(() => (editing === 'rename' ? onRename(name) : onCreate(name)));
+    if (editing === 'rename') {
+      onRename(name);
+      // The popover stays open — renaming is usually half of a chain, not the
+      // whole errand. `editing` still folds the field away, and `active`
+      // changing rebuilds every row keyed on it, so whatever the focus was on
+      // a moment ago no longer exists. Land it on the Rename row instead: it
+      // is back in the same place once the field is gone, and it names the
+      // very thing that just happened. After the render (`tick`), since the
+      // row it targets does not exist until the field has folded.
+      editing = null;
+      await tick();
+      root?.querySelector<HTMLButtonElement>('[data-action="rename"]')?.focus();
+      return;
+    }
+
+    act(() => onCreate(name));
   }
 
   /**
@@ -116,7 +145,10 @@
     // Cleared either way, or picking the same file twice fires nothing — which
     // is exactly what someone does after fixing it by hand.
     input.value = '';
-    if (file) act(() => onImport(file));
+    // Not routed through `act`: import chains into a rename most often (fix
+    // the name the file came with), and the file input itself keeps the focus
+    // regardless, so nothing here needs tending the way a rename does.
+    if (file) onImport(file);
   }
 
   // Focus follows the field into existence: the row was clicked to type in it,
@@ -125,6 +157,17 @@
   $effect(() => {
     void editing;
     nameField?.select();
+  });
+
+  // This is a popover, not a menu, and a popover that leaves the focus behind
+  // when it opens is silent: a screen reader announces nothing, and a
+  // keyboard user tabs through the rest of the page before reaching the rows
+  // they just asked for. Depends on `popoverEl` rather than `open` alone —
+  // that binding only exists once the popover has actually rendered, and
+  // `open` toggling false clears it again without this effect re-running.
+  $effect(() => {
+    if (!open) return;
+    popoverEl?.querySelector<HTMLElement>('button, input, select')?.focus();
   });
 
   $effect(() => {
@@ -155,8 +198,9 @@
     class="trigger"
     data-trigger
     type="button"
+    bind:this={triggerEl}
     aria-expanded={open}
-    aria-haspopup="menu"
+    aria-haspopup="dialog"
     onclick={toggle}
   >
     {active}
@@ -164,15 +208,20 @@
   </button>
 
   {#if open}
-    <div class="menu" data-menu role="menu" tabindex="-1">
+    <!--
+      A popover, not a menu: nothing here answers to the arrow keys the way a
+      real `menu` role promises, only Tab does, so the role would be a promise
+      the component does not keep. Buttons stay buttons and gain no `menuitem*`
+      role either, for the same reason — `role="dialog"` is honest about what
+      this actually is, a labelled panel of ordinary controls.
+    -->
+    <div class="menu" data-menu role="dialog" aria-label="Profile options" bind:this={popoverEl}>
       {#each names as name (name)}
         <button
           class="row"
           class:current={name === active}
           data-profile={name}
           type="button"
-          role="menuitemradio"
-          aria-checked={name === active}
           aria-current={name === active ? 'true' : undefined}
           onclick={() => act(() => name !== active && onSelect(name))}
         >
@@ -200,24 +249,12 @@
           />
         </form>
       {:else}
-        <button
-          class="row"
-          data-action="new"
-          type="button"
-          role="menuitem"
-          onclick={() => (editing = 'new')}
-        >
+        <button class="row" data-action="new" type="button" onclick={() => (editing = 'new')}>
           New profile…
         </button>
       {/if}
 
-      <button
-        class="row"
-        data-action="duplicate"
-        type="button"
-        role="menuitem"
-        onclick={() => act(onDuplicate)}
-      >
+      <button class="row" data-action="duplicate" type="button" onclick={() => act(onDuplicate)}>
         Duplicate “{active}”
       </button>
 
@@ -225,13 +262,7 @@
            later exploration. It reuses the field the creation row opens: one
            field, one meaning, and no second way to type a name. -->
       {#if !editing}
-        <button
-          class="row"
-          data-action="rename"
-          type="button"
-          role="menuitem"
-          onclick={() => (editing = 'rename')}
-        >
+        <button class="row" data-action="rename" type="button" onclick={() => (editing = 'rename')}>
           Rename “{active}”…
         </button>
       {/if}
@@ -245,7 +276,6 @@
           class:armed={confirming}
           data-action="remove"
           type="button"
-          role="menuitem"
           onclick={remove}
         >
           {confirming ? `Really delete “${active}”?` : `Delete “${active}”`}
@@ -261,13 +291,7 @@
         <input class="file" type="file" accept="application/json" onchange={pick} />
       </label>
 
-      <button
-        class="row"
-        data-action="export"
-        type="button"
-        role="menuitem"
-        onclick={() => act(onExport)}
-      >
+      <button class="row" data-action="export" type="button" onclick={() => act(onExport)}>
         Export “{active}” as JSON
       </button>
 
@@ -317,9 +341,6 @@
     background: var(--he-popover, #141722);
     border: 1px solid var(--he-border-popover, #262b3a);
     border-radius: var(--he-radius-panel, 6px);
-  }
-  .menu:focus {
-    outline: none;
   }
 
   .row {

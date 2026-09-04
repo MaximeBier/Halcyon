@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, cleanup } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import ProfileBar from './ProfileBar.svelte';
 
 afterEach(cleanup);
@@ -67,6 +68,34 @@ describe('the profile trigger', () => {
     await Promise.resolve();
 
     expect(menu(container)).toBeNull();
+  });
+
+  it('promises no more than a popover: no menu or menuitem role anywhere in it', async () => {
+    // A `menu` role commits to arrow-key navigation, which nothing here
+    // delivers — only Tab does. Demoted honestly: a labelled popover of plain
+    // buttons, and `aria-haspopup` says as much rather than still saying menu.
+    const { container } = bar();
+    await open(container);
+
+    const popover = menu(container)!;
+    expect(popover.getAttribute('role')).not.toBe('menu');
+    expect(
+      popover.querySelectorAll('[role="menu"], [role="menuitem"], [role="menuitemradio"]'),
+    ).toHaveLength(0);
+    expect(popover.getAttribute('aria-label')).toBeTruthy();
+    expect(trigger(container).getAttribute('aria-haspopup')).not.toBe('menu');
+  });
+
+  it('moves the focus into the popover on open, and back to the trigger on Escape', async () => {
+    const { container } = bar();
+    await open(container);
+
+    expect(menu(container)!.contains(document.activeElement)).toBe(true);
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await Promise.resolve();
+
+    expect(document.activeElement).toBe(trigger(container));
   });
 });
 
@@ -173,7 +202,10 @@ describe('renaming a profile', () => {
     expect(container.querySelector<HTMLInputElement>('[data-name-field]')!.value).toBe('Apex');
   });
 
-  it('renames on submit', async () => {
+  it('renames on submit, keeps the popover open for the next move, and folds the field', async () => {
+    // The new demand: rename chains into more work more often than not (fix
+    // the name, then export or duplicate it), so closing here would cost
+    // every chain a reopen for nothing.
     const { container, onRename } = bar();
     await open(container);
     action(container, 'rename')!.click();
@@ -182,10 +214,31 @@ describe('renaming a profile', () => {
     const field = container.querySelector<HTMLInputElement>('[data-name-field]')!;
     field.value = '  Apex Legends  ';
     field.form!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-    await Promise.resolve();
+    await tick();
+    await tick();
 
     expect(onRename).toHaveBeenCalledWith('Apex Legends');
-    expect(menu(container)).toBeNull();
+    expect(menu(container)).not.toBeNull();
+    expect(container.querySelector('[data-name-field]')).toBeNull();
+  });
+
+  it('does not lose the focus into the void a rename leaves behind', async () => {
+    // The field that held the focus folds away with `editing`, and `active`
+    // changing rebuilds every row keyed on it — nothing the focus sat on a
+    // moment ago still exists. It has to land somewhere real: the Rename row,
+    // back in its place, naming the very thing that just happened.
+    const { container } = bar();
+    await open(container);
+    action(container, 'rename')!.click();
+    await Promise.resolve();
+
+    const field = container.querySelector<HTMLInputElement>('[data-name-field]')!;
+    field.value = 'Apex Legends';
+    field.form!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await tick();
+    await tick();
+
+    expect(document.activeElement).toBe(action(container, 'rename'));
   });
 
   it('renames nothing from an empty field', async () => {
@@ -282,9 +335,11 @@ describe('the file on disk', () => {
     expect(onExport).toHaveBeenCalledTimes(1);
   });
 
-  it('hands the chosen file over, and clears the input for the next try', async () => {
+  it('hands the chosen file over, clears the input, and keeps the popover open', async () => {
     // Left uncleared, picking the same file twice fires nothing at all — which
-    // is exactly what one does after fixing it by hand.
+    // is exactly what one does after fixing it by hand. And the popover stays
+    // put: import chains into a rename most often (fix the name the file
+    // came with), so closing here would cost that chain a reopen for nothing.
     const { container, onImport } = bar();
     await open(container);
 
@@ -307,6 +362,7 @@ describe('the file on disk', () => {
 
     expect(onImport).toHaveBeenCalledWith(file);
     expect(assigned).toEqual(['']);
+    expect(menu(container)).not.toBeNull();
   });
 });
 
