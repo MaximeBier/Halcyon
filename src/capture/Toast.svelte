@@ -80,12 +80,12 @@
     gap: 10px;
     padding: 10px 14px;
 
-    font: var(--he-font, 400 16px system-ui, sans-serif);
-    font-size: var(--he-size-md, 16px);
-    color: var(--he-text, #dde1e9);
-    background: var(--he-popover, #141722);
-    border: 1px solid var(--he-border, #1b1e27);
-    border-radius: var(--he-radius-panel, 6px);
+    font: var(--he-font);
+    font-size: var(--he-size-md);
+    color: var(--he-text);
+    background: var(--he-popover);
+    border: 1px solid var(--he-border);
+    border-radius: var(--he-radius-panel);
 
     animation: hold 4s forwards;
   }
@@ -98,15 +98,15 @@
   .act {
     font: inherit;
     font-weight: 600;
-    color: var(--he-accent, #7c9eff);
+    color: var(--he-accent);
     background: none;
-    border: 1px solid var(--he-border-popover, #262b3a);
-    border-radius: var(--he-radius-control, 5px);
+    border: 1px solid var(--he-border-popover);
+    border-radius: var(--he-radius-control);
     padding: 2px 10px;
     cursor: pointer;
   }
   .act:focus-visible {
-    outline: 2px solid var(--he-accent, #7c9eff);
+    outline: 2px solid var(--he-accent);
     outline-offset: 2px;
   }
   @keyframes hold {

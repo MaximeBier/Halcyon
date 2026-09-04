@@ -191,7 +191,7 @@
     position: relative;
     display: inline-flex;
     align-items: center;
-    font: var(--he-font, 400 16px system-ui, sans-serif);
+    font: var(--he-font);
   }
   /* The Resume-setup recipe in the accent colour: bordered, bold, its own
      pill. Muted text was the first draft, and it made the one feature that
@@ -201,19 +201,19 @@
     all: unset;
     cursor: pointer;
     padding: 5px 11px;
-    border: 1px solid var(--he-accent, #7c9eff);
-    border-radius: var(--he-radius-control, 5px);
-    font-size: var(--he-size-md, 16px);
+    border: 1px solid var(--he-accent);
+    border-radius: var(--he-radius-control);
+    font-size: var(--he-size-md);
     font-weight: 600;
-    color: var(--he-accent, #7c9eff);
+    color: var(--he-accent);
   }
   .trigger:hover,
   .trigger[aria-expanded='true'] {
-    color: var(--he-stage, #0b0d11);
-    background: var(--he-accent, #7c9eff);
+    color: var(--he-stage);
+    background: var(--he-accent);
   }
   .trigger:focus-visible {
-    outline: 2px solid var(--he-accent, #7c9eff);
+    outline: 2px solid var(--he-accent);
     outline-offset: 1px;
   }
   /* Once the page is `standalone`, step 1 is already done and this is no
@@ -226,29 +226,29 @@
   .trigger.demoted {
     border-color: transparent;
     font-weight: 400;
-    color: var(--he-text-muted, #8b90a0);
+    color: var(--he-text-muted);
   }
   .trigger.demoted:hover,
   .trigger.demoted[aria-expanded='true'] {
-    color: var(--he-text, #dde1e9);
+    color: var(--he-text);
     background: none;
   }
 
   .menu {
     position: absolute;
-    top: var(--he-menu-offset, 30px);
+    top: var(--he-menu-offset);
     right: 0;
     z-index: 9;
-    inline-size: var(--he-guide-width, 320px);
+    inline-size: var(--he-guide-width);
 
     padding: 12px 14px;
 
-    background: var(--he-popover, #141722);
-    border: 1px solid var(--he-border-popover, #262b3a);
-    border-radius: var(--he-radius-panel, 6px);
+    background: var(--he-popover);
+    border: 1px solid var(--he-border-popover);
+    border-radius: var(--he-radius-panel);
 
-    font-size: var(--he-size-sm, 15px);
-    color: var(--he-text-muted, #8b90a0);
+    font-size: var(--he-size-sm);
+    color: var(--he-text-muted);
   }
   .menu:focus {
     outline: none;
@@ -270,27 +270,27 @@
     line-height: 1.45;
   }
   li::marker {
-    color: var(--he-text-faint, #5a5f70);
+    color: var(--he-text-faint);
   }
   li.done::marker {
-    color: var(--he-accent, #7c9eff);
+    color: var(--he-accent);
   }
 
   .title {
     display: block;
     font-weight: 600;
-    color: var(--he-text, #dde1e9);
+    color: var(--he-text);
   }
   .hint {
     display: block;
   }
 
   code {
-    font: var(--he-font-mono, 400 14px monospace);
-    color: var(--he-text, #dde1e9);
-    background: var(--he-stage, #0b0d11);
-    border: 1px solid var(--he-border-control, #232838);
-    border-radius: var(--he-radius, 4px);
+    font: var(--he-font-mono);
+    color: var(--he-text);
+    background: var(--he-stage);
+    border: 1px solid var(--he-border-control);
+    border-radius: var(--he-radius);
     padding: 1px 5px;
   }
 
@@ -299,27 +299,27 @@
     cursor: pointer;
     margin-block-start: 4px;
     padding: 4px 10px;
-    border-radius: var(--he-radius, 4px);
+    border-radius: var(--he-radius);
     font-weight: 600;
-    color: var(--he-stage, #0b0d11);
-    background: var(--he-accent, #7c9eff);
+    color: var(--he-stage);
+    background: var(--he-accent);
   }
   .install:focus-visible {
-    outline: 2px solid var(--he-text, #dde1e9);
+    outline: 2px solid var(--he-text);
     outline-offset: 1px;
   }
 
   .link {
     all: unset;
     cursor: pointer;
-    color: var(--he-accent, #7c9eff);
+    color: var(--he-accent);
   }
   .link:hover {
     text-decoration: underline;
   }
   .link:focus-visible {
-    outline: 2px solid var(--he-accent, #7c9eff);
+    outline: 2px solid var(--he-accent);
     outline-offset: 1px;
-    border-radius: var(--he-radius, 4px);
+    border-radius: var(--he-radius);
   }
 </style>

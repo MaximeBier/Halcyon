@@ -797,7 +797,7 @@
   .grip.corner {
     inline-size: 8px;
     block-size: 8px;
-    background: var(--he-accent, #7c9eff);
+    background: var(--he-accent);
     border-radius: 1px;
   }
   .grip[data-edge='nw'],
@@ -833,9 +833,9 @@
     left: 0;
     top: 0;
     pointer-events: none;
-    border: 1px dashed var(--he-accent, #7c9eff);
-    background: color-mix(in srgb, var(--he-accent, #7c9eff) 12%, transparent);
-    border-radius: var(--he-radius, 4px);
+    border: 1px dashed var(--he-accent);
+    background: color-mix(in srgb, var(--he-accent) 12%, transparent);
+    border-radius: var(--he-radius);
   }
   /**
    * The work surface itself, and **it does not scroll**.
@@ -855,7 +855,7 @@
     flex: 1;
     position: relative;
     overflow: hidden;
-    background: var(--he-stage, #0b0d11);
+    background: var(--he-stage);
     /* A drag across the keys used to select the SVG labels as if they were a
        paragraph, leaving a blue smear over the layout. Nothing here is text
        anyone means to copy. */
@@ -884,11 +884,11 @@
     align-items: center;
     gap: 13px;
     padding: 13px 18px;
-    font: var(--he-font, 400 16px system-ui, sans-serif);
-    color: var(--he-text, #dde1e9);
-    background: var(--he-popover, #141722);
-    border: 1px solid var(--he-accent, #7c9eff);
-    border-radius: var(--he-radius-panel, 6px);
+    font: var(--he-font);
+    color: var(--he-text);
+    background: var(--he-popover);
+    border: 1px solid var(--he-accent);
+    border-radius: var(--he-radius-panel);
     /* Informational only — unlike the wizard's, this banner carries no
        button, and must not steal a click meant for the keys under it. */
     pointer-events: none;
@@ -898,10 +898,10 @@
     inline-size: 9px;
     block-size: 9px;
     border-radius: 50%;
-    background: var(--he-accent, #7c9eff);
+    background: var(--he-accent);
   }
   .learning strong {
-    font-size: var(--he-size-lg, 18px);
+    font-size: var(--he-size-lg);
     font-weight: 700;
   }
   /**
@@ -957,8 +957,8 @@
   .empty p {
     margin: 0;
     max-inline-size: 36ch;
-    font-size: var(--he-size-md, 16px);
-    color: var(--he-text-muted, #8b90a0);
+    font-size: var(--he-size-md);
+    color: var(--he-text-muted);
   }
   .handle {
     position: absolute;
@@ -974,12 +974,12 @@
     touch-action: none;
     background: transparent;
     border: 1px dashed transparent;
-    border-radius: var(--he-radius, 4px);
+    border-radius: var(--he-radius);
     cursor: grab;
     padding: 0;
   }
   .handle:hover {
-    border-color: var(--he-text-faint, #5a5f70);
+    border-color: var(--he-text-faint);
   }
   /* Clicking a button focuses it, and the browser's own ring then stays on
      screen after Escape has cleared the selection — a thick white outline on
@@ -989,15 +989,15 @@
     outline: none;
   }
   .handle:focus-visible {
-    outline: 2px solid var(--he-accent-hover, #a5bcff);
+    outline: 2px solid var(--he-accent-hover);
     outline-offset: 2px;
   }
   .handle.selected {
-    border: 1px solid var(--he-accent, #7c9eff);
+    border: 1px solid var(--he-accent);
     border-style: solid;
     /* A shadow rather than an outline: `outline` is what the focus ring uses,
        and one of the two would always be hiding the other. */
-    box-shadow: 0 0 0 1px var(--he-accent, #7c9eff);
+    box-shadow: 0 0 0 1px var(--he-accent);
   }
   /* The same amber the popover badge uses. One colour, one meaning: **this key
      was customized** — a style that differs from the global (spec §8.2), a
@@ -1021,7 +1021,7 @@
     inline-size: 6px;
     block-size: 6px;
     border-radius: 50%;
-    background: var(--he-override, #d9a05b);
+    background: var(--he-override);
   }
   .anchor {
     position: absolute;
@@ -1044,17 +1044,17 @@
      not a reminder of what the mouse does. */
   .source {
     margin: 0;
-    font-size: var(--he-size-sm, 15px);
-    color: var(--he-text-muted, #8b90a0);
+    font-size: var(--he-size-sm);
+    color: var(--he-text-muted);
   }
   .source code {
-    font: var(--he-font-mono, 400 15px ui-monospace, monospace);
-    color: var(--he-text, #dde1e9);
+    font: var(--he-font-mono);
+    color: var(--he-text);
   }
   .shortcuts {
     margin: 0;
     text-align: center;
-    font-size: var(--he-size-xs, 14px);
-    color: var(--he-text-faint, #5a5f70);
+    font-size: var(--he-size-xs);
+    color: var(--he-text-faint);
   }
 </style>

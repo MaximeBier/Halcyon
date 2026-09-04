@@ -638,11 +638,11 @@
        so a token that means something else is a popover that still overflows,
        by exactly the padding. */
     box-sizing: border-box;
-    inline-size: var(--he-popover-width, 284px);
+    inline-size: var(--he-popover-width);
     padding: 13px;
-    background: var(--he-popover, #141722);
-    border: 1px solid var(--he-border-popover, #262b3a);
-    border-radius: var(--he-radius-panel, 6px);
+    background: var(--he-popover);
+    border: 1px solid var(--he-border-popover);
+    border-radius: var(--he-radius-panel);
   }
   header {
     display: flex;
@@ -651,17 +651,17 @@
     gap: 8px;
   }
   .title {
-    font-size: var(--he-size-md, 16px);
+    font-size: var(--he-size-md);
     font-weight: 600;
-    color: var(--he-text, #dde1e9);
+    color: var(--he-text);
   }
   .badge {
-    font-size: var(--he-size-xs, 14px);
+    font-size: var(--he-size-xs);
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: var(--he-override, #d9a05b);
-    border: 1px solid var(--he-override, #d9a05b);
-    border-radius: var(--he-radius-pill, 20px);
+    color: var(--he-override);
+    border: 1px solid var(--he-override);
+    border-radius: var(--he-radius-pill);
     padding: 1px 7px;
   }
   .row {
@@ -709,24 +709,24 @@
     margin: -6px;
     border: none;
     border-radius: 50%;
-    background: var(--he-override, #d9a05b) content-box;
+    background: var(--he-override) content-box;
     cursor: pointer;
   }
   .mark:hover {
-    background-color: var(--he-text, #dde1e9);
+    background-color: var(--he-text);
   }
   .mark:focus-visible {
-    outline: 2px solid var(--he-accent, #7c9eff);
+    outline: 2px solid var(--he-accent);
     outline-offset: 1px;
   }
   .unit {
-    font-size: var(--he-size-xs, 14px);
-    color: var(--he-text-ghost, #4a4f60);
+    font-size: var(--he-size-xs);
+    color: var(--he-text-ghost);
   }
   label,
   .label {
-    font-size: var(--he-size-md, 16px);
-    color: var(--he-text-muted, #8b90a0);
+    font-size: var(--he-size-md);
+    color: var(--he-text-muted);
   }
   .value {
     display: flex;
@@ -735,26 +735,26 @@
   }
   .segmented {
     display: flex;
-    border: 1px solid var(--he-border-control, #232838);
-    border-radius: var(--he-radius-control, 5px);
+    border: 1px solid var(--he-border-control);
+    border-radius: var(--he-radius-control);
     overflow: hidden;
   }
   .segmented button {
     flex: 1;
     font: inherit;
-    font-size: var(--he-size-md, 16px);
-    color: var(--he-text-muted, #8b90a0);
+    font-size: var(--he-size-md);
+    color: var(--he-text-muted);
     background: none;
     border: 0;
     padding: 5px 10px;
     cursor: pointer;
   }
   .segmented button:hover {
-    color: var(--he-text, #dde1e9);
+    color: var(--he-text);
   }
   .segmented button.on {
-    color: var(--he-bg, #0e1015);
-    background: var(--he-accent, #7c9eff);
+    color: var(--he-bg);
+    background: var(--he-accent);
   }
   .segmented.small button {
     padding: 4px 8px;
@@ -773,36 +773,36 @@
     font: inherit;
     /* Larger than the panel's text on purpose: these are drawn by a system
        face, not by Archivo, and they read small at the UI size. */
-    font-size: var(--he-size-lg, 18px);
-    color: var(--he-text, #dde1e9);
-    background: var(--he-bg, #0e1015);
-    border: 1px solid var(--he-border-control, #232838);
-    border-radius: var(--he-radius-control, 5px);
+    font-size: var(--he-size-lg);
+    color: var(--he-text);
+    background: var(--he-bg);
+    border: 1px solid var(--he-border-control);
+    border-radius: var(--he-radius-control);
     cursor: pointer;
   }
   .icons button:hover {
-    border-color: var(--he-border-hover, #3a4054);
+    border-color: var(--he-border-hover);
   }
   .icons button.on {
-    border-color: var(--he-accent, #7c9eff);
-    outline: 1px solid var(--he-accent, #7c9eff);
+    border-color: var(--he-accent);
+    outline: 1px solid var(--he-accent);
   }
   .hint {
     margin: 0;
-    font-size: var(--he-size-sm, 15px);
+    font-size: var(--he-size-sm);
     line-height: 1.45;
-    color: var(--he-text-faint, #5a5f70);
+    color: var(--he-text-faint);
   }
   .suggestion {
     margin: 0;
     display: grid;
     gap: 6px;
-    font-size: var(--he-size-sm, 15px);
+    font-size: var(--he-size-sm);
     line-height: 1.4;
-    color: var(--he-text-muted, #8b90a0);
-    background: var(--he-surface, #151823);
-    border: 1px solid var(--he-border-control, #232838);
-    border-radius: var(--he-radius, 4px);
+    color: var(--he-text-muted);
+    background: var(--he-surface);
+    border: 1px solid var(--he-border-control);
+    border-radius: var(--he-radius);
     padding: 8px 9px;
   }
   .actions {
@@ -814,10 +814,10 @@
      sentence. Same mono face as the field it puts the value back into, one
      row above, so the two are visibly the same kind of thing. */
   [data-reset='label'] code {
-    font: var(--he-font-mono, 400 15px ui-monospace, monospace);
-    color: var(--he-text, #dde1e9);
-    background: var(--he-stage, #0b0d11);
-    border: 1px solid var(--he-border-control, #232838);
+    font: var(--he-font-mono);
+    color: var(--he-text);
+    background: var(--he-stage);
+    border: 1px solid var(--he-border-control);
     border-radius: 3px;
     padding: 1px 5px;
     margin-inline-start: 2px;
@@ -826,54 +826,54 @@
     justify-content: flex-end;
   }
   .link.quiet {
-    color: var(--he-text-faint, #5a5f70);
+    color: var(--he-text-faint);
   }
   .link.quiet:hover {
-    color: var(--he-text-muted, #8b90a0);
+    color: var(--he-text-muted);
   }
   .link {
     font: inherit;
-    font-size: var(--he-size-sm, 15px);
-    color: var(--he-accent, #7c9eff);
+    font-size: var(--he-size-sm);
+    color: var(--he-accent);
     background: none;
     border: 0;
     padding: 0;
     cursor: pointer;
   }
   .link:hover {
-    color: var(--he-accent-hover, #a5bcff);
+    color: var(--he-accent-hover);
   }
   .danger {
     font: inherit;
-    font-size: var(--he-size-md, 16px);
-    color: var(--he-danger, #e06c5b);
+    font-size: var(--he-size-md);
+    color: var(--he-danger);
     background: none;
-    border: 1px solid #3a2226;
-    border-radius: var(--he-radius-control, 5px);
+    border: 1px solid var(--he-border-danger);
+    border-radius: var(--he-radius-control);
     padding: 6px 10px;
     cursor: pointer;
   }
   .times {
-    font-size: var(--he-size-sm, 15px);
-    color: var(--he-text-ghost, #4a4f60);
+    font-size: var(--he-size-sm);
+    color: var(--he-text-ghost);
   }
   input[type='color'] {
     inline-size: 30px;
     block-size: 22px;
     padding: 0;
     background: none;
-    border: 1px solid var(--he-border-control, #232838);
-    border-radius: var(--he-radius, 4px);
+    border: 1px solid var(--he-border-control);
+    border-radius: var(--he-radius);
     cursor: pointer;
   }
   input[type='text'],
   input[type='number'] {
     inline-size: 56px;
-    font: var(--he-font-mono, 400 15px ui-monospace, monospace);
-    color: var(--he-text, #dde1e9);
-    background: var(--he-stage, #0b0d11);
-    border: 1px solid var(--he-border-control, #232838);
-    border-radius: var(--he-radius, 4px);
+    font: var(--he-font-mono);
+    color: var(--he-text);
+    background: var(--he-stage);
+    border: 1px solid var(--he-border-control);
+    border-radius: var(--he-radius);
     padding: 4px 6px;
   }
   input[type='text'] {
@@ -891,17 +891,17 @@
   select {
     max-inline-size: 148px;
     font: inherit;
-    font-size: var(--he-size-sm, 15px);
-    color: var(--he-text, #dde1e9);
-    background: var(--he-stage, #0b0d11);
-    border: 1px solid var(--he-border-control, #232838);
-    border-radius: var(--he-radius, 4px);
+    font-size: var(--he-size-sm);
+    color: var(--he-text);
+    background: var(--he-stage);
+    border: 1px solid var(--he-border-control);
+    border-radius: var(--he-radius);
     padding: 4px 6px;
   }
   button:focus-visible,
   input:focus-visible,
   select:focus-visible {
-    outline: 2px solid var(--he-accent, #7c9eff);
+    outline: 2px solid var(--he-accent);
     outline-offset: 1px;
   }
 </style>

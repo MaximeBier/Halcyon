@@ -55,18 +55,18 @@
     gap: 10px;
     padding: 11px 22px;
 
-    font: var(--he-font, 400 16px system-ui, sans-serif);
-    font-size: var(--he-size-md, 16px);
+    font: var(--he-font);
+    font-size: var(--he-size-md);
     font-weight: 600;
-    color: var(--he-danger, #e06c5b);
-    background: var(--he-popover, #141722);
-    border-block-end: 1px solid var(--he-border-danger, #3a2226);
+    color: var(--he-danger);
+    background: var(--he-popover);
+    border-block-end: 1px solid var(--he-border-danger);
   }
   .dot {
     inline-size: 7px;
     block-size: 7px;
     border-radius: 50%;
-    background: var(--he-danger, #e06c5b);
+    background: var(--he-danger);
     flex: none;
   }
 </style>

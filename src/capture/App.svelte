@@ -1239,9 +1239,9 @@
     display: flex;
     flex-direction: column;
     block-size: 100vh;
-    font: var(--he-font, 400 16px system-ui, sans-serif);
-    color: var(--he-text, #dde1e9);
-    background: var(--he-bg, #0e1015);
+    font: var(--he-font);
+    color: var(--he-text);
+    background: var(--he-bg);
   }
 
   .bar {
@@ -1254,9 +1254,9 @@
        window the same way. Either would have overflowed or overlapped the
        stage below under a fixed `block-size` — the one message meant to be
        seen is the one that would have been unreadable. */
-    min-block-size: var(--he-header-height, 62px);
+    min-block-size: var(--he-header-height);
     padding: 0 22px;
-    border-block-end: 1px solid var(--he-border, #1b1e27);
+    border-block-end: 1px solid var(--he-border);
   }
   .edits {
     display: flex;
@@ -1267,11 +1267,11 @@
     inline-size: 28px;
     block-size: 28px;
     font: inherit;
-    font-size: var(--he-size-md, 16px);
-    color: var(--he-text, #dde1e9);
+    font-size: var(--he-size-md);
+    color: var(--he-text);
     background: none;
-    border: 1px solid var(--he-border-popover, #262b3a);
-    border-radius: var(--he-radius-control, 5px);
+    border: 1px solid var(--he-border-popover);
+    border-radius: var(--he-radius-control);
     cursor: pointer;
   }
   .edits button:disabled {
@@ -1280,7 +1280,7 @@
     cursor: default;
   }
   .edits button:focus-visible {
-    outline: 2px solid var(--he-accent, #7c9eff);
+    outline: 2px solid var(--he-accent);
     outline-offset: 2px;
   }
   /* The KeyLearner recipe: present for the reader, absent from the layout. */
@@ -1299,12 +1299,12 @@
     align-items: center;
     gap: 7px;
     font: inherit;
-    font-size: var(--he-size-md, 16px);
+    font-size: var(--he-size-md);
     font-weight: 600;
-    color: var(--he-override, #d9a05b);
+    color: var(--he-override);
     background: none;
-    border: 1px solid var(--he-override, #d9a05b);
-    border-radius: var(--he-radius-control, 5px);
+    border: 1px solid var(--he-override);
+    border-radius: var(--he-radius-control);
     padding: 5px 11px;
     cursor: pointer;
   }
@@ -1312,7 +1312,7 @@
     inline-size: 6px;
     block-size: 6px;
     border-radius: 50%;
-    background: var(--he-override, #d9a05b);
+    background: var(--he-override);
   }
 
   .split {
@@ -1325,7 +1325,7 @@
     flex: 1;
     position: relative;
     min-inline-size: 0;
-    background: var(--he-stage, #0b0d11);
+    background: var(--he-stage);
   }
   /* Over the editor, because the setup is walking someone through it. The
      third step is a banner at the top instead: a card in the middle would
@@ -1353,18 +1353,18 @@
 
   .panel {
     flex: none;
-    inline-size: var(--he-panel-width, 380px);
+    inline-size: var(--he-panel-width);
     display: flex;
     flex-direction: column;
     overflow-y: auto;
-    border-inline-start: 1px solid var(--he-border, #1b1e27);
+    border-inline-start: 1px solid var(--he-border);
   }
   .block {
     display: flex;
     flex-direction: column;
     gap: 9px;
     padding: 10px 18px;
-    border-block-end: 1px solid var(--he-border, #1b1e27);
+    border-block-end: 1px solid var(--he-border);
   }
   /* The one section worth the leftover room: folding the others is what this
      is for. */
@@ -1378,8 +1378,8 @@
     display: flex;
     flex-direction: column;
     padding: 11px 18px;
-    border-block-start: 1px solid var(--he-border, #1b1e27);
-    background: var(--he-stage, #0b0d11);
+    border-block-start: 1px solid var(--he-border);
+    background: var(--he-stage);
   }
 
   .url {
@@ -1387,9 +1387,9 @@
     align-items: center;
     gap: 8px;
     padding: 7px 9px;
-    background: var(--he-stage, #0b0d11);
-    border: 1px solid var(--he-border-control, #232838);
-    border-radius: var(--he-radius, 4px);
+    background: var(--he-stage);
+    border: 1px solid var(--he-border-control);
+    border-radius: var(--he-radius);
   }
   .url input {
     flex: 1;
@@ -1397,23 +1397,23 @@
     border: none;
     background: none;
     padding: 0;
-    font: var(--he-font-mono, 400 15px ui-monospace, monospace);
-    font-size: var(--he-size-xs, 14px);
-    color: var(--he-text-faint, #5a5f70);
+    font: var(--he-font-mono);
+    font-size: var(--he-size-xs);
+    color: var(--he-text-faint);
     text-overflow: ellipsis;
   }
   .link {
     all: unset;
     cursor: pointer;
-    font-size: var(--he-size-sm, 15px);
+    font-size: var(--he-size-sm);
     font-weight: 600;
-    color: var(--he-accent, #7c9eff);
+    color: var(--he-accent);
   }
   .link:hover {
-    color: var(--he-accent-hover, #a5bcff);
+    color: var(--he-accent-hover);
   }
   .link:focus-visible {
-    outline: 2px solid var(--he-accent, #7c9eff);
+    outline: 2px solid var(--he-accent);
     outline-offset: 2px;
   }
 
@@ -1421,8 +1421,8 @@
   .state,
   .fine {
     margin: 0;
-    font-size: var(--he-size-xs, 14px);
-    color: var(--he-text-faint, #5a5f70);
+    font-size: var(--he-size-xs);
+    color: var(--he-text-faint);
     line-height: 1.45;
   }
   .figure {
@@ -1430,13 +1430,13 @@
     justify-content: space-between;
     gap: 8px;
     padding: 6px 9px;
-    background: var(--he-surface, #151823);
-    border-radius: var(--he-radius, 4px);
+    background: var(--he-surface);
+    border-radius: var(--he-radius);
   }
   .figure .value {
-    font: var(--he-font-mono, 400 15px ui-monospace, monospace);
-    font-size: var(--he-size-xs, 14px);
-    color: var(--he-text, #dde1e9);
+    font: var(--he-font-mono);
+    font-size: var(--he-size-xs);
+    color: var(--he-text);
   }
   .state {
     display: flex;
@@ -1447,10 +1447,10 @@
     inline-size: 6px;
     block-size: 6px;
     border-radius: 50%;
-    background: var(--he-border-hover, #3a4054);
+    background: var(--he-border-hover);
   }
   .state .dot[data-live='true'] {
-    background: var(--he-ok, #4caf7d);
+    background: var(--he-ok);
   }
 
   .field {
@@ -1458,8 +1458,8 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    font-size: var(--he-size-sm, 15px);
-    color: var(--he-text-muted, #8b90a0);
+    font-size: var(--he-size-sm);
+    color: var(--he-text-muted);
     padding-block: 3px;
   }
   .secret {
@@ -1474,21 +1474,21 @@
   .secret button {
     all: unset;
     cursor: pointer;
-    font-size: var(--he-size-xs, 14px);
-    color: var(--he-accent, #7c9eff);
+    font-size: var(--he-size-xs);
+    color: var(--he-accent);
   }
   .secret button:focus-visible {
-    outline: 2px solid var(--he-accent, #7c9eff);
+    outline: 2px solid var(--he-accent);
     outline-offset: 2px;
   }
   .field input {
     inline-size: 8rem;
-    font: var(--he-font-mono, 400 15px ui-monospace, monospace);
-    font-size: var(--he-size-sm, 15px);
-    color: var(--he-text, #dde1e9);
-    background: var(--he-stage, #0b0d11);
-    border: 1px solid var(--he-border-control, #232838);
-    border-radius: var(--he-radius, 4px);
+    font: var(--he-font-mono);
+    font-size: var(--he-size-sm);
+    color: var(--he-text);
+    background: var(--he-stage);
+    border: 1px solid var(--he-border-control);
+    border-radius: var(--he-radius);
     padding: 4px 7px;
   }
 
@@ -1505,14 +1505,14 @@
     align-items: center;
     gap: 8px;
     padding: 5px 9px;
-    border-radius: var(--he-radius, 4px);
-    font-size: var(--he-size-md, 16px);
+    border-radius: var(--he-radius);
+    font-size: var(--he-size-md);
   }
   .keys li:hover {
-    background: var(--he-surface, #151823);
+    background: var(--he-surface);
   }
   .keys li.selected {
-    background: var(--he-surface, #151823);
+    background: var(--he-surface);
   }
   .pick {
     all: unset;
@@ -1524,7 +1524,7 @@
     cursor: pointer;
   }
   .pick:focus-visible {
-    outline: 2px solid var(--he-accent, #7c9eff);
+    outline: 2px solid var(--he-accent);
     outline-offset: 2px;
   }
   .label {
@@ -1532,22 +1532,22 @@
     min-inline-size: 2.5rem;
   }
   .mode {
-    font-size: var(--he-size-xs, 14px);
-    color: var(--he-text-faint, #5a5f70);
+    font-size: var(--he-size-xs);
+    color: var(--he-text-faint);
   }
   /* One class for both tags: they are the same mark, and the words are what
      separate a style override from a name someone typed. */
   .customized {
-    font-size: var(--he-size-xs, 14px);
-    color: var(--he-override, #d9a05b);
+    font-size: var(--he-size-xs);
+    color: var(--he-override);
     white-space: nowrap;
   }
   /* Red where the override tag is amber: an override is a choice, and this is
      a key nobody can see. */
   .offscreen {
-    font-size: var(--he-size-xs, 14px);
+    font-size: var(--he-size-xs);
     font-weight: 600;
-    color: var(--he-danger, #e06c5b);
+    color: var(--he-danger);
     white-space: nowrap;
   }
   .trash {
@@ -1561,7 +1561,7 @@
        square, which the bare emoji never had — a click a hair off the glyph
        used to land on the row underneath it instead. */
     padding: 4.5px;
-    color: var(--he-text-faint, #5a5f70);
+    color: var(--he-text-faint);
     opacity: 0;
   }
   .keys li:hover .trash,
@@ -1569,17 +1569,17 @@
     opacity: 1;
   }
   .trash:focus-visible {
-    outline: 2px solid var(--he-accent, #7c9eff);
+    outline: 2px solid var(--he-accent);
     outline-offset: 2px;
   }
 
   select {
     font: inherit;
-    font-size: var(--he-size-md, 16px);
-    color: var(--he-text, #dde1e9);
-    background: var(--he-stage, #0b0d11);
-    border: 1px solid var(--he-border-control, #232838);
-    border-radius: var(--he-radius, 4px);
+    font-size: var(--he-size-md);
+    color: var(--he-text);
+    background: var(--he-stage);
+    border: 1px solid var(--he-border-control);
+    border-radius: var(--he-radius);
     padding: 4px 6px;
   }
 </style>

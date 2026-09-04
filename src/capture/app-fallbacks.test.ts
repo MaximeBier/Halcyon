@@ -1,48 +1,38 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { cssVariables } from '../styles/ui-tokens';
-// Vite hands the file over as a string; `import.meta.url` is not a file URL
-// under the test transform, so reading it from disk is not an option — same
-// arrangement as chrome-tokens.test.ts, for the same reason.
-import appSource from './App.svelte?raw';
+import { readdirSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /**
- * The fonts are the one sanctioned drift: the fallback is what renders in the
- * instant before `applyTokens` runs, when the packaged families may not be
- * registered yet — so it is the token minus its named family, nothing more.
+ * `applyTokens` runs before `mount` in `capture/main.ts`, so every
+ * `--he-*` variable is already declared by the time a capture component's
+ * styles are ever evaluated. A `var(--he-x, literal)` fallback in one of
+ * these files can therefore never take effect — it is pure drift risk: one
+ * had already drifted (a mono font fallback said 14px where the token says
+ * 15px) before this test was written to make that impossible again.
+ *
+ * `app.css` is deliberately exempt: it paints before `applyTokens` runs at
+ * all (the anti-flash it documents at its own head), so its fallbacks are
+ * load-bearing rather than dead weight.
  */
-const FONT_FAMILY: Record<string, string> = {
-  '--he-font': "'Archivo', ",
-  '--he-font-mono': "'IBM Plex Mono', ",
-};
+const captureDir = dirname(fileURLToPath(import.meta.url));
 
-describe('the fallbacks that are not allowed to drift', () => {
-  const tokens = cssVariables();
-  const uses = [...appSource.matchAll(/var\((--he-[a-z-]+), ([^)]+)\)/g)];
+const captureSources = readdirSync(captureDir)
+  .filter((name) => name.endsWith('.svelte'))
+  .map((name) => ({ name, source: readFileSync(join(captureDir, name), 'utf-8') }));
 
-  it('really did read a component that uses them', () => {
-    // Guards the guard: a source that failed to load, or a regex that matched
-    // nothing, would make the assertion below pass for ever.
-    expect(uses.length).toBeGreaterThan(20);
+describe('capture components trust the tokens', () => {
+  it('really did read more than one component', () => {
+    // Guards the guard: an empty or misfiled directory would make the
+    // assertion below pass for ever.
+    expect(captureSources.length).toBeGreaterThan(10);
   });
 
-  it('matches every fallback in App.svelte against UI_TOKENS', () => {
-    // The fallback is the anti-flash (app.css says so at its head): it is on
-    // screen for the frame before `applyTokens` runs, so a fallback that has
-    // drifted from its token is a layout that jumps — or, previewed anywhere
-    // the script never runs, a layout that is silently wrong. Two of them had
-    // drifted for real (50px against 62px, 300px against 380px) before this
-    // test pinned the lot.
-    for (const use of uses) {
-      // Both groups always capture; the regex has no optional part.
-      const name = use[1]!;
-      const fallback = use[2]!;
-      const token = tokens[name];
-      // A variable the palette does not carry is declared elsewhere on
-      // purpose; this test only pins the copies.
-      if (token === undefined) continue;
-      const expected = token.replace(FONT_FAMILY[name] ?? '', '');
-      expect(fallback.toLowerCase(), `${name} fallback has drifted`).toBe(expected.toLowerCase());
+  it('carries no var(--he-*, fallback) in any capture component', () => {
+    for (const { name, source } of captureSources) {
+      const fallbacks = [...source.matchAll(/var\(--he-[a-z-]+,\s*[^)]*\)/g)].map((m) => m[0]);
+      expect(fallbacks, `${name} still second-guesses the tokens`).toEqual([]);
     }
   });
 });

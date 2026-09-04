@@ -183,8 +183,8 @@
 
 <style>
   .body {
-    font: var(--he-font, 400 16px system-ui, sans-serif);
-    color: var(--he-text-muted, #8b90a0);
+    font: var(--he-font);
+    color: var(--he-text-muted);
   }
 
   .body {
@@ -201,11 +201,11 @@
   }
   h3 {
     margin: 0;
-    font-size: var(--he-size-xs, 14px);
+    font-size: var(--he-size-xs);
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: var(--he-text-faint, #5a5f70);
+    color: var(--he-text-faint);
   }
 
   ul {
@@ -221,16 +221,16 @@
   .readings li,
   .at,
   pre {
-    font: var(--he-font-mono, 400 15px ui-monospace, monospace);
-    font-size: var(--he-size-xs, 14px);
-    color: var(--he-text-faint, #5a5f70);
+    font: var(--he-font-mono);
+    font-size: var(--he-size-xs);
+    color: var(--he-text-faint);
     margin: 0;
   }
   .log li[data-kind='bug'] {
-    color: var(--he-override, #d9a05b);
+    color: var(--he-override);
   }
   .at {
-    color: var(--he-border-hover, #3a4054);
+    color: var(--he-border-hover);
   }
   .agent {
     /* A user agent is one long unbreakable token; without this it widens the
@@ -246,20 +246,20 @@
   .readings .label {
     inline-size: 5.5rem;
     font-weight: 600;
-    color: var(--he-text-muted, #8b90a0);
+    color: var(--he-text-muted);
   }
   .readings .travel {
     margin-left: auto;
-    color: var(--he-text, #dde1e9);
+    color: var(--he-text);
   }
   .readings .dot {
     inline-size: 6px;
     block-size: 6px;
     border-radius: 50%;
-    background: var(--he-border-hover, #3a4054);
+    background: var(--he-border-hover);
   }
   .readings li[data-active='true'] .dot {
-    background: var(--he-accent, #7c9eff);
+    background: var(--he-accent);
   }
 
   pre {
@@ -268,37 +268,37 @@
     margin: 0;
     padding: 7px 9px;
     overflow-x: auto;
-    background: var(--he-popover, #141722);
-    border: 1px solid var(--he-border-control, #232838);
-    border-radius: var(--he-radius, 4px);
-    color: var(--he-text-muted, #8b90a0);
+    background: var(--he-popover);
+    border: 1px solid var(--he-border-control);
+    border-radius: var(--he-radius);
+    color: var(--he-text-muted);
   }
 
   .empty,
   .hint {
     margin: 0;
-    font-size: var(--he-size-xs, 14px);
+    font-size: var(--he-size-xs);
     line-height: 1.45;
-    color: var(--he-text-faint, #5a5f70);
+    color: var(--he-text-faint);
   }
 
   button {
     font: inherit;
-    font-size: var(--he-size-sm, 15px);
+    font-size: var(--he-size-sm);
     font-weight: 600;
-    color: var(--he-accent, #7c9eff);
+    color: var(--he-accent);
     background: none;
-    border: 1px solid var(--he-border-control, #232838);
-    border-radius: var(--he-radius, 4px);
+    border: 1px solid var(--he-border-control);
+    border-radius: var(--he-radius);
     padding: 5px 10px;
     cursor: pointer;
   }
   button:hover {
-    border-color: var(--he-border-hover, #3a4054);
-    color: var(--he-accent-hover, #a5bcff);
+    border-color: var(--he-border-hover);
+    color: var(--he-accent-hover);
   }
   button:focus-visible {
-    outline: 2px solid var(--he-accent, #7c9eff);
+    outline: 2px solid var(--he-accent);
     outline-offset: 2px;
   }
 </style>

@@ -111,7 +111,7 @@
     gap: 0.75rem;
     align-items: center;
     flex-wrap: wrap;
-    font: var(--he-font, 400 16px system-ui, sans-serif);
+    font: var(--he-font);
     /* `.bar` already frames this header with its own padding and background
        (spec §11's run of pills reads as part of the bar, not a panel inside
        it) — a second one here would double both. */
@@ -168,7 +168,7 @@
   .rival {
     flex-basis: 100%;
     align-items: flex-start;
-    color: var(--he-danger, #e06c5b);
+    color: var(--he-danger);
     font-weight: 600;
   }
   /* On the first line of the sentence, not in the middle of the block: the text

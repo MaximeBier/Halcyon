@@ -35,32 +35,32 @@
     display: block;
     padding: 11px 0;
 
-    font: var(--he-font, 400 16px system-ui, sans-serif);
-    font-size: var(--he-size-sm, 15px);
+    font: var(--he-font);
+    font-size: var(--he-size-sm);
     font-weight: 700;
     text-align: center;
     cursor: pointer;
 
-    color: var(--he-bg, #0e1015);
-    background: var(--he-accent, #7c9eff);
-    border: 1px solid var(--he-accent, #7c9eff);
-    border-radius: var(--he-radius-control, 5px);
+    color: var(--he-bg);
+    background: var(--he-accent);
+    border: 1px solid var(--he-accent);
+    border-radius: var(--he-radius-control);
   }
   .add:hover {
-    background: var(--he-accent-hover, #a5bcff);
-    border-color: var(--he-accent-hover, #a5bcff);
+    background: var(--he-accent-hover);
+    border-color: var(--he-accent-hover);
   }
   /* Listening reverses it: the accent moves to the outline, so the panel reads
      as armed rather than as offering something. */
   .add.listening {
-    color: var(--he-accent, #7c9eff);
-    background: var(--he-bg, #0e1015);
+    color: var(--he-accent);
+    background: var(--he-bg);
   }
   .add.listening:hover {
-    background: var(--he-surface, #151823);
+    background: var(--he-surface);
   }
   .add:focus-visible {
-    outline: 2px solid var(--he-accent, #7c9eff);
+    outline: 2px solid var(--he-accent);
     outline-offset: 2px;
   }
 

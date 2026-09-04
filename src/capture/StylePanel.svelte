@@ -358,9 +358,9 @@
     display: grid;
     gap: 10px;
     padding: 16px 18px;
-    background: var(--he-popover, #141722);
-    border: 1px solid var(--he-border, #1b1e27);
-    border-radius: var(--he-radius-panel, 6px);
+    background: var(--he-popover);
+    border: 1px solid var(--he-border);
+    border-radius: var(--he-radius-panel);
   }
   .presets {
     display: grid;
@@ -381,24 +381,24 @@
     inline-size: 24px;
     block-size: 24px;
     padding: 0;
-    border: 1px solid var(--he-border-popover, #262b3a);
-    border-radius: var(--he-radius, 4px);
+    border: 1px solid var(--he-border-popover);
+    border-radius: var(--he-radius);
     cursor: pointer;
   }
   /* An outline rather than a border: a border would eat a pixel of the colours
      it is marking, and on the darkest preset that pixel is the whole rest
      band. */
   .preset.on {
-    outline: 2px solid var(--he-text, #dde1e9);
+    outline: 2px solid var(--he-text);
     outline-offset: 1px;
   }
   .preset:focus-visible {
-    outline: 2px solid var(--he-accent, #7c9eff);
+    outline: 2px solid var(--he-accent);
     outline-offset: 1px;
   }
   .caption {
-    font-size: var(--he-size-xs, 14px);
-    color: var(--he-text-faint, #5a5f70);
+    font-size: var(--he-size-xs);
+    color: var(--he-text-faint);
   }
   .row {
     display: flex;
@@ -407,8 +407,8 @@
     gap: 12px;
   }
   label {
-    font-size: var(--he-size-md, 16px);
-    color: var(--he-text-muted, #8b90a0);
+    font-size: var(--he-size-md);
+    color: var(--he-text-muted);
   }
   .value {
     display: flex;
@@ -416,12 +416,12 @@
     gap: 8px;
   }
   code {
-    font: var(--he-font-mono, 400 15px ui-monospace, monospace);
-    color: var(--he-text-faint, #5a5f70);
+    font: var(--he-font-mono);
+    color: var(--he-text-faint);
   }
   .unit {
-    font-size: var(--he-size-xs, 14px);
-    color: var(--he-text-ghost, #4a4f60);
+    font-size: var(--he-size-xs);
+    color: var(--he-text-ghost);
   }
   /* Out of use, and saying so: under `outline` the control that colours the
      resting background has no background to colour. Dimmed-but-clickable would
@@ -441,35 +441,35 @@
     block-size: 22px;
     padding: 0;
     background: none;
-    border: 1px solid var(--he-border-control, #232838);
-    border-radius: var(--he-radius, 4px);
+    border: 1px solid var(--he-border-control);
+    border-radius: var(--he-radius);
     cursor: pointer;
   }
   input[type='number'] {
     inline-size: 56px;
-    font: var(--he-font-mono, 400 15px ui-monospace, monospace);
-    color: var(--he-text, #dde1e9);
-    background: var(--he-stage, #0b0d11);
-    border: 1px solid var(--he-border-control, #232838);
-    border-radius: var(--he-radius, 4px);
+    font: var(--he-font-mono);
+    color: var(--he-text);
+    background: var(--he-stage);
+    border: 1px solid var(--he-border-control);
+    border-radius: var(--he-radius);
     padding: 4px 6px;
   }
   input[type='range'] {
     inline-size: 96px;
-    accent-color: var(--he-accent, #7c9eff);
+    accent-color: var(--he-accent);
   }
   select {
     font: inherit;
-    font-size: var(--he-size-md, 16px);
-    color: var(--he-text, #dde1e9);
-    background: var(--he-stage, #0b0d11);
-    border: 1px solid var(--he-border-control, #232838);
-    border-radius: var(--he-radius, 4px);
+    font-size: var(--he-size-md);
+    color: var(--he-text);
+    background: var(--he-stage);
+    border: 1px solid var(--he-border-control);
+    border-radius: var(--he-radius);
     padding: 4px 6px;
   }
   input:focus-visible,
   select:focus-visible {
-    outline: 2px solid var(--he-accent, #7c9eff);
+    outline: 2px solid var(--he-accent);
     outline-offset: 1px;
   }
 </style>

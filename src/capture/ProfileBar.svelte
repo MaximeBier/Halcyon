@@ -308,9 +308,9 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    font: var(--he-font, 400 16px system-ui, sans-serif);
-    font-size: var(--he-size-md, 16px);
-    color: var(--he-text-muted, #8b90a0);
+    font: var(--he-font);
+    font-size: var(--he-size-md);
+    color: var(--he-text-muted);
   }
   .trigger {
     all: unset;
@@ -319,28 +319,28 @@
     align-items: center;
     gap: 5px;
     font-weight: 600;
-    color: var(--he-text, #dde1e9);
-    border-radius: var(--he-radius, 4px);
+    color: var(--he-text);
+    border-radius: var(--he-radius);
   }
   .caret {
-    font-size: var(--he-size-xs, 14px);
-    color: var(--he-text-muted, #8b90a0);
+    font-size: var(--he-size-xs);
+    color: var(--he-text-muted);
   }
 
   .menu {
     position: absolute;
-    top: var(--he-menu-offset, 30px);
+    top: var(--he-menu-offset);
     right: 0;
     z-index: 9;
-    inline-size: var(--he-menu-width, 240px);
+    inline-size: var(--he-menu-width);
 
     display: flex;
     flex-direction: column;
     padding: 6px;
 
-    background: var(--he-popover, #141722);
-    border: 1px solid var(--he-border-popover, #262b3a);
-    border-radius: var(--he-radius-panel, 6px);
+    background: var(--he-popover);
+    border: 1px solid var(--he-border-popover);
+    border-radius: var(--he-radius-panel);
   }
 
   .row {
@@ -352,27 +352,27 @@
     justify-content: space-between;
     gap: 8px;
     padding: 7px 9px;
-    border-radius: var(--he-radius, 4px);
-    font-size: var(--he-size-md, 16px);
-    color: var(--he-text-muted, #8b90a0);
+    border-radius: var(--he-radius);
+    font-size: var(--he-size-md);
+    color: var(--he-text-muted);
   }
   .row:hover,
   .row:focus-visible {
-    background: var(--he-surface, #151823);
-    color: var(--he-text, #dde1e9);
+    background: var(--he-surface);
+    color: var(--he-text);
   }
   .row.current {
     font-weight: 600;
-    color: var(--he-text, #dde1e9);
-    background: var(--he-surface, #151823);
+    color: var(--he-text);
+    background: var(--he-surface);
     cursor: default;
   }
   .row.danger {
-    color: var(--he-danger, #e06c5b);
+    color: var(--he-danger);
   }
   .row.danger.armed {
     font-weight: 600;
-    background: var(--he-surface, #151823);
+    background: var(--he-surface);
   }
   .name {
     overflow: hidden;
@@ -380,12 +380,12 @@
     white-space: nowrap;
   }
   .tick {
-    color: var(--he-accent, #7c9eff);
+    color: var(--he-accent);
   }
   .count {
     flex: none;
-    font-size: var(--he-size-xs, 14px);
-    color: var(--he-text-faint, #5a5f70);
+    font-size: var(--he-size-xs);
+    color: var(--he-text-faint);
   }
 
   hr {
@@ -393,7 +393,7 @@
     block-size: 1px;
     margin: 5px 4px;
     border: none;
-    background: var(--he-border, #1b1e27);
+    background: var(--he-border);
   }
 
   form {
@@ -403,15 +403,15 @@
     inline-size: 100%;
     box-sizing: border-box;
     font: inherit;
-    font-size: var(--he-size-md, 16px);
-    color: var(--he-text, #dde1e9);
-    background: var(--he-stage, #0b0d11);
-    border: 1px solid var(--he-border-control, #232838);
-    border-radius: var(--he-radius, 4px);
+    font-size: var(--he-size-md);
+    color: var(--he-text);
+    background: var(--he-stage);
+    border: 1px solid var(--he-border-control);
+    border-radius: var(--he-radius);
     padding: 5px 8px;
   }
   input[type='text']:focus-visible {
-    outline: 1px solid var(--he-accent, #7c9eff);
+    outline: 1px solid var(--he-accent);
   }
 
   /* Hidden from sight, not from the keyboard: `display: none` would take the
@@ -429,11 +429,11 @@
 
   .status {
     padding: 3px 9px 4px;
-    font-size: var(--he-size-xs, 14px);
+    font-size: var(--he-size-xs);
     line-height: 1.4;
-    color: var(--he-text-faint, #5a5f70);
+    color: var(--he-text-faint);
   }
   .status.warn {
-    color: var(--he-override, #d9a05b);
+    color: var(--he-override);
   }
 </style>

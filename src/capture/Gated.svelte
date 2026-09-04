@@ -52,30 +52,30 @@
   }
   .why {
     margin: 7px 0 0;
-    font: var(--he-font, 400 16px system-ui, sans-serif);
-    font-size: var(--he-size-xs, 14px);
+    font: var(--he-font);
+    font-size: var(--he-size-xs);
     text-align: center;
-    color: var(--he-text-faint, #5a5f70);
+    color: var(--he-text-faint);
   }
   .act {
     display: block;
     margin: 7px auto 0;
     font: inherit;
-    font-size: var(--he-size-sm, 15px);
+    font-size: var(--he-size-sm);
     font-weight: 600;
-    color: var(--he-text, #dde1e9);
+    color: var(--he-text);
     background: none;
-    border: 1px solid var(--he-border-popover, #262b3a);
-    border-radius: var(--he-radius-control, 5px);
+    border: 1px solid var(--he-border-popover);
+    border-radius: var(--he-radius-control);
     padding: 6px 14px;
     cursor: pointer;
   }
   .act:hover {
-    border-color: var(--he-border-hover, #3a4054);
-    background: var(--he-surface, #151823);
+    border-color: var(--he-border-hover);
+    background: var(--he-surface);
   }
   .act:focus-visible {
-    outline: 2px solid var(--he-accent, #7c9eff);
+    outline: 2px solid var(--he-accent);
     outline-offset: 2px;
   }
 </style>

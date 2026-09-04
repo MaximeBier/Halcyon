@@ -89,8 +89,8 @@
 
 <style>
   .fold {
-    font: var(--he-font, 400 16px system-ui, sans-serif);
-    color: var(--he-text-muted, #8b90a0);
+    font: var(--he-font);
+    color: var(--he-text-muted);
   }
   summary {
     display: flex;
@@ -98,12 +98,12 @@
     gap: 8px;
     padding: 6px 0;
     cursor: pointer;
-    font-size: var(--he-size-sm, 15px);
+    font-size: var(--he-size-sm);
     font-weight: 600;
     letter-spacing: 0.04em;
   }
   summary:focus-visible {
-    outline: 2px solid var(--he-accent, #7c9eff);
+    outline: 2px solid var(--he-accent);
     outline-offset: 2px;
   }
   /* `list-item` would bring the native marker back, and with it a bullet whose
@@ -114,8 +114,8 @@
     display: none;
   }
   .caret {
-    font-size: var(--he-size-xs, 14px);
-    color: var(--he-text-faint, #5a5f70);
+    font-size: var(--he-size-xs);
+    color: var(--he-text-faint);
     /* Rotated rather than replaced, and transitioned so the gesture is legible
        even when the contents below it appears in one frame. */
     transition: rotate 120ms ease-out;
@@ -124,19 +124,19 @@
     rotate: 90deg;
   }
   .title {
-    color: var(--he-text-muted, #8b90a0);
+    color: var(--he-text-muted);
   }
   .dot {
     inline-size: 6px;
     block-size: 6px;
     border-radius: 50%;
-    background: var(--he-override, #d9a05b);
+    background: var(--he-override);
   }
   .note {
     margin-left: auto;
     font-weight: 400;
-    font-size: var(--he-size-xs, 14px);
-    color: var(--he-text-faint, #5a5f70);
+    font-size: var(--he-size-xs);
+    color: var(--he-text-faint);
   }
   .body {
     padding-top: 8px;
