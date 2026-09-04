@@ -107,6 +107,14 @@ export function keyboardHint(status: KeyboardStatus): string {
       // other half: Chrome lists every HID interface this vendor exposes, and
       // the wrong one is easy to choose.
       return 'No analog interface. Update the firmware in Wootility, or pick another device.';
+    case 'open-failed':
+      // The device answered and was authorised — it just refused to open,
+      // which on Windows means something else already has it exclusively
+      // (spec §10). Naming Wootility is the concrete first guess, same
+      // reasoning as the firmware wording above: send the reader to the thing
+      // that turns out to be true most often, not to a diagnostics panel that
+      // cannot see who is holding the device either.
+      return "Couldn't open the keyboard — close Wootility or other tabs using it, then try again.";
     case 'unsupported':
       return 'WebHID is required. Use Chrome or Edge on desktop.';
   }
@@ -121,10 +129,20 @@ export function keyboardHint(status: KeyboardStatus): string {
  * chosen out of the several Chrome lists for the vendor. A working keyboard
  * needs no gesture, and a browser without WebHID has no picker to open — a
  * control that cannot help is how someone presses it four times.
+ *
+ * `open-failed` belongs here too: `keyboardHint` tells the reader to "try
+ * again", and requestPermission() is the retry — reopening the picker and
+ * choosing the same device calls open() a second time. Leaving it out made
+ * the pill an inert `<span>` (`StatusBar.svelte` only wraps a `<button>` when
+ * this returns true) under copy that explicitly invites a click — found in
+ * review on 2026-09-04.
  */
 export function canPickDevice(status: KeyboardStatus): boolean {
   return (
-    status === 'no-permission' || status === 'disconnected' || status === 'no-analog-interface'
+    status === 'no-permission' ||
+    status === 'disconnected' ||
+    status === 'no-analog-interface' ||
+    status === 'open-failed'
   );
 }
 

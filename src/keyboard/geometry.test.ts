@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { ISO_GEOMETRY, geometryFor, placeNewKey } from './geometry';
 
@@ -41,6 +42,15 @@ describe('ISO geometry table', () => {
 
   it('returns undefined for a usage missing from the table', () => {
     expect(geometryFor(0xff)).toBeUndefined();
+  });
+
+  it('resolves usage 0x32 as an alias of the ISO key at 0x31', () => {
+    // HID Usage Tables give this same physical position (between Quote and
+    // Enter on ISO) two usages: 0x31 ("Keyboard \\ and |") and 0x32
+    // ("Keyboard Non-US # and ~"). Not verified against a real Wooting
+    // report — added defensively so a board reporting 0x32 is not silently
+    // dropped as an unknown key.
+    expect(geometryFor(0x32)).toEqual(geometryFor(0x31));
   });
 });
 

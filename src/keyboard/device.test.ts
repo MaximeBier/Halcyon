@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, vi } from 'vitest';
 import { createKeyboardLink, isAnalogDevice, type KeyboardStatus } from './device';
 import { fakeDevice, fakeHid } from '../test/fixtures';
@@ -226,5 +227,94 @@ describe('createKeyboardLink', () => {
     hid.fire('disconnect', fakeDevice([0x0001], 'Some Mouse'));
 
     expect(link.status).toBe('connected');
+  });
+
+  it('reports open-failed instead of throwing when open() rejects', async () => {
+    // NotReadableError is the plausible case on Windows: Wootility or another
+    // tab already holds the device exclusively. Nothing awaits `resume()` from
+    // `App.svelte` (`void link.resume()`), so a rejection that escapes this far
+    // becomes an unhandled promise rejection, and the status is left wherever
+    // it was — a re-click lands in the same hole.
+    const device = fakeDevice([0xff53]);
+    device.open = () => Promise.reject(new Error('NotReadableError'));
+    const onStatus = vi.fn();
+    const link = createKeyboardLink({
+      hid: fakeHid([device]),
+      onReport: () => {},
+      onStatus,
+    });
+
+    await expect(link.resume()).resolves.toBeUndefined();
+
+    expect(link.status).toBe('open-failed');
+    expect(onStatus).toHaveBeenCalledWith('open-failed', null);
+  });
+
+  it('lets a later attempt reopen a device that failed to open before', async () => {
+    // The point of surfacing open-failed rather than leaving the status stuck:
+    // closing Wootility and clicking again must actually retry `open()`.
+    const device = fakeDevice([0xff53]);
+    let attempts = 0;
+    const realOpen = device.open.bind(device);
+    device.open = async () => {
+      attempts++;
+      if (attempts === 1) throw new Error('NotReadableError');
+      await realOpen();
+    };
+    const link = createKeyboardLink({
+      hid: fakeHid([device]),
+      onReport: () => {},
+      onStatus: () => {},
+    });
+    await link.resume();
+    expect(link.status).toBe('open-failed');
+
+    await link.requestPermission();
+
+    expect(link.status).toBe('connected');
+    expect(attempts).toBe(2);
+  });
+
+  it('opens the device once when two attaches race for it', async () => {
+    // `resume()` at startup and a `connect` event both firing when the tab
+    // regains focus can call open() on the same device before either has
+    // finished — WebHID's open() is not reentrant, and a second in-flight call
+    // throws InvalidStateError.
+    const device = fakeDevice([0xff53]);
+    let openCalls = 0;
+    const realOpen = device.open.bind(device);
+    device.open = async () => {
+      openCalls++;
+      await realOpen();
+    };
+    const link = createKeyboardLink({
+      hid: fakeHid([device]),
+      onReport: () => {},
+      onStatus: () => {},
+    });
+
+    await Promise.all([link.resume(), link.requestPermission()]);
+
+    expect(openCalls).toBe(1);
+    expect(link.status).toBe('connected');
+  });
+
+  it('renames the callback when the picker swaps the connected keyboard', async () => {
+    // Choosing a second keyboard from the picker while one is already
+    // connected replaces `current`, but the status stays 'connected' — a
+    // dedup keyed on status alone would silently drop the name change.
+    const first = fakeDevice([0xff53], 'Wooting 60HE');
+    const second = fakeDevice([0xff53], 'Wooting Two HE (ARM)');
+    const seen: [KeyboardStatus, string | null][] = [];
+    const link = createKeyboardLink({
+      hid: fakeHid([first], [second]),
+      onReport: () => {},
+      onStatus: (status, name) => void seen.push([status, name]),
+    });
+    await link.resume();
+
+    await link.requestPermission();
+
+    expect(seen.at(-1)).toEqual(['connected', 'Wooting Two HE (ARM)']);
   });
 });

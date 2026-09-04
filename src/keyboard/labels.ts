@@ -180,14 +180,21 @@ export function labelFor(usage: number, layout: LayoutMapLike | null): string {
 }
 
 /**
- * Fallback maps, limited to the positions whose character differs from one
- * layout to the next. Everywhere else, the position name is enough.
+ * Fallback maps, limited to the positions where forcing a layout has
+ * something to correct. Everywhere else, the position name is enough.
  *
- * The three cover **the same positions**, deliberately. They exist to be
- * swapped when detection gets it wrong, so a position listed in one and
- * missing from another would make that switch degrade a label into a position
- * name — `KeyY` reading "Y" on qwertz and "KeyY" on qwerty. A test holds the
- * three sets equal.
+ * **qwerty and qwertz cover the same positions; azerty does not, on purpose.**
+ * qwerty and qwertz exist to be swapped for each other when detection gets it
+ * wrong, so a position listed in one and missing from the other would make
+ * that swap degrade a label into a position name — `KeyY` reading "Y" on
+ * qwertz and "KeyY" on qwerty. A test holds those two sets equal.
+ *
+ * AZERTY disagrees with both on more than letters: the digit row needs Shift
+ * to type a digit at all, and half the punctuation moves too, so its table
+ * also carries the digit and punctuation row. Leaving those out — found in
+ * review on 2026-09-04 — made a forced azerty print "Digit1" and "Minus"
+ * literally, the same debugging string `KEYCAP_LABELS` exists to keep off the
+ * screen.
  */
 export const FALLBACK_LAYOUTS: Record<Exclude<LayoutOverride, 'auto'>, LayoutMapLike> = {
   azerty: new Map([
@@ -198,6 +205,28 @@ export const FALLBACK_LAYOUTS: Record<Exclude<LayoutOverride, 'auto'>, LayoutMap
     ['KeyY', 'y'],
     ['Semicolon', 'm'],
     ['KeyM', ','],
+    // The digit row: unshifted, an AZERTY keyboard prints these symbols and
+    // accented letters, not the digits — Shift is what gets you '1'..'0'.
+    ['Digit1', '&'],
+    ['Digit2', 'é'],
+    ['Digit3', '"'],
+    ['Digit4', "'"],
+    ['Digit5', '('],
+    ['Digit6', '-'],
+    ['Digit7', 'è'],
+    ['Digit8', '_'],
+    ['Digit9', 'ç'],
+    ['Digit0', 'à'],
+    ['Minus', ')'],
+    ['Equal', '='],
+    ['BracketLeft', '^'],
+    ['BracketRight', '$'],
+    ['Quote', 'ù'],
+    ['Backslash', '*'],
+    ['Comma', ';'],
+    ['Period', ':'],
+    ['Slash', '!'],
+    ['Backquote', '²'],
   ]),
   qwerty: new Map([
     ['KeyQ', 'q'],
@@ -223,17 +252,18 @@ export const FALLBACK_LAYOUTS: Record<Exclude<LayoutOverride, 'auto'>, LayoutMap
  * `auto` trusts `getLayoutMap()`. The other values are the explicit fallback
  * of §8.6, picked when detection gets it wrong.
  *
- * **The choice corrects detection; it does not replace it.** The tables above
- * hold seven positions — the ones the three layouts disagree on — and reading
- * them as the whole answer is a defect found in review on 2026-08-20: forcing
- * a layout renamed every key outside those seven to its position name, because
- * `KEYCAP_LABELS` covers no letter and no digit. Someone whose detection was
- * right for `D` and wrong for `Q` fixed the `Q` and lost the `D`.
+ * **The choice corrects detection; it does not replace it.** Forcing a layout
+ * used to rename every key the table did not list to its position name,
+ * because `KEYCAP_LABELS` covers no letter and no digit — a defect found in
+ * review on 2026-08-20 for the seven letters qwerty and qwertz disagree on,
+ * and again on 2026-09-04 for AZERTY's digit and punctuation row, which the
+ * first fix never reached. Someone whose detection was right for `D` and
+ * wrong for `Q` fixed the `Q` and lost the `D`.
  *
  * So the forced table answers first and detection answers the rest. On the
- * seven positions the choice still wins outright, which is the whole point of
- * having it; everywhere else the layouts agree anyway, so detection is as good
- * an answer as exists.
+ * positions a table lists, the choice still wins outright, which is the whole
+ * point of having it; everywhere else the layouts agree closely enough that
+ * detection is as good an answer as exists.
  */
 export function resolveLayout(
   override: LayoutOverride,

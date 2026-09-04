@@ -137,12 +137,16 @@ describe('overlayUrl', () => {
 
 describe('what a pill offers to do about itself', () => {
   it('offers the device picker for every keyboard state a picker could fix', () => {
-    // The three states the panel's own button already covers: nothing chosen
+    // The panel's own button already covers three of these: nothing chosen
     // yet, nothing plugged in, and the wrong interface chosen out of the ones
-    // Chrome lists for the vendor.
+    // Chrome lists for the vendor. `open-failed` joins them: the hint
+    // (`keyboardHint`) tells the reader to "try again", and requestPermission()
+    // is that retry — closing Wootility, then reopening the picker and
+    // choosing the same device, calls open() again.
     expect(canPickDevice('no-permission')).toBe(true);
     expect(canPickDevice('disconnected')).toBe(true);
     expect(canPickDevice('no-analog-interface')).toBe(true);
+    expect(canPickDevice('open-failed')).toBe(true);
   });
 
   it('offers nothing when a picker cannot help', () => {
@@ -197,6 +201,15 @@ describe('status bar wording', () => {
     // Same cap and same reason as the unreachable hint below: the bar is a
     // wrapping flex row, so a long sentence pushes every pill after it down.
     expect(keyboardHint('no-analog-interface').length).toBeLessThan(140);
+  });
+
+  it('names Wootility when the device refused to open', () => {
+    // `open()` rejecting (NotReadableError on Windows) means something else
+    // already holds the device exclusively — Wootility is the concrete first
+    // guess, and the hint has to say to try again, since that is the whole
+    // point of surfacing this rather than leaving the status stuck.
+    expect(keyboardHint('open-failed')).toMatch(/wootility/i);
+    expect(keyboardHint('open-failed')).toMatch(/try again/i);
   });
 
   it('tells a refused password apart from an unreachable server', () => {

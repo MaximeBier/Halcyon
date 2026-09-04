@@ -141,6 +141,14 @@ export const ISO_GEOMETRY: readonly KeyGeometry[] = [
 
 const BY_USAGE = new Map(ISO_GEOMETRY.map((entry) => [entry.usage, entry]));
 
+// HID Usage Tables assign this same physical position — between Quote and
+// Enter on an ISO board — two usages: 0x31 ("Keyboard \ and |", already in the
+// table above) and 0x32 ("Keyboard Non-US # and ~"). Added as an alias of the
+// same geometry rather than a second row entry, since it is one key, not two —
+// a second entry would make the overlap check in geometry.test.ts fail on
+// purpose. Not verified against a real Wooting report.
+BY_USAGE.set(0x32, BY_USAGE.get(0x31)!);
+
 export function geometryFor(usage: number): KeyGeometry | undefined {
   return BY_USAGE.get(usage);
 }

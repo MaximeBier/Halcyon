@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import {
   FALLBACK_LAYOUTS,
@@ -68,15 +69,24 @@ describe('resolveLayout', () => {
 
 describe('the three fallback layouts', () => {
   // They are picked precisely when detection is wrong, so switching between
-  // them must never make a label worse. A position present in one map and
-  // absent from another degrades to the position name on that layout only —
-  // KeyY read "Y" on qwertz and "KeyY" on qwerty.
-  it('cover exactly the same positions', () => {
-    const [first, ...rest] = Object.values(FALLBACK_LAYOUTS).map((layout) =>
-      [...(layout as Map<string, string>).keys()].sort(),
-    );
+  // qwerty and qwertz must never make a label worse — those two disagree only
+  // on the seven letters, everywhere else a US-shaped board and a German one
+  // print the same thing. AZERTY is not held to the same set: its digit row
+  // needs Shift to type a digit at all, and half the punctuation moves too,
+  // so its table also carries the positions those two have no reason to list.
+  const codesOf = (name: keyof typeof FALLBACK_LAYOUTS) =>
+    (FALLBACK_LAYOUTS[name] as Map<string, string>).keys();
 
-    for (const codes of rest) expect(codes).toEqual(first);
+  it('let qwerty and qwertz cover exactly the same positions', () => {
+    expect([...codesOf('qwertz')].sort()).toEqual([...codesOf('qwerty')].sort());
+  });
+
+  it('gives azerty every position qwerty and qwertz cover, and more', () => {
+    const azertyCodes = new Set(codesOf('azerty'));
+    const qwertyCodes = [...codesOf('qwerty')];
+
+    for (const code of qwertyCodes) expect(azertyCodes.has(code)).toBe(true);
+    expect(azertyCodes.size).toBeGreaterThan(qwertyCodes.length);
   });
 
   it('gives every one of those positions a real character', () => {
@@ -92,6 +102,63 @@ describe('the three fallback layouts', () => {
     expect(labelFor(0x1c, resolveLayout('qwertz', null))).toBe('Z');
     expect(labelFor(0x1d, resolveLayout('qwerty', null))).toBe('Z');
     expect(labelFor(0x1c, resolveLayout('qwerty', null))).toBe('Y');
+  });
+});
+
+describe('azerty forced fallback — the digit and punctuation row', () => {
+  // AZERTY needs Shift to type a digit at all: unshifted, the top row prints
+  // symbols and accented letters instead. The table used to stop at the seven
+  // letters, so forcing azerty without detection left this whole row printing
+  // its position name literally — "Digit1", "Minus" — which is exactly the
+  // debugging string `KEYCAP_LABELS` exists to keep off the screen.
+  const forced = resolveLayout('azerty', null);
+
+  // usageOf reads the usage back out of the geometry table instead of
+  // hardcoding hex, so a mistyped usage here cannot agree with a mistyped one
+  // in geometry.ts and hide a real mismatch.
+  function usageOf(code: string): number {
+    return ISO_GEOMETRY.find((key) => key.code === code)!.usage;
+  }
+
+  it('labels the digit row the way an AZERTY keycap prints it', () => {
+    // `labelFor` uppercases every single-character answer already (Q reads
+    // "A" above) — the accented letters here get the same treatment, so é
+    // reads "É", exactly as the letter row already does.
+    const row: [string, string][] = [
+      ['Digit1', '&'],
+      ['Digit2', 'É'],
+      ['Digit3', '"'],
+      ['Digit4', "'"],
+      ['Digit5', '('],
+      ['Digit6', '-'],
+      ['Digit7', 'È'],
+      ['Digit8', '_'],
+      ['Digit9', 'Ç'],
+      ['Digit0', 'À'],
+    ];
+
+    for (const [code, expected] of row) {
+      expect(labelFor(usageOf(code), forced), code).toBe(expected);
+    }
+  });
+
+  it('labels the rest of the punctuation row the same way', () => {
+    const row: [string, string][] = [
+      ['Minus', ')'],
+      ['Equal', '='],
+      ['BracketLeft', '^'],
+      ['BracketRight', '$'],
+      ['Quote', 'Ù'],
+      ['Backslash', '*'],
+      ['Comma', ';'],
+      ['Period', ':'],
+      ['Slash', '!'],
+      ['Backquote', '²'],
+    ];
+
+    for (const [code, expected] of row) {
+      expect(labelFor(usageOf(code), forced), code).toBe(expected);
+    }
   });
 });
 
@@ -183,10 +250,11 @@ describe('keycap labels for the keys that print no character', () => {
 });
 
 describe('resolveLayout - the forced choice corrects, it does not replace', () => {
-  // The three tables hold seven positions. Read as the whole answer, forcing a
-  // layout renamed every other key to its position name: D became KeyD, & became
-  // Digit1. The table says what the layouts *disagree* on; detection still
-  // answers everything else.
+  // Each table holds the positions where forcing a layout corrects something
+  // detection might get wrong — seven letters for qwerty here. Read as the
+  // whole answer, forcing a layout renamed every other key to its position
+  // name: D became KeyD, & became Digit1. The table says what the layouts
+  // *disagree* on; detection still answers everything else.
   const detected = new Map([
     ['KeyQ', 'a'],
     ['KeyD', 'd'],

@@ -1,7 +1,17 @@
 import { ANALOG_USAGE_PAGE } from './decode';
 
 export type KeyboardStatus =
-  'unsupported' | 'no-permission' | 'disconnected' | 'connected' | 'no-analog-interface';
+  | 'unsupported'
+  | 'no-permission'
+  | 'disconnected'
+  | 'connected'
+  | 'no-analog-interface'
+  // `open()` rejected — NotReadableError is the plausible case on Windows,
+  // where Wootility or another tab already holds the device exclusively.
+  // Distinct from `disconnected`: the device is right there and authorised,
+  // it just would not open, and the hint (`keyboardHint`) has something
+  // different to say about it.
+  | 'open-failed';
 
 export interface HidDeviceLike {
   opened: boolean;
@@ -57,11 +67,21 @@ export function createKeyboardLink(options: KeyboardLinkOptions): KeyboardLink {
   const { hid } = options;
   let status: KeyboardStatus = 'disconnected';
   let current: HidDeviceLike | null = null;
+  // Paired with `status` for the dedup below: the status alone does not say
+  // which keyboard it is about.
+  let lastName: string | null = null;
 
   function setStatus(next: KeyboardStatus) {
-    if (status === next) return;
+    const name = current?.productName ?? null;
+    // Deduplicated on (status, name), not status alone: picking a second
+    // keyboard from the device picker while one is already connected
+    // replaces `current` without the status ever leaving 'connected', and a
+    // dedup keyed on status alone would then drop the callback that tells the
+    // UI the name changed.
+    if (status === next && lastName === name) return;
     status = next;
-    options.onStatus(next, current?.productName ?? null);
+    lastName = name;
+    options.onStatus(next, name);
   }
 
   /**
@@ -72,9 +92,42 @@ export function createKeyboardLink(options: KeyboardLinkOptions): KeyboardLink {
    */
   const listening = new WeakSet<HidDeviceLike>();
 
+  /**
+   * The in-flight `open()` for a device that has not finished opening yet.
+   *
+   * `resume()` at startup and the `connect` event can both attach the same
+   * device around the same time — a permission granted before the page ever
+   * called `resume()` fires both. WebHID's `open()` is not reentrant: calling
+   * it again while the first call is still pending throws `InvalidStateError`.
+   * Memoizing the promise makes the second caller await the first attempt
+   * instead of starting a second one.
+   */
+  const opening = new Map<HidDeviceLike, Promise<void>>();
+
   async function attach(device: HidDeviceLike) {
     if (current === device) return;
-    if (!device.opened) await device.open();
+
+    if (!device.opened) {
+      let pending = opening.get(device);
+      if (!pending) {
+        pending = device.open();
+        opening.set(device, pending);
+      }
+      try {
+        await pending;
+      } catch {
+        // NotReadableError is the plausible case on Windows: Wootility or
+        // another tab already holds the device exclusively. Nothing awaits
+        // `attach()` all the way up — `App.svelte` calls `void link.resume()`
+        // — so letting this propagate would be an unhandled promise
+        // rejection, and the status would stay wherever it was, with a
+        // re-click landing in the same hole.
+        setStatus('open-failed');
+        return;
+      } finally {
+        opening.delete(device);
+      }
+    }
 
     if (!listening.has(device)) {
       listening.add(device);
