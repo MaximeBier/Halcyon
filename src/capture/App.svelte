@@ -715,14 +715,42 @@
     // called `updateConfig`, which wrote the imported keys straight into
     // whatever profile happened to be loaded — the single gesture in the
     // application that could destroy a layout with nothing to undo it.
-    const landed = profiles.importFrom(importedProfileName(text, file.name), result.config);
+    const requestedName = importedProfileName(text, file.name);
+    // Judged against the list as it stood *before* the import, and against
+    // the same nameless fallback `freeName` applies to `requestedName` — a
+    // nameless import comparing itself against '' would call it a collision
+    // only once a profile happened to be named "" too, which never happens,
+    // instead of the "Profile" it will actually land beside.
+    const before = profiles.list();
+    const collidedWith = requestedName || 'Profile';
+    const collided = before.includes(collidedWith);
+
+    const landed = profiles.importFrom(requestedName, result.config);
     openProfile(landed);
     // After `openProfile`, which sets `health` from a re-read of what we have
     // just written — where the dropped count is zero, because the keys were
     // dropped on the way in and the stored file no longer has them. The count
     // worth showing is the one from the import.
     health = { problem: null, dropped: result.dropped, from: 'import' };
-    toast = importedToast(landed, result.dropped);
+
+    // No collision: exactly the toast this feature always showed, no action
+    // attached (spec's constat — the free-name path never changes).
+    toast = collided
+      ? importedToast(landed, result.dropped, {
+          name: collidedWith,
+          run: () => {
+            // `replaceFrom` refuses if `collidedWith` stopped existing between
+            // the toast appearing and this click (renamed, removed elsewhere)
+            // — nothing to reopen or clean up in that case, and the click has
+            // already dismissed the toast regardless (see Toast.svelte).
+            if (!profiles.replaceFrom(collidedWith, landed, result.config)) return;
+            openProfile(collidedWith);
+            // Same override as above, and for the same reason: a fresh read
+            // of what `replaceFrom` just wrote reports zero dropped keys.
+            health = { problem: null, dropped: result.dropped, from: 'import' };
+          },
+        })
+      : importedToast(landed, result.dropped);
   }
 
   /**

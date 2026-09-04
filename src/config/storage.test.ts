@@ -476,6 +476,24 @@ describe('a storage that refuses to write must not destroy anything', () => {
 
     expect(store.load('Apex').config.keys).toHaveLength(1);
   });
+
+  it('keeps the suffixed copy when a replacement cannot be written', () => {
+    // Write first, drop second, same as rename above: removing "Default 2"
+    // on the strength of a write that never landed would leave the imported
+    // keys nowhere at all — the one outcome worse than the pile-up this
+    // feature exists to fix.
+    const storage = readOnly({
+      'halcyon:profiles': JSON.stringify(['Default', 'Default 2']),
+      'halcyon:profile:Default': exportConfig(withKeys(aKey)),
+      'halcyon:profile:Default 2': exportConfig(withKeys(aKey, anotherKey)),
+    });
+    const store = createProfileStore(storage);
+
+    expect(store.replaceFrom('Default', 'Default 2', withKeys(anotherKey))).toBe(false);
+    expect(store.list()).toEqual(['Default', 'Default 2']);
+    expect(store.load('Default').config.keys).toHaveLength(1);
+    expect(store.load('Default 2').config.keys).toHaveLength(2);
+  });
 });
 
 describe('a profile named like a backup', () => {
@@ -592,5 +610,45 @@ describe('an import lands beside the open profile, never on top of it', () => {
     const store = createProfileStore(profileStorage());
 
     expect(store.importFrom('', defaultConfig())).toBe('Profile');
+  });
+});
+
+describe('replacing the profile an import collided with', () => {
+  it('writes the imported configuration into the existing profile', () => {
+    const store = createProfileStore(profileStorage());
+    store.create('Valorant');
+    store.save('Valorant', withKeys(aKey));
+    const suffixed = store.importFrom('Valorant', withKeys(aKey, anotherKey));
+
+    expect(store.replaceFrom('Valorant', suffixed, withKeys(anotherKey))).toBe(true);
+    expect(store.load('Valorant').config.keys).toEqual([anotherKey]);
+  });
+
+  it('removes the suffixed copy once the target carries the new configuration', () => {
+    // Nothing left pointing at "Valorant 2" once "Valorant" has taken its
+    // place — the whole reason this door exists, over the pile-up the spec
+    // complains about.
+    const store = createProfileStore(profileStorage());
+    store.create('Valorant');
+    store.save('Valorant', withKeys(aKey));
+    const suffixed = store.importFrom('Valorant', withKeys(anotherKey));
+
+    store.replaceFrom('Valorant', suffixed, withKeys(anotherKey));
+
+    expect(store.list()).toEqual(['Default', 'Valorant']);
+  });
+
+  it('refuses, and removes nothing, once the target has disappeared', () => {
+    // The toast can outlive the profile it names: renamed or removed while it
+    // was still on screen. Nothing to reconcile a config into any more, and
+    // the suffixed copy is the only surviving copy of the imported keys.
+    const store = createProfileStore(profileStorage());
+    store.create('Valorant');
+    const suffixed = store.importFrom('Valorant', withKeys(aKey));
+    store.remove('Valorant');
+
+    expect(store.replaceFrom('Valorant', suffixed, withKeys(aKey))).toBe(false);
+    expect(store.list()).toEqual(['Default', suffixed]);
+    expect(store.load(suffixed).config.keys).toHaveLength(1);
   });
 });

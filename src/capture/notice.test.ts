@@ -41,6 +41,30 @@ describe('what an import says, once', () => {
     expect(importedToast('Valorant', 1).message).toContain('1 key skipped');
   });
 
+  it('carries no action when the imported name was free', () => {
+    // The unchanged path (spec's constat): nothing to offer back when nothing
+    // collided, so the toast stays exactly what it was before this feature.
+    expect(importedToast('Valorant', 0).action).toBeUndefined();
+  });
+
+  it('offers to replace the profile the import collided with', () => {
+    // `freeName` already landed the import in "Valorant 2" by the time this
+    // toast is built; the action is the way back to "Valorant" that the
+    // silent dedup does not otherwise offer.
+    const run = () => {};
+    const notice = importedToast('Valorant 2', 0, { name: 'Valorant', run });
+
+    expect(notice.action).toEqual({ label: 'Replace “Valorant”', run });
+  });
+
+  it('still reports skipped keys when the toast also offers a replace', () => {
+    const notice = importedToast('Valorant 2', 3, { name: 'Valorant', run: () => {} });
+
+    expect(notice.tone).toBe('warning');
+    expect(notice.message).toContain('3 keys skipped');
+    expect(notice.action?.label).toBe('Replace “Valorant”');
+  });
+
   it('says the current profile was kept when the file was unreadable', () => {
     // The one thing to say here is what did *not* happen. A bare "import
     // failed" leaves people reloading to check they still have their layout.

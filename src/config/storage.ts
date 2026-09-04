@@ -181,6 +181,20 @@ export interface ProfileStore {
   remove(name: string): void;
   /** False when the name was empty or already belonged to another profile. */
   rename(from: string, to: string): boolean;
+  /**
+   * The import toast's "Replace" action: writes an imported configuration
+   * into `target`, an existing profile the import collided with, and removes
+   * `suffixed`, the copy `importFrom` had to create beside it instead of
+   * overwriting it.
+   *
+   * Write first, drop second — the same order `rename` uses, for the same
+   * reason: `suffixed` is the only surviving copy of the imported keys until
+   * `target` safely carries them, so removing it first would turn a failed
+   * write into a lost import instead of a retryable no-op. False, touching
+   * neither profile, when `target` no longer exists — the toast can outlive a
+   * rename or removal that happened while it was still on screen.
+   */
+  replaceFrom(target: string, suffixed: string, config: OverlayConfig): boolean;
 }
 
 function freeName(taken: readonly string[], wanted: string): string {
@@ -247,6 +261,26 @@ export function createProfileStore(storage: ProfileStorage): ProfileStore {
     return chosen;
   }
 
+  /**
+   * A standalone function, not only an object method, so `replaceFrom` below
+   * can drop the suffixed copy through the exact same path `remove` uses —
+   * one deletion rule, not two that could quietly drift apart.
+   */
+  function dropProfile(name: string): void {
+    const remaining = names().filter((entry) => entry !== name);
+    // Removing the last profile would leave the application without a
+    // configuration, and nothing to switch to.
+    if (remaining.length === 0) return;
+
+    // The list first, and only delete if it took: a shortened list that
+    // never landed alongside a deletion that did leaves a name pointing at
+    // nothing, for good.
+    if (!writeNames(remaining)) return;
+    storage.removeItem(profileKey(name));
+    storage.removeItem(backupKey(profileKey(name)));
+    if (activeName() === name) write(storage, ACTIVE_KEY, remaining[0]!);
+  }
+
   return {
     list: names,
     active: activeName,
@@ -287,19 +321,20 @@ export function createProfileStore(storage: ProfileStorage): ProfileStore {
       );
     },
 
-    remove(name) {
-      const remaining = names().filter((entry) => entry !== name);
-      // Removing the last profile would leave the application without a
-      // configuration, and nothing to switch to.
-      if (remaining.length === 0) return;
+    remove: dropProfile,
 
-      // The list first, and only delete if it took: a shortened list that
-      // never landed alongside a deletion that did leaves a name pointing at
-      // nothing, for good.
-      if (!writeNames(remaining)) return;
-      storage.removeItem(profileKey(name));
-      storage.removeItem(backupKey(profileKey(name)));
-      if (activeName() === name) write(storage, ACTIVE_KEY, remaining[0]!);
+    replaceFrom(target, suffixed, config) {
+      // The toast can outlive `target`: it may have been renamed or removed
+      // while still on screen. Nothing left to reconcile the import into, and
+      // `suffixed` — the only surviving copy of the imported keys — must stay
+      // put rather than vanish into a name that is no longer there.
+      if (!names().includes(target)) return false;
+      if (!write(storage, profileKey(target), exportConfig(config))) return false;
+
+      // Only reached once `target` safely carries the new configuration:
+      // `suffixed` was never anything but a landing spot for it.
+      dropProfile(suffixed);
+      return true;
     },
 
     rename(from, to) {

@@ -69,9 +69,21 @@ export function importFailedToast(
  * `freeName` deduplicates in silence, so a file asking for "Valorant" can land
  * in "Valorant 2". Announcing the name requested would send someone looking in
  * a profile their keys are not in.
+ *
+ * `replace`, present only when the import collided with an existing profile,
+ * is the way back that silent dedup does not otherwise offer: without it,
+ * re-importing the same backup piles up "Valorant 2", "Valorant 3", … forever
+ * (spec's constat). It names the profile the action would overwrite — the one
+ * that actually collided, never the suffixed copy this toast is already
+ * about.
  */
-export function importedToast(profile: string, dropped: number): Notice {
+export function importedToast(
+  profile: string,
+  dropped: number,
+  replace?: { name: string; run: () => void },
+): Notice {
   const landed = `Profile imported as "${profile}"`;
+  const action = replace ? { label: `Replace “${replace.name}”`, run: replace.run } : undefined;
 
   // A warning, never an error: the import worked. Calling it a failure is how
   // someone concludes their file is broken when it merely came from another
@@ -80,8 +92,9 @@ export function importedToast(profile: string, dropped: number): Notice {
     ? {
         tone: 'warning',
         message: `${landed} · ${keysLabel(dropped)} skipped (not on this keyboard)`,
+        action,
       }
-    : { tone: 'success', message: landed };
+    : { tone: 'success', message: landed, action };
 }
 
 /**
