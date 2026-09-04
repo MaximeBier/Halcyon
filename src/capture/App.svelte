@@ -17,6 +17,8 @@
     browserStorage,
     keyboardHint,
     sourceState,
+    createObsProbe,
+    type ObsProbeStatus,
   } from './settings';
   import { createOverlayRegistry } from './overlays';
   import { createConfigBroadcaster } from './broadcast';
@@ -308,40 +310,25 @@
    * Separate from the live client on purpose. That one carries a reconnection
    * backoff, so after a few failures it answers "not yet" rather than "no" —
    * which is the wrong answer to someone who has just retyped a password.
+   *
+   * The guard against two of these running at once, and against one left open
+   * forever by a server that never finishes its handshake, lives in
+   * `createObsProbe` (`settings.ts`) rather than here — both are pure enough
+   * to unit-test with a fake socket, which a `<script>` block wired straight
+   * to component state is not.
    */
-  let obsProbe = $state<string | null>(null);
+  let obsProbe = $state<ObsProbeStatus | null>(null);
+
+  const obsProbeRunner = createObsProbe({
+    connectOptions: () => ({ url: `ws://localhost:${port}`, password: settings.password }),
+    onStatus: (status) => {
+      obsProbe = status;
+      if (status && status !== 'testing') note('user', `OBS probe: ${status}.`);
+    },
+  });
 
   function testObs() {
-    obsProbe = 'testing…';
-
-    // The first terminal status wins, and nothing after it counts.
-    //
-    // `close()` is not neutral: it reports 'idle', which came straight back
-    // into this handler and overwrote the answer we had just recorded. Every
-    // probe — success, refused password, dead server — ended up reading
-    // "idle", which is the one word that answers nothing. Found in review on
-    // 2026-08-21; the test double described a `close()` that says nothing,
-    // and the real one speaks.
-    let answered = false;
-
-    const probe = createObsClient({
-      url: `ws://localhost:${port}`,
-      password: settings.password,
-      onStatus: (status) => {
-        // 'connecting' is not an answer either — it is the question.
-        if (answered || status === 'connecting') return;
-
-        answered = true;
-        obsProbe = status;
-        note('user', `OBS probe: ${status}.`);
-        // Closed on the spot: nothing is ever sent through this one, and
-        // leaving it open would show a second client in OBS for good.
-        probe.close();
-      },
-      onMessage: () => {},
-    });
-
-    probe.connect();
+    obsProbeRunner.run();
   }
 
   const overlays = createOverlayRegistry();

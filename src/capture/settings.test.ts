@@ -11,9 +11,12 @@ import {
   overlayUrl,
   keyboardHint,
   obsHint,
+  obsProbeHint,
+  createObsProbe,
   browserStorage,
 } from './settings';
 import { readOverlayParams } from '../overlay/params';
+import { FakeSocket, HELLO_NO_AUTH } from '../test/fixtures';
 
 function memoryStorage(initial: Record<string, string> = {}) {
   const map = new Map(Object.entries(initial));
@@ -167,6 +170,14 @@ describe('what a pill offers to do about itself', () => {
     expect(canRetryObs('connecting')).toBe(false);
     expect(canRetryObs('idle')).toBe(false);
   });
+
+  it('offers a retry in disconnected too, since nothing else executes its own hint', () => {
+    // obsHint('disconnected') says "press a key to reconnect" — unexecutable
+    // without a keyboard plugged in and typing. Same reasoning as
+    // `open-failed` joining `canPickDevice`: a hint must never invite a click
+    // the control refuses. Found in review on 2026-09-04.
+    expect(canRetryObs('disconnected')).toBe(true);
+  });
 });
 
 describe('status bar wording', () => {
@@ -240,6 +251,90 @@ describe('status bar wording', () => {
     // measurement: what it guards is that nobody appends a fourth instruction
     // here without noticing what it costs the bar.
     expect(obsHint('unreachable').length).toBeLessThan(140);
+  });
+});
+
+describe('obsProbeHint', () => {
+  it('translates every terminal status into a sentence, never the bare enum', () => {
+    // The Diagnostics panel printed the raw status ("identified",
+    // "auth-failed", "unreachable") while every other surface in the app
+    // translates one of these through a hint. Found in review on 2026-09-04.
+    expect(obsProbeHint('identified')).toMatch(/connection ok/i);
+    expect(obsProbeHint('auth-failed')).toMatch(/password/i);
+    expect(obsProbeHint('unreachable')).toMatch(/unreachable/i);
+    expect(obsProbeHint('testing')).toBe('Testing…');
+
+    for (const status of ['identified', 'auth-failed', 'unreachable', 'testing'] as const) {
+      expect(obsProbeHint(status)).not.toBe(status);
+    }
+  });
+});
+
+describe('createObsProbe', () => {
+  function setup() {
+    const sockets: FakeSocket[] = [];
+    const seen: (string | null)[] = [];
+    const probe = createObsProbe({
+      connectOptions: () => ({
+        url: 'ws://localhost:4455',
+        password: 'hunter2',
+        socketFactory: () => {
+          const socket = new FakeSocket();
+          sockets.push(socket);
+          return socket;
+        },
+      }),
+      onStatus: (status) => seen.push(status),
+    });
+    return { probe, sockets, seen };
+  }
+
+  it('opens exactly one socket, even when clicked twice before it answers', () => {
+    // Two rapid clicks used to create two throwaway connections racing to
+    // answer, and OBS kept showing a second client if the first was never
+    // told to close. Found in review on 2026-09-04.
+    const { probe, sockets } = setup();
+
+    probe.run();
+    probe.run();
+
+    expect(sockets).toHaveLength(1);
+  });
+
+  it('closes the stale probe on a second click, so a hung one is not stuck forever', () => {
+    // A server that accepts the TCP connection without ever finishing the
+    // WebSocket handshake sends no terminal status, ever — and there is no
+    // timer on this page to notice. The second click is the only way back.
+    const { probe, sockets, seen } = setup();
+
+    probe.run();
+    probe.run();
+
+    expect(sockets[0]!.closed).toBe(true);
+    expect(seen.at(-1)).toBeNull();
+  });
+
+  it('reports the real answer once the handshake finishes, and closes itself', () => {
+    const { probe, sockets, seen } = setup();
+
+    probe.run();
+    sockets[0]!.receive(HELLO_NO_AUTH);
+    sockets[0]!.receive({ op: 2, d: { negotiatedRpcVersion: 1 } });
+
+    expect(seen).toEqual(['testing', 'identified']);
+    expect(sockets[0]!.closed).toBe(true);
+  });
+
+  it('is free to run again once the previous probe has answered', () => {
+    const { probe, sockets } = setup();
+
+    probe.run();
+    sockets[0]!.receive(HELLO_NO_AUTH);
+    sockets[0]!.receive({ op: 2, d: { negotiatedRpcVersion: 1 } });
+
+    probe.run();
+
+    expect(sockets).toHaveLength(2);
   });
 });
 

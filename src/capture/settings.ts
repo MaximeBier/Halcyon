@@ -1,5 +1,12 @@
 import type { KeyboardStatus } from '../keyboard/device';
-import { DEFAULT_OBS_PORT, normalizePort, type ObsStatus } from '../transport/obs';
+import {
+  createObsClient,
+  DEFAULT_OBS_PORT,
+  normalizePort,
+  type ObsClient,
+  type ObsClientOptions,
+  type ObsStatus,
+} from '../transport/obs';
 
 const KEY = 'halcyon:connection';
 
@@ -149,17 +156,25 @@ export function canPickDevice(status: KeyboardStatus): boolean {
 /**
  * Whether the OBS pill is worth clicking — one fresh attempt at the socket.
  *
- * Only `unreachable`. The attempt is itself what raises Chrome's local network
+ * `unreachable`: the attempt is itself what raises Chrome's local network
  * prompt, and the WebSocket server may have been switched on since the last
  * one, so a click has two ways to succeed. **It has one way to do nothing:**
  * a local network permission already refused cannot be asked for again from
  * the page — Chrome allows no way back but its own site settings, which is why
- * `obsHint` keeps naming them. A refused password wants the field rather than
- * another identical attempt, and the three healthy states have nothing to
- * retry.
+ * `obsHint` keeps naming them.
+ *
+ * `disconnected` joined it for the same reason `open-failed` joined
+ * `canPickDevice`: `obsHint` tells this state to "press a key to reconnect",
+ * which is unexecutable without a keyboard plugged in and typing — and
+ * `reconnect()` (App.svelte) is exactly that keystroke's effect, made into a
+ * click. Copy that invites a gesture the pill refuses is how someone presses
+ * it and nothing happens. Found in review on 2026-09-04.
+ *
+ * A refused password wants the field rather than another identical attempt,
+ * and the two healthy/in-progress states have nothing to retry.
  */
 export function canRetryObs(status: ObsStatus): boolean {
-  return status === 'unreachable';
+  return status === 'unreachable' || status === 'disconnected';
 }
 
 export function obsHint(status: ObsStatus): string {
@@ -192,6 +207,109 @@ export function obsHint(status: ObsStatus): string {
     case 'idle':
       return 'Not connected to OBS yet.';
   }
+}
+
+/**
+ * The four ways a throwaway probe can end, plus the marker for one still
+ * running. `idle` and `connecting` are excluded on purpose: `connecting` is
+ * the question, never the answer, and `idle` is only ever what a probe's own
+ * `close()` reports on itself — `createObsProbe` swallows that one before it
+ * reaches a caller. What is left is exactly what `obsProbeHint` has to say a
+ * sentence for.
+ */
+export type ObsProbeStatus = Exclude<ObsStatus, 'idle' | 'connecting'> | 'testing';
+
+/**
+ * Plain sentences for the Diagnostics panel's probe, deliberately not
+ * `obsHint`: that one is written for the live connection, permanent in the
+ * status bar and pointing at what to do next (Tools menu, site settings). The
+ * probe is a one-off answer to "is this good right now" — it needed its own
+ * short wording, not the enum value itself, which is what showed until
+ * reviewed on 2026-09-04 ("identified", "auth-failed", "unreachable" printed
+ * raw while every other surface in the app translates).
+ */
+export function obsProbeHint(status: ObsProbeStatus): string {
+  switch (status) {
+    case 'testing':
+      return 'Testing…';
+    case 'identified':
+      return 'Connection OK.';
+    case 'auth-failed':
+      return 'Password refused.';
+    case 'unreachable':
+      return 'Server unreachable.';
+    case 'disconnected':
+      // Reachable only if the handshake finished and OBS then closed the
+      // socket in the instant before this probe did — vanishingly unlikely
+      // for a connection nothing is ever sent through, but the type includes
+      // it, so the sentence has to exist.
+      return 'Connected, then the server closed it.';
+  }
+}
+
+/**
+ * Runs the Diagnostics panel's throwaway OBS connection — a fresh socket
+ * that exists to answer one question, "are the port and password as typed
+ * good, right now" — and guards it against two problems the click site used
+ * to have, found in review on 2026-09-04:
+ *
+ * - Two rapid clicks opened two sockets that raced each other to answer, and
+ *   OBS showed a second client for good if the first was never told to close.
+ * - The probe closes itself once a status is terminal, but a TCP server that
+ *   accepts the connection without ever finishing the WebSocket handshake
+ *   sends no terminal status at all — and there is no timer anywhere on this
+ *   page to notice one is overdue (spec: no gratuitous timers). That socket
+ *   had no way to close, ever.
+ *
+ * `run()` folds both into one rule: a click while a probe is already running
+ * closes that one rather than opening a second one beside it — which also
+ * means a hung probe is exactly one more click from being cleaned up. The
+ * click after that gets a genuinely fresh attempt.
+ */
+export function createObsProbe(deps: {
+  /**
+   * Read fresh on every `run()`, never cached: credentials may have changed
+   * since the last click, and a stale factory would test last time's
+   * password.
+   */
+  connectOptions(): Pick<ObsClientOptions, 'url' | 'password' | 'socketFactory'>;
+  onStatus(status: ObsProbeStatus | null): void;
+}): { run(): void } {
+  let current: ObsClient | null = null;
+
+  return {
+    run() {
+      if (current) {
+        current.close();
+        current = null;
+        deps.onStatus(null);
+        return;
+      }
+
+      // The first terminal status wins, and nothing after it counts. `close()`
+      // below is not neutral — it reports 'idle', which would otherwise come
+      // straight back into this handler and overwrite the answer just
+      // recorded.
+      let answered = false;
+      const client = createObsClient({
+        ...deps.connectOptions(),
+        onStatus: (status) => {
+          if (answered || status === 'connecting') return;
+          answered = true;
+          current = null;
+          // Closed on the spot: nothing is ever sent through this one, and
+          // leaving it open would show a second client in OBS for good.
+          client.close();
+          if (status === 'idle') return;
+          deps.onStatus(status);
+        },
+        onMessage: () => {},
+      });
+      current = client;
+      deps.onStatus('testing');
+      client.connect();
+    },
+  };
 }
 
 /**

@@ -3,6 +3,7 @@ import { render, cleanup } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import Diagnostics from './Diagnostics.svelte';
 import type { JournalEntry } from './journal';
+import type { ObsProbeStatus } from './settings';
 
 afterEach(cleanup);
 
@@ -173,10 +174,37 @@ describe('the OBS probe', () => {
     expect(onTestObs).toHaveBeenCalledTimes(1);
   });
 
-  it('shows what the throwaway connection answered', () => {
+  it('shows what the throwaway connection answered, in plain words', () => {
+    // Every other surface in the app translates a status through a hint;
+    // this panel used to be the one exception, printing "auth-failed" raw.
+    // Found in review on 2026-09-04.
     const { container } = panel({ obsProbe: 'auth-failed' });
+    const text = container.querySelector('[data-obs-probe]')!.textContent;
 
-    expect(container.querySelector('[data-obs-probe]')!.textContent).toContain('auth-failed');
+    expect(text).toMatch(/password/i);
+    expect(text).not.toContain('auth-failed');
+  });
+
+  it('translates the other terminal statuses too, never the bare enum', () => {
+    const cases: [ObsProbeStatus, RegExp][] = [
+      ['identified', /connection ok/i],
+      ['unreachable', /unreachable/i],
+    ];
+
+    for (const [status, expected] of cases) {
+      const { container } = panel({ obsProbe: status });
+      const text = container.querySelector('[data-obs-probe]')!.textContent!;
+
+      expect(text).toMatch(expected);
+      expect(text).not.toBe(status);
+      cleanup();
+    }
+  });
+
+  it('says a probe is running, in a sentence rather than the raw marker', () => {
+    const { container } = panel({ obsProbe: 'testing' });
+
+    expect(container.querySelector('[data-obs-probe]')!.textContent).toBe('Testing…');
   });
 
   it('warns that OBS will briefly show two clients', () => {

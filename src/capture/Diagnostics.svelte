@@ -2,6 +2,7 @@
   import type { JournalEntry } from './journal';
   import type { StreamReading } from './probe';
   import { copyToClipboard } from './clipboard';
+  import { obsProbeHint, type ObsProbeStatus } from './settings';
 
   /**
    * The panel a bug report is written from (spec §11, §12.3).
@@ -45,7 +46,7 @@
     probing: boolean;
     probe: StreamReading | null;
     /** What a throwaway connection to OBS answered, or null if never asked. */
-    obsProbe: string | null;
+    obsProbe: ObsProbeStatus | null;
     onCaptureRaw: () => void;
     onToggleProbe: () => void;
     onTestObs: () => void;
@@ -157,7 +158,7 @@
       clients for a moment; nothing is sent through it.
     </p>
     {#if obsProbe}
-      <p class="at" data-obs-probe>{obsProbe}</p>
+      <p class="at" data-obs-probe>{obsProbeHint(obsProbe)}</p>
     {/if}
   </section>
 
