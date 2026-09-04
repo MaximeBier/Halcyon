@@ -61,6 +61,7 @@
     importedToast,
     importFailedToast,
     loadToast,
+    profileDeletedToast,
     profileStatus,
     READ_FAILED,
     type Health,
@@ -625,9 +626,21 @@
 
   function removeProfile() {
     const gone = profile;
+    // Snapshotted before `openProfile` moves `config` on to whatever opens
+    // next: `config` is a rune, so reading it from the Undo closure below —
+    // pressed seconds or minutes later — would hand back today's profile
+    // instead of the one that just left.
+    const deletedConfig = config;
     profiles.remove(gone);
     openProfile(profiles.active());
-    toast = { tone: 'success', message: `Profile “${gone}” deleted` };
+    toast = profileDeletedToast(gone, () => {
+      // `importFrom` is the store's own door for landing a configuration
+      // beside the others without overwriting one — the exact collision
+      // handling `freeName` gives every import, reused rather than
+      // reimplemented: a same-named profile created between the delete and
+      // this click gets the resurrection suffixed onto it instead of erased.
+      openProfile(profiles.importFrom(gone, deletedConfig));
+    });
   }
 
   /**

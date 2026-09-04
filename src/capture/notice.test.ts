@@ -5,6 +5,7 @@ import {
   importedToast,
   importFailedToast,
   loadToast,
+  profileDeletedToast,
   profileStatus,
   READ_FAILED,
 } from './notice';
@@ -196,5 +197,26 @@ describe('what a deletion is recognised by', () => {
 
     expect(deletionToast(before, { ...before, keys: [...keys, key(3)] }, undo)).toBeNull();
     expect(deletionToast(before, { ...before, keys }, undo)).toBeNull();
+  });
+});
+
+describe('what a deleted profile is offered back', () => {
+  it('carries an Undo action, unlike every other tone of this deletion', () => {
+    // The one action in the app that destroys work with nothing else to fall
+    // back on (the spec's constat) — so unlike `deletionToast`, this toast is
+    // never allowed to come back empty-handed.
+    const undo = () => {};
+    const notice = profileDeletedToast('Valorant', undo);
+
+    expect(notice.tone).toBe('success');
+    expect(notice.message).toBe('Profile “Valorant” deleted');
+    expect(notice.action).toEqual({ label: 'Undo', run: undo });
+  });
+
+  it('names the profile that is gone, not a generic message', () => {
+    // Two profiles deleted back to back replace the toast (accepted toast
+    // doctrine) — while either is on screen, it has to say which one a click
+    // would bring back.
+    expect(profileDeletedToast('Apex', () => {}).message).toBe('Profile “Apex” deleted');
   });
 });

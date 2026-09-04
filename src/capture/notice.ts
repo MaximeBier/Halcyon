@@ -10,9 +10,14 @@ export interface Notice {
   /**
    * An optional way back, offered at the moment of the mistake.
    *
-   * The toast doctrine survives it: missing the toast still costs nothing,
-   * because the action is only ever a shortcut to something the page offers
-   * permanently (the undo lives in the header and under Ctrl+Z).
+   * For every caller but one, the toast doctrine survives it: missing the
+   * toast still costs nothing, because the action is only ever a shortcut to
+   * something the page offers permanently (the undo lives in the header and
+   * under Ctrl+Z). `profileDeletedToast` below is the deliberate exception —
+   * a deleted profile has no permanent way back, so its button *is* the way
+   * back, and losing this toast (a later one replacing it, the four seconds
+   * running out) really does cost the profile. Accepted, not fought: see the
+   * toast-replace behaviour this file already documents.
    */
   action?: { label: string; run: () => void };
 }
@@ -157,6 +162,26 @@ export function deletionToast(
   return {
     tone: 'success',
     message: `${keysLabel(count)} deleted`,
+    action: { label: 'Undo', run: undo },
+  };
+}
+
+/**
+ * The toast for a profile deleted outright (spec's constat).
+ *
+ * The only action in the app that used to destroy work with no way back: the
+ * store forgets the profile and `openProfile` clears the undo pile behind it,
+ * so past this toast nothing else in the page remembers what was here.
+ * `undo` therefore takes no null branch and this notice takes no bare warning
+ * standing in for a way back that failed to get wired — see the exception
+ * carved out on `Notice.action` above. Every call site in this codebase can
+ * in fact wire it, so this always comes back `success` with the button
+ * attached.
+ */
+export function profileDeletedToast(name: string, undo: () => void): Notice {
+  return {
+    tone: 'success',
+    message: `Profile “${name}” deleted`,
     action: { label: 'Undo', run: undo },
   };
 }
