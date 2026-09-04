@@ -31,6 +31,12 @@ jobs:
       - run: npm test
       - run: npm run build
 
+      # The same independence applies to the other two guards `image.yml`
+      # runs: a red `image.yml` does not stop this job either, so without
+      # them the archive could ship a bundle that guard would have rejected.
+      - run: npm run check
+      - run: ./scripts/check-bundle.sh
+
       # The folder goes in whole, not its contents: the README tells people to
       # unpack it and run `npx serve dist`, which needs a `dist` to serve.
       - name: Package the offline archive
