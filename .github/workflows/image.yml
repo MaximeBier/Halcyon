@@ -43,7 +43,7 @@ jobs:
       # happens in chunks and tests check modules.
       - run: ./scripts/check-bundle.sh
 
-      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4
 
       # Computed before the build so its labels land in the image we verify —
       # the very image that gets pushed.
@@ -53,7 +53,7 @@ jobs:
       # one place where a human decision still stands between a commit and
       # production. Pushes to main publish `sha-…` and nothing else.
       - id: meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
@@ -85,7 +85,7 @@ jobs:
         run: ./scripts/check-headers.sh
 
       - if: github.event_name != 'pull_request'
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
