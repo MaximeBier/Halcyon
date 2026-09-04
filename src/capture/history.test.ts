@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { createHistory, HISTORY_DEPTH } from './history';
 

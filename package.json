@@ -3,6 +3,9 @@
   "version": "2.6.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -10,8 +13,10 @@
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "format": "prettier --write \"src/**/*.{ts,svelte}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,svelte}\""
+    "format:check": "prettier --check \"src/**/*.{ts,svelte}\"",
+    "verify": "npm run format:check && npm run check && npm test"
   },
   "devDependencies": {
     "@fontsource/archivo": "^5.3.0",
@@ -20,6 +25,7 @@
     "@testing-library/svelte": "^5.4.2",
     "@tsconfig/svelte": "^5.0.8",
     "@types/node": "^26.2.0",
+    "@vitest/coverage-v8": "^4.1.10",
     "jsdom": "^30.0.1",
     "prettier": "^3.9.6",
     "prettier-plugin-svelte": "^4.1.1",

@@ -9,9 +9,10 @@ import { resolve } from 'node:path';
  * What the diagnostics panel calls itself (spec §11).
  *
  * A bug report that cannot name its build is a report about an unknown
- * program. `package.json` cannot answer: it stays at 0.0.0 and the real
- * version is the git tag, which only CI knows. The image passes it in as a
- * build argument; a local build says `dev`, truthfully.
+ * program. `package.json`'s version is bumped by hand at release time, so it
+ * can still lag the tag between a version bump and its release commit; the
+ * image passes the git tag in as a build argument to close that gap, and a
+ * local build says `dev`, truthfully.
  */
 // `||`, not `??`: Docker turns `--build-arg VITE_BUILD=` into the empty
 // string rather than leaving it unset, and `??` lets that through. The panel
@@ -47,5 +48,12 @@ export default defineConfig({
     environment: 'jsdom',
     include: ['src/**/*.test.ts'],
     setupFiles: ['src/test/setup.ts'],
+    coverage: {
+      provider: 'v8',
+      // Everything coverage would otherwise count against itself: the tests,
+      // their shared fixtures, component harnesses that exist only to be
+      // rendered by a test, and ambient type declarations with no runtime body.
+      exclude: ['src/**/*.test.ts', 'src/test/**', 'src/**/*.harness.svelte', 'src/**/*.d.ts'],
+    },
   },
 });

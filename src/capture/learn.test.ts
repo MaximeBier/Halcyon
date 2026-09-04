@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { addLearnedKey, learnKeys, removeKey, removeKeys, LEARN_TRAVEL_THRESHOLD } from './learn';
 import { DEFAULT_STYLE, defaultConfig, type OverlayConfig } from '../config/schema';

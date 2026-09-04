@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { buildScene, recommendedSize } from './scene';
 import { OVERLAY_TOKENS } from '../styles/tokens';

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { importedProfileName, nameFromFileName, profileFileName } from './profile-file';
 

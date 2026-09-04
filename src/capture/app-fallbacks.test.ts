@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { cssVariables } from '../styles/ui-tokens';
 // Vite hands the file over as a string; `import.meta.url` is not a file URL

@@ -102,7 +102,7 @@ export function fakeHid(devices: HidDeviceLike[], requested = devices): FakeHid 
       return requested;
     },
     addEventListener(type, handler) {
-      (listeners[type] ??= []).push(handler as never);
+      (listeners[type] ??= []).push(handler);
     },
     fire(type, device) {
       for (const handler of listeners[type] ?? []) handler({ device });

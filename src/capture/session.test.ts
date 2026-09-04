@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { PROTOCOL_VERSION } from '../protocol/messages';
 import { describe, it, expect, vi } from 'vitest';
 import { createCaptureSession } from './session';
@@ -9,7 +10,7 @@ function setup() {
   const keys: FrameKey[][] = [];
   const anomalies: unknown[] = [];
   const session = createCaptureSession({
-    obs: { broadcast, ensureConnected: vi.fn() } as never,
+    obs: { broadcast, ensureConnected: vi.fn() },
     from: 'me',
     onKeys: (k) => keys.push(k),
     onAnomaly: (a) => anomalies.push(a),
@@ -64,7 +65,7 @@ describe('createCaptureSession', () => {
   it('retries the OBS connection on every report: event-driven, timer-free', () => {
     const ensureConnected = vi.fn();
     const session = createCaptureSession({
-      obs: { broadcast: vi.fn(), ensureConnected } as never,
+      obs: { broadcast: vi.fn(), ensureConnected },
       from: 'me',
       onKeys: () => {},
       onAnomaly: () => {},
@@ -78,7 +79,7 @@ describe('createCaptureSession', () => {
   it('hands the report timestamp over, so the retries can be spaced out', () => {
     const ensureConnected = vi.fn();
     const session = createCaptureSession({
-      obs: { broadcast: vi.fn(), ensureConnected } as never,
+      obs: { broadcast: vi.fn(), ensureConnected },
       from: 'me',
       onKeys: () => {},
       onAnomaly: () => {},
@@ -164,7 +165,7 @@ describe('createCaptureSession — throughput', () => {
   it('carries the selected keys only', () => {
     const broadcast = vi.fn(() => true);
     const session = createCaptureSession({
-      obs: { broadcast, ensureConnected: vi.fn() } as never,
+      obs: { broadcast, ensureConnected: vi.fn() },
       from: 'me',
       onKeys: () => {},
       onAnomaly: () => {},
@@ -186,7 +187,7 @@ describe('createCaptureSession — throughput', () => {
     // the emission always showed the previous value — zero on the first report.
     const rates: number[] = [];
     const session = createCaptureSession({
-      obs: { broadcast: vi.fn(() => true), ensureConnected: vi.fn() } as never,
+      obs: { broadcast: vi.fn(() => true), ensureConnected: vi.fn() },
       from: 'me',
       onKeys: () => rates.push(session.rateAt(0)),
       onAnomaly: () => {},
@@ -233,7 +234,7 @@ describe('createCaptureSession — a connection that dropped', () => {
     let live = true;
     const broadcast = vi.fn(() => live);
     const session = createCaptureSession({
-      obs: { broadcast, ensureConnected: vi.fn() } as never,
+      obs: { broadcast, ensureConnected: vi.fn() },
       from: 'me',
       onKeys: () => {},
       onAnomaly: () => {},
@@ -262,7 +263,7 @@ describe('createCaptureSession — what learning reads', () => {
     // point — so it cannot read the frame, which carries only configured keys.
     const seen: number[] = [];
     const session = createCaptureSession({
-      obs: { broadcast: vi.fn(() => true), ensureConnected: vi.fn() } as never,
+      obs: { broadcast: vi.fn(() => true), ensureConnected: vi.fn() },
       from: 'me',
       onKeys: () => {},
       onAnomaly: () => {},
@@ -281,7 +282,7 @@ describe('createCaptureSession — what learning reads', () => {
     const seen: number[][] = [];
     const keys: FrameKey[][] = [];
     const session = createCaptureSession({
-      obs: { broadcast: vi.fn(() => true), ensureConnected: vi.fn() } as never,
+      obs: { broadcast: vi.fn(() => true), ensureConnected: vi.fn() },
       from: 'me',
       onKeys: (k) => keys.push(k),
       onAnomaly: () => {},
@@ -298,7 +299,7 @@ describe('createCaptureSession — what learning reads', () => {
   it('reports the entries even on a report that produces an empty frame', () => {
     const seen: number[] = [];
     const session = createCaptureSession({
-      obs: { broadcast: vi.fn(() => true), ensureConnected: vi.fn() } as never,
+      obs: { broadcast: vi.fn(() => true), ensureConnected: vi.fn() },
       from: 'me',
       onKeys: () => {},
       onAnomaly: () => {},
@@ -373,7 +374,7 @@ describe('createCaptureSession — the keyboard going away', () => {
   it('carries the configured keys at zero rather than an empty frame', () => {
     const broadcast = vi.fn(() => true);
     const session = createCaptureSession({
-      obs: { broadcast, ensureConnected: vi.fn() } as never,
+      obs: { broadcast, ensureConnected: vi.fn() },
       from: 'me',
       onKeys: () => {},
       onAnomaly: () => {},

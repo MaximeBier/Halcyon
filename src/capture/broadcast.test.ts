@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { PROTOCOL_VERSION } from '../protocol/messages';
 import { describe, it, expect, vi } from 'vitest';
 import { createConfigBroadcaster } from './broadcast';

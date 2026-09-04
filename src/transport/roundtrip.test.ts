@@ -1,8 +1,9 @@
+// @vitest-environment node
 import { PROTOCOL_VERSION } from '../protocol/messages';
 import { describe, it, expect, vi } from 'vitest';
 import { createObsClient } from './obs';
 import { createOverlayRegistry } from '../capture/overlays';
-import { defaultConfig } from '../config/schema';
+import { defaultConfig, type ResolvedConfig } from '../config/schema';
 import { resolve } from '../config/resolve';
 import { buildScene } from '../view/scene';
 import type { OverlayMessage } from '../protocol/messages';
@@ -191,7 +192,12 @@ describe('capture to overlay round trip - the configuration', () => {
       v: PROTOCOL_VERSION,
       t: 'config',
       from: 'an-attacker',
-      config: { keys: 'nope' } as never,
+      // A real ResolvedConfig with only `keys` broken: a real payload arrives
+      // over the wire as untyped JSON, so nothing stops a mangled `keys`
+      // reaching `broadcast` in production. Confining the cast to that one
+      // field — rather than casting the whole object — keeps the compiler
+      // checking every other property.
+      config: { ...resolve(defaultConfig()), keys: 'nope' as unknown as ResolvedConfig['keys'] },
     });
 
     expect(received.some((m) => m.t === 'config')).toBe(false);

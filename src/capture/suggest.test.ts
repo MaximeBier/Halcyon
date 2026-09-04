@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { createAxisSuggester, FULL_TRAVEL_THRESHOLD } from './suggest';
 import type { AnalogEntry } from '../keyboard/decode';

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { OVERLAY_TOKENS } from './tokens';
 import { UI_TOKENS, applyTokens, cssVariables } from './ui-tokens';
