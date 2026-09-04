@@ -1205,7 +1205,12 @@
     display: flex;
     align-items: center;
     gap: 22px;
-    block-size: var(--he-header-height, 62px);
+    /* A floor, not a lock: StatusBar's rival-capture alert forces its own line
+       (`.rival { flex-basis: 100% }`), and a run of pills wraps on a narrow
+       window the same way. Either would have overflowed or overlapped the
+       stage below under a fixed `block-size` — the one message meant to be
+       seen is the one that would have been unreadable. */
+    min-block-size: var(--he-header-height, 62px);
     padding: 0 22px;
     border-block-end: 1px solid var(--he-border, #1b1e27);
   }
