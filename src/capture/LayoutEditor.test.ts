@@ -119,6 +119,20 @@ const move = (target: Element, init: PointerEventInit = {}) =>
     new PointerEvent('pointermove', { bubbles: true, buttons: 1, pointerId: 1, ...init }),
   );
 
+/**
+ * Task 16 moved the handle/grips/lasso/anchor position from `left`/`top` to a
+ * single `transform: translate(Xpx, Ypx)` (the one layout-thrashing spot in
+ * the project — see `.handle` in the component's stylesheet), so a test that
+ * used to read one axis off `style.left` / `style.top` reads it back out of
+ * the translate string instead.
+ */
+function translateX(el: HTMLElement): number {
+  return Number.parseFloat(el.style.transform.split(',')[0]!.replace('translate(', ''));
+}
+function translateY(el: HTMLElement): number {
+  return Number.parseFloat(el.style.transform.split(',')[1]!.replace(')', ''));
+}
+
 describe('LayoutEditor - the stage says what to do when it has nothing to show', () => {
   // Skipping the wizard with zero keys used to leave the stage a bare black
   // rectangle: the only "No keys yet." lived in a fold of the side panel,
@@ -207,27 +221,27 @@ describe('LayoutEditor - a drag that never ends', () => {
     // armed the key follows the pointer on screen long before anything is
     // written, and that is what the user sees.
     const { handles, container } = editor();
-    const before = handles[0]!.style.left;
+    const before = handles[0]!.style.transform;
 
     press(handles[0]!);
     window.dispatchEvent(new PointerEvent('pointercancel', { bubbles: true, pointerId: 1 }));
     move(container.querySelector('.stage')!, { clientX: 300, clientY: 0 });
     await tick();
 
-    expect(handles[0]!.style.left).toBe(before);
+    expect(handles[0]!.style.transform).toBe(before);
   });
 
   it('stops dragging when the button is no longer held', async () => {
     // A pointerup lost outside the stage used to leave the key following the
     // mouse with nothing pressed at all.
     const { handles, container } = editor();
-    const before = handles[0]!.style.left;
+    const before = handles[0]!.style.transform;
 
     press(handles[0]!);
     move(container.querySelector('.stage')!, { clientX: 300, clientY: 0, buttons: 0 });
     await tick();
 
-    expect(handles[0]!.style.left).toBe(before);
+    expect(handles[0]!.style.transform).toBe(before);
   });
 
   it('commits on a release anywhere, not only over the stage', () => {
@@ -243,14 +257,14 @@ describe('LayoutEditor - a drag that never ends', () => {
   it('abandons a drag on Escape instead of leaving it armed', async () => {
     const { handles, container, onChange } = editor();
     const stage = container.querySelector('.stage')!;
-    const before = handles[0]!.style.left;
+    const before = handles[0]!.style.transform;
 
     press(handles[0]!);
     move(stage, { clientX: TWO_KEYS_ACROSS, clientY: 0 });
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     await tick();
 
-    expect(handles[0]!.style.left).toBe(before);
+    expect(handles[0]!.style.transform).toBe(before);
 
     window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }));
     expect(onChange).not.toHaveBeenCalled();
@@ -658,7 +672,7 @@ describe('LayoutEditor - lasso selection', () => {
     move(canvas, from(HALF_KEY, HALF_KEY));
     await tick();
 
-    expect(marquee(container)!.getAttribute('style')).toContain(`left: ${ORIGIN.x}px`);
+    expect(marquee(container)!.getAttribute('style')).toContain(`translate(${ORIGIN.x}px`);
   });
 
   it('adds to the selection when Shift is held, as Shift+click does', async () => {
@@ -772,7 +786,7 @@ describe('LayoutEditor - the stage tells the editor its own size', () => {
   it('re-measures when the stage changes size, with no window resize', async () => {
     const { container } = editor();
     const handle = container.querySelector<HTMLElement>('button.handle')!;
-    const before = handle.style.top;
+    const before = handle.style.transform;
 
     laidOut({ width: STAGE.width, height: STAGE.height - 240 });
     // Non-zero, or the component observed nothing and the assertion below would
@@ -780,7 +794,7 @@ describe('LayoutEditor - the stage tells the editor its own size', () => {
     expect(resized()).toBeGreaterThan(0);
     await tick();
 
-    expect(handle.style.top).not.toBe(before);
+    expect(handle.style.transform).not.toBe(before);
   });
 });
 
@@ -825,7 +839,9 @@ describe('LayoutEditor - the drawing and the handles agree', () => {
     const rect = container.querySelector('svg rect')!;
 
     expect(rect.getAttribute('x')).toBe(`${ORIGIN.x + DEFAULT_STYLE.gap / 2}`);
-    expect(handles[0]!.style.left).toBe(`${ORIGIN.x + DEFAULT_STYLE.gap / 2}px`);
+    expect(handles[0]!.style.transform).toBe(
+      `translate(${ORIGIN.x + DEFAULT_STYLE.gap / 2}px, ${ORIGIN.y + DEFAULT_STYLE.gap / 2}px)`,
+    );
   });
 
   it('never sizes the canvas from the measurement it took of the stage', () => {
@@ -863,7 +879,9 @@ describe('LayoutEditor - the drawing and the handles agree', () => {
     await tick();
 
     const origin = -surfaceOf(wider, DEFAULT_STYLE.unit).x * DEFAULT_STYLE.unit;
-    expect(handles[0]!.style.left).toBe(`${origin + DEFAULT_STYLE.gap / 2}px`);
+    expect(handles[0]!.style.transform).toBe(
+      `translate(${origin + DEFAULT_STYLE.gap / 2}px, ${ORIGIN.y + DEFAULT_STYLE.gap / 2}px)`,
+    );
   });
 
   it('measures its own stage rather than waiting to be told', async () => {
@@ -883,7 +901,9 @@ describe('LayoutEditor - the drawing and the handles agree', () => {
     await tick();
 
     const handle = view.container.querySelector<HTMLElement>('button.handle')!;
-    expect(handle.style.left).toBe(`${ORIGIN.x + DEFAULT_STYLE.gap / 2}px`);
+    expect(handle.style.transform).toBe(
+      `translate(${ORIGIN.x + DEFAULT_STYLE.gap / 2}px, ${ORIGIN.y + DEFAULT_STYLE.gap / 2}px)`,
+    );
   });
 });
 
@@ -899,7 +919,7 @@ describe('LayoutEditor - the popover stays inside the stage', () => {
     handles[1]!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
     await tick();
 
-    const left = Number.parseFloat(container.querySelector<HTMLElement>('.anchor')!.style.left);
+    const left = translateX(container.querySelector<HTMLElement>('.anchor')!);
     expect(left).toBeLessThan(ORIGIN.x + 8 * DEFAULT_STYLE.unit);
     expect(left + 284).toBeLessThanOrEqual(STAGE.width);
   });
@@ -910,8 +930,8 @@ describe('LayoutEditor - the popover stays inside the stage', () => {
     handles[1]!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
     await tick();
 
-    expect(container.querySelector<HTMLElement>('.anchor')!.style.left).toBe(
-      `${ORIGIN.x + DEFAULT_STYLE.unit}px`,
+    expect(translateX(container.querySelector<HTMLElement>('.anchor')!)).toBe(
+      ORIGIN.x + DEFAULT_STYLE.unit,
     );
   });
 
@@ -943,7 +963,7 @@ describe('LayoutEditor - the popover stays inside the stage', () => {
     // document, and the anchor only moves on the render that follows.
     await tick();
 
-    return Number.parseFloat(container.querySelector<HTMLElement>('.anchor')!.style.top);
+    return translateY(container.querySelector<HTMLElement>('.anchor')!);
   };
 
   it('stays below the selection when there is room for it there', async () => {
@@ -991,7 +1011,7 @@ describe('LayoutEditor - the popover stays inside the stage', () => {
     await tick();
 
     const anchor = container.querySelector<HTMLElement>('.anchor')!;
-    const before = anchor.style.top;
+    const before = anchor.style.transform;
 
     height = 60;
     // Non-zero, so a component that observed nothing fails here rather than
@@ -999,10 +1019,8 @@ describe('LayoutEditor - the popover stays inside the stage', () => {
     expect(resized()).toBeGreaterThan(0);
     await tick();
 
-    expect(anchor.style.top).not.toBe(before);
-    expect(anchor.style.top).toBe(
-      `${ORIGIN.y + 4 * DEFAULT_STYLE.unit - DEFAULT_STYLE.gap - 60}px`,
-    );
+    expect(anchor.style.transform).not.toBe(before);
+    expect(translateY(anchor)).toBe(ORIGIN.y + 4 * DEFAULT_STYLE.unit - DEFAULT_STYLE.gap - 60);
   });
 
   it('leaves the anchor alone while the panel has not been measured', async () => {
@@ -1017,8 +1035,8 @@ describe('LayoutEditor - the popover stays inside the stage', () => {
     await tick();
     await tick();
 
-    const top = container.querySelector<HTMLElement>('.anchor')!.style.top;
-    expect(top).toBe(`${ORIGIN.y + 5 * DEFAULT_STYLE.unit + DEFAULT_STYLE.gap}px`);
+    const top = translateY(container.querySelector<HTMLElement>('.anchor')!);
+    expect(top).toBe(ORIGIN.y + 5 * DEFAULT_STYLE.unit + DEFAULT_STYLE.gap);
   });
 });
 

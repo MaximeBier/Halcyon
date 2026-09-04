@@ -359,9 +359,22 @@
     saveStatus(storage, status);
   }
 
-  /** A synchronous reading, not a timer: allowed on the capture page. */
+  /**
+   * A synchronous reading, not a timer: allowed on the capture page.
+   *
+   * Called on every emitted frame (60/s) and every overlay message, so a
+   * fresh object assigned whether or not the count moved would invalidate
+   * every derived that reads `listeners` for no reason, sixty times a
+   * second. `OverlayCounts` is two numbers — comparing them by hand is
+   * cheap where a deep-equal (or a JSON round trip) would not be, and is the
+   * whole reason this stays a plain `if` rather than some general-purpose
+   * helper.
+   */
   function refreshOverlays() {
-    listeners = overlays.counts(performance.now());
+    const next = overlays.counts(performance.now());
+    if (next.inObs !== listeners.inObs || next.inBrowser !== listeners.inBrowser) {
+      listeners = next;
+    }
   }
 
   // An empty number field binds to null, and `ws://localhost:null` throws

@@ -151,6 +151,17 @@ export interface SceneOptions {
   reveal?: boolean;
 }
 
+/**
+ * Rebuilds every `SceneKey`, and the arrays and objects that hold them, from
+ * scratch on every call — nothing here is reused between frames, and a frame
+ * can arrive up to sixty times a second.
+ *
+ * Left that way on purpose (task 16): harmless at the sizes a profile actually
+ * reaches today (at most ~30 keys), and worth splitting into "what changed"
+ * versus "what didn't" only if that count grows large enough for the
+ * reallocation itself, rather than the SVG it feeds, to show up on a frame
+ * budget.
+ */
 export function buildScene(
   config: ResolvedConfig,
   frame: readonly FrameKey[],

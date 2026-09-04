@@ -8,8 +8,8 @@ import type { ObsProbeStatus } from './settings';
 afterEach(cleanup);
 
 const ENTRIES: JournalEntry[] = [
-  { at: 1_000, kind: 'user', message: 'OBS unreachable' },
-  { at: 12_340, kind: 'bug', message: 'Key 30 reported undocumented low bits' },
+  { id: 0, at: 1_000, kind: 'user', message: 'OBS unreachable' },
+  { id: 1, at: 12_340, kind: 'bug', message: 'Key 30 reported undocumented low bits' },
 ];
 
 function panel(overrides: Record<string, unknown> = {}) {

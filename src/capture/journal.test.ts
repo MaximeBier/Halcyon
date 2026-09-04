@@ -7,7 +7,31 @@ describe('what the journal keeps', () => {
     const journal = createJournal();
     journal.add('user', 'Keyboard unplugged', 1000);
 
-    expect(journal.entries()).toEqual([{ at: 1000, kind: 'user', message: 'Keyboard unplugged' }]);
+    expect(journal.entries()).toEqual([
+      { id: 0, at: 1000, kind: 'user', message: 'Keyboard unplugged' },
+    ]);
+  });
+
+  // The panel keys its `{#each}` on this (task 16): a journal that rotates at
+  // 200 entries must not force a full DOM rewrite, which is what keying on the
+  // array index — or on `at` — would still do the moment anything shifts.
+  it('gives every entry an id that never repeats, even sharing a timestamp', () => {
+    const journal = createJournal();
+    journal.add('user', 'first', 1000);
+    journal.add('bug', 'second', 1000);
+
+    const ids = journal.entries().map((entry) => entry.id);
+    expect(new Set(ids).size).toBe(2);
+  });
+
+  it('keeps an entry’s id stable as older entries roll off', () => {
+    const journal = createJournal(2);
+    journal.add('user', 'a', 1);
+    const survivorId = 1; // the second add's id, before a third pushes 'a' out
+    journal.add('user', 'b', 2);
+    journal.add('user', 'c', 3);
+
+    expect(journal.entries().map((entry) => entry.id)).toEqual([survivorId, 2]);
   });
 
   it('separates what someone can fix from what is ours to fix', () => {

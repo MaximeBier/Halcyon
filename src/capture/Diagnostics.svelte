@@ -71,6 +71,18 @@
   }
 
   const seconds = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
+
+  /**
+   * Read once per render, not twice.
+   *
+   * `readings` walks every configured key on every call (task 16); the
+   * template used to call it once for the empty check and again for the
+   * `{#each}`, doubling that walk for nothing. This component only exists in
+   * the document while its fold is open (`Collapsible` unmounts it shut), so
+   * a `$derived` here costs nothing extra while the panel is closed — it
+   * simply stops paying for the same reading twice while it is.
+   */
+  const currentReadings = $derived(readings());
 </script>
 
 <div class="body">
@@ -79,7 +91,7 @@
       <p class="empty">Nothing has happened worth writing down.</p>
     {:else}
       <ul class="log">
-        {#each entries as entry, index (index)}
+        {#each entries as entry (entry.id)}
           <li data-kind={entry.kind}>
             <span class="at">+{seconds(entry.at)}</span>
             {entry.message}
@@ -102,11 +114,11 @@
        a number, on purpose — see "Deliberate deviations". -->
   <section>
     <h3>Live reading</h3>
-    {#if readings().length === 0}
+    {#if currentReadings.length === 0}
       <p class="empty">No keys configured.</p>
     {:else}
       <ul class="readings">
-        {#each readings() as reading (reading.id)}
+        {#each currentReadings as reading (reading.id)}
           <li data-reading={reading.id} data-active={reading.active}>
             <span class="label">{reading.label}</span>
             <span class="at">#{reading.id}</span>

@@ -616,8 +616,7 @@
           data-id={key.id}
           class:selected={selectedIds.includes(key.id)}
           class:customized={hasOverrides(key) || detectedLabelFor(key, layout) !== null}
-          style:left={`${acrossX(key.x) + gap / 2}px`}
-          style:top={`${acrossY(key.y) + gap / 2}px`}
+          style:transform={`translate(${acrossX(key.x) + gap / 2}px, ${acrossY(key.y) + gap / 2}px)`}
           style:width={`${Math.max(0, key.w * unit - gap)}px`}
           style:height={`${Math.max(0, key.h * unit - gap)}px`}
           style:border-radius={`${radiusOf(key.id)}px`}
@@ -652,8 +651,7 @@
              the geometry is written once, in pixels the key already gave. -->
         <div
           class="grips"
-          style:left={`${acrossX(sizable.x) + gap / 2}px`}
-          style:top={`${acrossY(sizable.y) + gap / 2}px`}
+          style:transform={`translate(${acrossX(sizable.x) + gap / 2}px, ${acrossY(sizable.y) + gap / 2}px)`}
           style:width={`${Math.max(0, sizable.w * unit - gap)}px`}
           style:height={`${Math.max(0, sizable.h * unit - gap)}px`}
         >
@@ -676,8 +674,7 @@
       {#if lassoRect}
         <div
           class="lasso"
-          style:left={`${acrossX(lassoRect.x)}px`}
-          style:top={`${acrossY(lassoRect.y)}px`}
+          style:transform={`translate(${acrossX(lassoRect.x)}px, ${acrossY(lassoRect.y)}px)`}
           style:width={`${lassoRect.w * unit}px`}
           style:height={`${lassoRect.h * unit}px`}
         ></div>
@@ -687,8 +684,7 @@
         <div
           class="anchor"
           bind:this={panel}
-          style:left={`${anchor.x}px`}
-          style:top={`${anchor.y}px`}
+          style:transform={`translate(${anchor.x}px, ${anchor.y}px)`}
         >
           <KeyPopover
             {config}
@@ -751,6 +747,11 @@
    */
   .grips {
     position: absolute;
+    /* Pinned to the canvas origin so the inline `transform: translate()` is
+       the whole offset, not a delta on top of an unset (browser-computed)
+       static position — the same reasoning as `.handle` below. */
+    left: 0;
+    top: 0;
     pointer-events: none;
   }
   .grip {
@@ -818,6 +819,11 @@
 
   .lasso {
     position: absolute;
+    /* See `.handle` below: `transform` carries the whole offset, so the
+       static left/top this replaces has to be pinned rather than left to
+       whatever the browser would have computed for it. */
+    left: 0;
+    top: 0;
     pointer-events: none;
     border: 1px dashed var(--he-accent, #7c9eff);
     background: color-mix(in srgb, var(--he-accent, #7c9eff) 12%, transparent);
@@ -948,6 +954,13 @@
   }
   .handle {
     position: absolute;
+    /* Pinned to the canvas origin: the position moves through the inline
+       `transform: translate()` now (task 16 — a drag used to reassign `left`
+       and `top` every frame, which is the one layout-thrashing spot in the
+       project), so `left`/`top` here must be fixed rather than left for the
+       browser to compute a "static position" for. */
+    left: 0;
+    top: 0;
     /* The browser must not turn a drag into a scroll: it would cancel the
        pointer mid-gesture. */
     touch-action: none;
@@ -1004,6 +1017,9 @@
   }
   .anchor {
     position: absolute;
+    /* See `.handle` above: the offset lives entirely in `transform` now. */
+    left: 0;
+    top: 0;
     /* Over the keys, and over nothing else: the stage is the only stacking
        context here, so the popover cannot escape it and cover the sidebar. */
     z-index: 1;

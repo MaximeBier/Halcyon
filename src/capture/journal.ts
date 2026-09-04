@@ -11,6 +11,15 @@ import type { DecodeAnomaly } from '../keyboard/decode';
 export type JournalKind = 'user' | 'bug';
 
 export interface JournalEntry {
+  /**
+   * A stable identity, handed out at write time.
+   *
+   * `at` cannot serve as the key the panel renders with: an anomaly and its
+   * own `note('bug', ...)` line, or a beat and a `hello`, can land in the same
+   * `performance.now()` tick and read as one entry twice. This counter never
+   * repeats, which is the one property `{#each ... (id)}` actually needs.
+   */
+  id: number;
   at: number;
   kind: JournalKind;
   message: string;
@@ -27,10 +36,11 @@ const EMPTY = 'No entries yet.';
 
 export function createJournal(limit = 200): Journal {
   const entries: JournalEntry[] = [];
+  let nextId = 0;
 
   return {
     add(kind, message, now) {
-      entries.push({ at: now, kind, message });
+      entries.push({ id: nextId++, at: now, kind, message });
       // A session lasts a whole stream, and anomalies can arrive at the report
       // rate. Unbounded, this is a memory leak on the page that must not stutter.
       if (entries.length > limit) entries.splice(0, entries.length - limit);
