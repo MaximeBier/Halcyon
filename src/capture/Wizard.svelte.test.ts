@@ -7,6 +7,11 @@ import type { KeyboardStatus } from '../keyboard/device';
 import type { ObsStatus } from '../transport/obs';
 
 afterEach(cleanup);
+// A stub left in place after a failing assertion leaks into every test that
+// runs after it — `navigator` would stay swapped out for good. Cleaning it up
+// inline, at the end of the test that stubs it, only runs when that test's
+// assertions all pass.
+afterEach(() => vi.unstubAllGlobals());
 
 function wizard(step: WizardStep, overrides: Record<string, unknown> = {}) {
   const handlers = { onAllowKeyboard: vi.fn(), onReconnect: vi.fn(), onSkip: vi.fn() };
@@ -54,15 +59,21 @@ describe('the setup card', () => {
     expect(row(container, 'keyboard')!.textContent).toContain('Wooting 60HE');
   });
 
-  it('asks for permission before offering to look again', () => {
-    // "Rescan devices" in front of someone who has never granted WebHID is a
-    // button that appears to do nothing: the browser needs the gesture named.
-    expect(
-      button(wizard('keyboard', { keyboard: 'no-permission' }).container, 'keyboard')!.textContent,
-    ).toContain('Allow');
-    expect(
-      button(wizard('keyboard', { keyboard: 'disconnected' }).container, 'keyboard')!.textContent,
-    ).toContain('Rescan');
+  it('names the one gesture the button actually performs, whatever the status', () => {
+    // "Rescan devices" promised a scan the code never runs: the click opens
+    // the same HID picker `onAllowKeyboard` always opens — the very picker
+    // `requestPermission()` shows, which can come back empty. One honest
+    // label for every status this row is shown in, not one per status.
+    for (const keyboard of [
+      'no-permission',
+      'disconnected',
+      'no-analog-interface',
+      'open-failed',
+    ] as KeyboardStatus[]) {
+      expect(button(wizard('keyboard', { keyboard }).container, 'keyboard')!.textContent).toContain(
+        'Choose device…',
+      );
+    }
   });
 
   it('hands over the URL to paste into OBS, and copies it', async () => {
@@ -77,7 +88,6 @@ describe('the setup card', () => {
     await tick();
 
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining('overlay.html'));
-    vi.unstubAllGlobals();
   });
 
   it('says the credentials never leave the machine', () => {
@@ -221,6 +231,38 @@ describe('putting the setup aside', () => {
     await tick();
 
     expect(value).toBe(false);
+  });
+});
+
+describe('the keyboard row tells the truth', () => {
+  // `device` stays `null` for these three statuses forever, not just until
+  // something resolves — and "searching…" used to be the only word on the
+  // card, with the real diagnosis stuck in a status bar a beginner never
+  // looks at (spec's first documented Wooting user hit exactly this wall).
+  it('names an old firmware rather than searching forever', () => {
+    const { container } = wizard('keyboard', { keyboard: 'no-analog-interface' });
+
+    expect(row(container, 'keyboard')!.textContent).toMatch(/firmware/i);
+  });
+
+  it('says nothing is plugged in, rather than searching forever', () => {
+    const { container } = wizard('keyboard', { keyboard: 'disconnected' });
+
+    expect(row(container, 'keyboard')!.textContent).toMatch(/plug/i);
+  });
+
+  it('names another app holding the device, rather than searching forever', () => {
+    const { container } = wizard('keyboard', { keyboard: 'open-failed' });
+
+    expect(row(container, 'keyboard')!.textContent).toMatch(/wootility|try again/i);
+  });
+
+  it('still says searching before permission has even been asked for', () => {
+    // `no-permission` is not a failure yet — nothing has been tried — so the
+    // row keeps saying what it always said rather than reaching for a verdict.
+    const { container } = wizard('keyboard', { keyboard: 'no-permission' });
+
+    expect(row(container, 'keyboard')!.textContent).toContain('searching…');
   });
 });
 

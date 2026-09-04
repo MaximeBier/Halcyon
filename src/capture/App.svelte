@@ -639,10 +639,13 @@
    * and dropping it in the task 27 rewrite left the page with no way at all to
    * grant access. On an unsupported browser nothing is offered: a button that
    * cannot help is how someone presses it four times.
+   *
+   * One label for every status it is offered in, not one per status: the
+   * click always calls the same `requestPermission()`, which always opens the
+   * same HID picker — potentially empty. "Rescan devices" used to promise an
+   * automatic look the code never performs.
    */
-  const keyboardAction = $derived(
-    keyboardStatus === 'no-permission' ? 'Allow keyboard' : 'Rescan devices',
-  );
+  const keyboardAction = 'Choose device…';
 
   /**
    * Whether the global style has been touched at all — §9.3's marker.

@@ -1,8 +1,8 @@
 <script lang="ts">
   import { obsNote, stepNumber, type WizardStep } from './wizard';
-  import type { ConnectionSettings } from './settings';
+  import { keyboardHint, type ConnectionSettings } from './settings';
   import type { KeyboardStatus } from '../keyboard/device';
-  import type { ObsStatus } from '../transport/obs';
+  import { MAX_PORT, type ObsStatus } from '../transport/obs';
   import { copyToClipboard } from './clipboard';
 
   /**
@@ -53,7 +53,11 @@
     { step: 'keys', label: 'Add the keys you want on stream' },
   ];
 
-  const TITLES: Record<string, string> = {
+  // Narrow on purpose: `step` also carries `'keys'` and `'done'`, neither of
+  // which reaches `TITLES[step]` below — the card only renders for the other
+  // two. `Record<string, string>` used to hide that behind `undefined`
+  // instead of letting the compiler prove the two branches line up.
+  const TITLES: Record<'keyboard' | 'obs', string> = {
     keyboard: 'Connect your keyboard',
     obs: 'Connect OBS',
   };
@@ -73,7 +77,25 @@
 
   /** What a row says on its right, and only while it is done or in progress. */
   function note(row: WizardStep): string | null {
-    if (row === 'keyboard') return device ?? (rowState(row) === 'current' ? 'searching…' : null);
+    if (row === 'keyboard') {
+      if (device) return device;
+      if (rowState(row) !== 'current') return null;
+      // `no-analog-interface`, `disconnected` and `open-failed` never resolve
+      // into a device on their own — old firmware, nothing plugged in, or
+      // something else already holding it — so "searching…" was a lie that
+      // never expired. `keyboardHint` already names each one for the status
+      // bar; this row is the one a beginner is actually looking at (spec's
+      // first documented Wooting user hit exactly this wall on the firmware
+      // one). `no-permission` is left out: nothing has failed yet there.
+      if (
+        keyboard === 'no-analog-interface' ||
+        keyboard === 'disconnected' ||
+        keyboard === 'open-failed'
+      ) {
+        return keyboardHint(keyboard);
+      }
+      return 'searching…';
+    }
     if (row === 'obs' && rowState(row) === 'current') return obsNote(obs, overlaysInObs);
     return null;
   }
@@ -87,17 +109,9 @@
   }
 
   /**
-   * Arms the capture once, on arrival at the last step.
-   *
-   * The mockup shows step 3 already listening, and asking for one more click
-   * to begin the step one has just reached explains nothing. Once, though:
-   * re-arming on every pass would make cancelling a fight the user cannot win,
-   * with a button that refuses to turn off.
-   */
-  /**
    * Puts the setup aside, and disarms the capture on the way out.
    *
-   * The effect above arms it on arrival at the last step and only disarms when
+   * The effect below arms it on arrival at the last step and only disarms when
    * the step *changes* — but skipping unmounts the card instead, leaving the
    * page listening with nothing on screen to say so. The next key brushed was
    * added to the layout in silence.
@@ -107,6 +121,14 @@
     onSkip();
   }
 
+  /**
+   * Arms the capture once, on arrival at the last step.
+   *
+   * The mockup shows step 3 already listening, and asking for one more click
+   * to begin the step one has just reached explains nothing. Once, though:
+   * re-arming on every pass would make cancelling a fight the user cannot win,
+   * with a button that refuses to turn off.
+   */
   let armed = $state(false);
   $effect(() => {
     if (step !== 'keys') {
@@ -131,7 +153,7 @@
     </span>
     <button class="skip" data-action="skip" type="button" onclick={skip}>Skip setup</button>
   </div>
-{:else}
+{:else if step === 'keyboard' || step === 'obs'}
   <div class="card" data-card>
     <span class="eyebrow">SETUP {at}/3</span>
     <h2>{TITLES[step]}</h2>
@@ -157,7 +179,7 @@
           <input
             type="number"
             min="1"
-            max="65535"
+            max={MAX_PORT}
             bind:value={settings.port}
             onchange={onReconnect}
           />
@@ -215,11 +237,12 @@
 
     <div class="actions">
       {#if step === 'keyboard'}
-        <!-- Naming the gesture: "Rescan devices" in front of someone who has
-             never granted WebHID is a button that appears to do nothing, since
-             what the browser needs is a click it can attach a prompt to. -->
+        <!-- One label for every status this button is shown in: it always
+             calls `requestPermission()`, which always opens the same HID
+             picker — potentially empty. "Rescan devices" used to promise an
+             automatic look that the code never performs. -->
         <button class="secondary" data-action="keyboard" type="button" onclick={onAllowKeyboard}>
-          {keyboard === 'no-permission' ? 'Allow keyboard' : 'Rescan devices'}
+          Choose device…
         </button>
       {/if}
       <button class="skip" data-action="skip" type="button" onclick={skip}>Skip setup</button>
