@@ -119,6 +119,41 @@ describe('StartupPopover - the install step', () => {
   });
 });
 
+describe('StartupPopover - trigger style inside the installed app', () => {
+  it('keeps the accent pill when the page is not standalone', () => {
+    const { container } = guide({ standalone: false });
+    const trigger = container.querySelector('[data-startup-trigger]')!;
+
+    expect(trigger.classList.contains('demoted')).toBe(false);
+  });
+
+  it('demotes the trigger to quiet text once the page runs standalone', () => {
+    const { container } = guide({ standalone: true });
+    const trigger = container.querySelector('[data-startup-trigger]')!;
+
+    expect(trigger.classList.contains('demoted')).toBe(true);
+  });
+});
+
+describe('StartupPopover - focus', () => {
+  it('moves focus to the dialog when it opens', async () => {
+    const { container, open } = guide();
+    await open();
+
+    expect(document.activeElement).toBe(container.querySelector('[data-startup-guide]'));
+  });
+
+  it('returns focus to the trigger on Escape', async () => {
+    const { container, open } = guide();
+    await open();
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await tick();
+
+    expect(document.activeElement).toBe(container.querySelector('[data-startup-trigger]'));
+  });
+});
+
 describe('StartupPopover - the sign-in step', () => {
   it('shows Chrome users the chrome://apps address', async () => {
     const { container, open } = guide();

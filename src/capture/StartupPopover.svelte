@@ -31,6 +31,8 @@
   let installed = $state(false);
   let copied = $state<'idle' | 'done' | 'failed'>('idle');
   let root = $state<HTMLElement | null>(null);
+  let trigger = $state<HTMLButtonElement | null>(null);
+  let dialog = $state<HTMLElement | null>(null);
 
   /** jsdom has no `matchMedia`; a page that cannot ask is not in an app window. */
   function runsStandalone(): boolean {
@@ -78,7 +80,14 @@
     if (!open) return;
 
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') open = false;
+      // The trigger is where the keystroke logically returns to: Escape is
+      // the one close path with no click of its own to leave the focus
+      // somewhere sensible (KeyPopover's `closePopover` hands it back for
+      // the same reason, to a handle instead of a button).
+      if (event.key === 'Escape') {
+        open = false;
+        trigger?.focus();
+      }
     };
     // `pointerdown`, not `click`: the guide must be gone before whatever was
     // clicked underneath it reacts (the ProfileBar menu's reasoning).
@@ -93,15 +102,27 @@
       document.removeEventListener('pointerdown', onPointer);
     };
   });
+
+  // `role="dialog"` promises the platform that opening it moves the focus in;
+  // without this a screen reader announces nothing and a keyboard user tabs
+  // through the header before ever reaching the guide. The dialog itself
+  // takes it, not the first control inside — there is no single "first
+  // field" here worth landing on, and `tabindex="-1"` exists on the element
+  // for exactly this.
+  $effect(() => {
+    if (open) dialog?.focus();
+  });
 </script>
 
 <div class="startup" bind:this={root}>
   <button
     class="trigger"
+    class:demoted={step === 'standalone'}
     data-startup-trigger
     type="button"
     aria-expanded={open}
     aria-haspopup="dialog"
+    bind:this={trigger}
     onclick={toggle}
   >
     Start with Windows
@@ -114,6 +135,7 @@
       role="dialog"
       aria-label="Start with Windows"
       tabindex="-1"
+      bind:this={dialog}
     >
       <p class="lead">
         Opened at sign-in, this page reconnects on its own — keyboard, OBS, overlay. These three
@@ -193,6 +215,23 @@
   .trigger:focus-visible {
     outline: 2px solid var(--he-accent, #7c9eff);
     outline-offset: 1px;
+  }
+  /* Once the page is `standalone`, step 1 is already done and this is no
+     longer the button that sells the feature — it is the one someone who
+     just installed still needs, to come back for step 2 (auto-start). Not
+     hidden, which would bury that step with it: demoted to the muted-text
+     "footnote" recipe the comment above rejected for the pitch, which is
+     exactly right once there is nothing left to pitch. Border kept
+     transparent rather than removed so the click target does not shift. */
+  .trigger.demoted {
+    border-color: transparent;
+    font-weight: 400;
+    color: var(--he-text-muted, #8b90a0);
+  }
+  .trigger.demoted:hover,
+  .trigger.demoted[aria-expanded='true'] {
+    color: var(--he-text, #dde1e9);
+    background: none;
   }
 
   .menu {
