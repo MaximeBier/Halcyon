@@ -94,12 +94,14 @@ function compare(before: readonly FrameKey[], after: readonly FrameKey[]) {
     // invisible, and the cap carries it within 16 ms. This is the
     // one-or-two-level threshold spec §6.2 keeps in reserve.
     //
-    // The value **left this file on 2026-08-24** for `analog-report.ts`, where
-    // the reason it holds is written. It was private here, and the scene then
-    // answered "is this key resting" with `travel === 0` — a different answer
-    // to the same question, which drew a jittering key at full opacity in the
-    // one mode whose promise is an empty overlay at rest.
-    if (was.travel > REST_TRAVEL_FLOOR && now.travel === 0) released = true;
+    // The floor guards both sides, not only `was`. The last report before the
+    // sensors go silent can itself land inside the flicker band — 1 or 2,
+    // never a clean 0, the same flicker `analog-report.ts` documents — and a
+    // strict `now.travel === 0` would then never see the release: the overlay
+    // freezes on a key that is, to every sensor, already at rest. `was` above
+    // the floor is what proves the key had actually travelled, so this still
+    // cannot fire on flicker alone.
+    if (was.travel > REST_TRAVEL_FLOOR && now.travel <= REST_TRAVEL_FLOOR) released = true;
     if (Math.abs(now.travel - was.travel) >= TRAVEL_STEP) jumped = true;
     if (was.travel < BOTTOM_TRAVEL_CEILING && now.travel >= BOTTOM_TRAVEL_CEILING) {
       bottomed = true;

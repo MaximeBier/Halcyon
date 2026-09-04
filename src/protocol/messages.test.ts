@@ -1,7 +1,9 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { envelope, foreignVersion, parseMessage, PROTOCOL_VERSION } from './messages';
 import { resolve } from '../config/resolve';
 import { defaultConfig } from '../config/schema';
+import { MAX_TRAVEL } from '../keyboard/analog-report';
 
 /** A config the shape check accepts, so a rejection can only be about `from`. */
 const aConfig = resolve(defaultConfig());
@@ -198,6 +200,40 @@ describe('a frame is numbers the renderer will divide by', () => {
     expect(
       parseMessage({
         heOverlay: { v: PROTOCOL_VERSION, t: 'frame', from: 'capture-a', k: [[Number.NaN, 10, 0]] },
+      }),
+    ).toBeNull();
+  });
+
+  // `id` indexes a matrix position: it is never a fraction, and never negative.
+  it('rejects an identifier that is not a non-negative integer', () => {
+    expect(
+      parseMessage({
+        heOverlay: { v: PROTOCOL_VERSION, t: 'frame', from: 'capture-a', k: [[3.5, 10, 0]] },
+      }),
+    ).toBeNull();
+    expect(
+      parseMessage({
+        heOverlay: { v: PROTOCOL_VERSION, t: 'frame', from: 'capture-a', k: [[-1, 10, 0]] },
+      }),
+    ).toBeNull();
+  });
+
+  // `travel` is a uint16 shifted right by 6 bits (analog-report.ts): 0..1023,
+  // nothing else, whatever finiteness alone would let through.
+  it('rejects a travel outside the protocol range of 0..MAX_TRAVEL', () => {
+    expect(
+      parseMessage({
+        heOverlay: { v: PROTOCOL_VERSION, t: 'frame', from: 'capture-a', k: [[1, -1, 0]] },
+      }),
+    ).toBeNull();
+    expect(
+      parseMessage({
+        heOverlay: {
+          v: PROTOCOL_VERSION,
+          t: 'frame',
+          from: 'capture-a',
+          k: [[1, MAX_TRAVEL + 1, 0]],
+        },
       }),
     ).toBeNull();
   });

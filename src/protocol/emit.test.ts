@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import {
   buildFrame,
@@ -162,6 +163,17 @@ describe('createFrameEmitter', () => {
     emitter.push([[3, 3, 0]], 0, sent);
 
     expect(emitter.push([[3, 0, 0]], 1, sent)).toBe('rest');
+  });
+
+  // Frozen key of spec §6.2: the sensors go silent — analog-report.ts documents
+  // the flicker — and the last report on record can itself land inside the
+  // 1-or-2 band instead of a clean 0. A strict `now.travel === 0` would then
+  // never see a release, and the overlay keeps the key lit forever.
+  it('releases a key whose last report before sensor silence still rests above zero', () => {
+    const emitter = createFrameEmitter();
+    emitter.push([[3, 50, 0]], 0, sent);
+
+    expect(emitter.push([[3, 1, 0]], 1, sent)).toBe('rest');
   });
 
   it('measures the emission rate in frames per second', () => {

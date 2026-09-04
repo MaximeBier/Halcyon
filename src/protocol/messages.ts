@@ -1,5 +1,6 @@
 import { isResolvedConfig } from '../config/validate';
 import type { ResolvedConfig } from '../config/schema';
+import { MAX_TRAVEL } from '../keyboard/analog-report';
 
 /**
  * Bumped when the shape on the wire changes, so that an overlay left open
@@ -90,10 +91,21 @@ export function envelope(message: OverlayMessage): { heOverlay: OverlayMessage }
 function isFrameKey(value: unknown): value is FrameKey {
   if (!Array.isArray(value) || value.length !== 3) return false;
   const [id, travel, active] = value;
-  // Finite, not merely numeric. NaN survives every clamp downstream — it is
-  // neither greater nor smaller than anything — and lands in the SVG as
-  // height="NaN", which silently removes the key from the render.
-  return Number.isFinite(id) && Number.isFinite(travel) && (active === 0 || active === 1);
+  // Finite is not enough: this is a trust boundary, and the protocol defines
+  // both fields precisely. `id` indexes a matrix position — never a fraction,
+  // never negative — and `travel` is a uint16 shifted right by 6 bits
+  // (analog-report.ts), so `MAX_TRAVEL` bounds it by construction on the real
+  // device. Anything outside either range cannot come from a capture page
+  // speaking the protocol honestly, so it is refused here rather than trusted
+  // to whatever `scene.ts`'s own clamp happens to do with it.
+  return (
+    Number.isInteger(id) &&
+    id >= 0 &&
+    Number.isFinite(travel) &&
+    travel >= 0 &&
+    travel <= MAX_TRAVEL &&
+    (active === 0 || active === 1)
+  );
 }
 
 /**
