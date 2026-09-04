@@ -21,7 +21,7 @@ DEST=src/assets/fonts
 # drawn that heavy. Latin only: the interface is English and the key labels come
 # from the browser's layout map, which returns latin for every layout we support
 # (spec §8.6).
-ARCHIVO_WEIGHTS=(400 500 600 700 800)
+ARCHIVO_WEIGHTS=(400 600 700 800)
 
 check=false
 [ "${1:-}" = "--check" ] && check=true

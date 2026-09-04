@@ -56,7 +56,6 @@ export const UI_TOKENS = {
   radius: '4px',
   radiusControl: '5px',
   radiusPanel: '6px',
-  space: '0.5rem',
   headerHeight: '62px',
   panelWidth: '380px',
   /** Read by the editor too, which has to keep the popover inside the stage. */
