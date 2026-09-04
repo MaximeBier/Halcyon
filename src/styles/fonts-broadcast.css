@@ -29,3 +29,24 @@
   font-display: swap;
   src: url('../assets/fonts/archivo-latin-700-normal.woff2') format('woff2');
 }
+
+/*
+ * `BrowserChrome.svelte`'s `.file` and `.link` labels ask for this same
+ * family at weight 400 — a weight this stylesheet never registered, so the
+ * browser's font-weight matching had only 700 to offer under the name
+ * "Archivo" and used that, rendering the whole chrome bold. A declaration
+ * alone costs nothing: a `@font-face` rule is not a download, only a promise
+ * the browser keeps if — and only if — something on the page asks for that
+ * weight. And here only one thing ever does: `decorated` mode, the
+ * browser-diagnostic chrome that is never drawn inside OBS (see
+ * `BrowserChrome.svelte`). The on-air path never requests weight 400, so it
+ * never pays for this rule; `capture/main.ts` loads the same stylesheet for
+ * its own preview, so it is exactly as free there.
+ */
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../assets/fonts/archivo-latin-400-normal.woff2') format('woff2');
+}

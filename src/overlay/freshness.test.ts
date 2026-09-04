@@ -1,5 +1,16 @@
 import { describe, it, expect } from 'vitest';
-import { createFrameWatch, FRAME_TIMEOUT_MS } from './freshness';
+import { createFrameWatch, BEAT_MS, FRAME_TIMEOUT_MS } from './freshness';
+
+describe('FRAME_TIMEOUT_MS', () => {
+  // Pins the relation the two constants used to lack: BEAT_MS lived in
+  // App.svelte, FRAME_TIMEOUT_MS here, and nothing tied them together — so
+  // changing the beat changed how many refreshes the timeout actually
+  // tolerated without anyone noticing. This test breaks the moment that
+  // silent coupling breaks, instead of the margin quietly shrinking.
+  it('is exactly three beats', () => {
+    expect(FRAME_TIMEOUT_MS).toBe(3 * BEAT_MS);
+  });
+});
 
 describe('createFrameWatch', () => {
   it('is stale before anything was seen: there is no frame worth keeping', () => {

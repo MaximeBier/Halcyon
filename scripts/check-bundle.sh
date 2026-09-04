@@ -64,11 +64,17 @@ grep -qF 'archivo-latin-700' "${sheets[@]}" ||
   fail "the overlay draws its labels in Archivo 700 and does not load the face"
 ok   "the on-air face is loaded"
 
-# 800 is the home page's, not the interface's, and it is listed here for the
-# same reason as the others: 700 is the only weight that belongs on air, and a
-# face that arrives from a third entry point is no lighter than one that arrives
-# from the second.
-for face in archivo-latin-400 archivo-latin-500 archivo-latin-600 archivo-latin-800 ibm-plex-mono; do
+# 400 is missing on purpose: `fonts-broadcast.css` now declares it too, for
+# `BrowserChrome.svelte`'s browser-only diagnostic chrome (`.file`, `.link`),
+# which OBS never renders. A `@font-face` rule is a promise, not a download —
+# the browser only fetches a face something on the page actually asks for —
+# so that declaration costs the on-air path nothing and would be invisible to
+# a check built to catch bytes, not source lines. What this loop still has to
+# catch is a face that shouldn't be *declared* here at all: 800 is the home
+# page's, not the interface's, and 500/600/ibm-plex-mono belong to the
+# settings interface (`fonts-ui.css`) alone — a face that arrives from a
+# third entry point is no lighter than one that arrives from the second.
+for face in archivo-latin-500 archivo-latin-600 archivo-latin-800 ibm-plex-mono; do
   if grep -qF "$face" "${sheets[@]}"; then
     fail "the interface face $face reaches the overlay bundle"
   fi

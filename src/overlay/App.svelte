@@ -3,7 +3,7 @@
   import { createObsClient } from '../transport/obs';
   import { readOverlayParams } from './params';
   import { createRateCounter } from '../protocol/rate';
-  import { createFrameWatch } from './freshness';
+  import { createFrameWatch, BEAT_MS } from './freshness';
   import { newPageId } from '../protocol/identity';
   import KeyboardView from '../view/KeyboardView.svelte';
   import BrowserChrome from './BrowserChrome.svelte';
@@ -45,9 +45,6 @@
   // Fed on every frame, consulted on every beat: the only witness this page
   // has that the capture is still alive (`freshness.ts` says why it matters).
   const freshness = createFrameWatch();
-
-  /** How often the overlay announces itself, and the window the rate is read over. */
-  const BEAT_MS = 2000;
 
   const obs = createObsClient({
     url: `ws://localhost:${port}`,

@@ -1,10 +1,22 @@
 /**
- * Three missed refreshes: the capture answers every beat this page sends,
- * every two seconds, throttled to one answer a second — so any frame older
- * than this means the capture itself is gone, not merely quiet. The same
- * allowance the capture extends to an overlay (`capture/overlays.ts`).
+ * How often the overlay announces itself to OBS, and the window `App.svelte`
+ * re-reads its rate over. Lives here rather than in `App.svelte` — where it
+ * used to sit alone — because `FRAME_TIMEOUT_MS` below is defined in terms of
+ * it: the two must change together, and a constant that only one file can see
+ * cannot be depended on by the other.
  */
-export const FRAME_TIMEOUT_MS = 6000;
+export const BEAT_MS = 2000;
+
+/**
+ * Three missed refreshes: the capture answers every beat this page sends,
+ * throttled to one answer a second — so any frame older than this means the
+ * capture itself is gone, not merely quiet. The same allowance the capture
+ * extends to an overlay (`capture/overlays.ts`). Derived from `BEAT_MS`
+ * rather than a restated `6000`, so the "three" stays true if the beat
+ * interval ever changes instead of silently becoming a different number of
+ * missed beats.
+ */
+export const FRAME_TIMEOUT_MS = 3 * BEAT_MS;
 
 export interface FrameWatch {
   /** A frame arrived. */
