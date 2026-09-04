@@ -935,6 +935,7 @@
         }}
         bind:learning
         learningBanner={learning && !(wizardOpen && step === 'keys')}
+        {wizardOpen}
       />
     </main>
 
@@ -1014,7 +1015,7 @@
                 onchange={reconnect}
               />
               <button type="button" onclick={() => (revealed = !revealed)}>
-                {revealed ? 'hide' : 'show'}
+                {revealed ? 'Hide' : 'Show'}
               </button>
             </span>
           </label>
@@ -1099,7 +1100,23 @@
                     aria-label={'Delete ' + key.label}
                     onclick={() => updateConfig(removeKey(config, key.id))}
                   >
-                    🗑
+                    <!-- Replaces the trash-can emoji this button used to hold —
+                         the one coloured glyph in an otherwise monochrome,
+                         tokenized UI, since Windows renders it in full colour
+                         regardless of theme. `currentColor` ties this one to the
+                         button's own text colour instead, and the name someone
+                         hears from a screen reader lives on the button above,
+                         not on this decoration. -->
+                    <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
+                      <path
+                        d="M3.5 4.5h9M6.5 4.5V3a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1.5M4.5 4.5l.6 8.6a1 1 0 0 0 1 .9h3.8a1 1 0 0 0 1-.9l.6-8.6M6.5 7.3v4M9.5 7.3v4"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
                   </button>
                 </li>
               {/each}
@@ -1503,7 +1520,14 @@
     all: unset;
     margin-left: auto;
     cursor: pointer;
-    font-size: var(--he-size-sm, 15px);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    /* The glyph itself is 15px; this pads the hit target out to roughly 24px
+       square, which the bare emoji never had — a click a hair off the glyph
+       used to land on the row underneath it instead. */
+    padding: 4.5px;
+    color: var(--he-text-faint, #5a5f70);
     opacity: 0;
   }
   .keys li:hover .trash,

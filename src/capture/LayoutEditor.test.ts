@@ -3,6 +3,13 @@ import { render, cleanup } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import LayoutEditor from './LayoutEditor.svelte';
 import editorSource from './LayoutEditor.svelte?raw';
+// Read rather than rendered: `App.svelte` owns the sidebar list and the
+// password reveal, and mounting the whole page here to check a glyph and two
+// words would drag in OBS websockets, WebHID and every other thing the page
+// wires up. The rule under test is structural — no emoji, an SVG with the
+// right attributes, Sentence case — and the source text says all of it.
+import appSource from './App.svelte?raw';
+import wizardSource from './Wizard.svelte?raw';
 import { DEFAULT_STYLE, defaultConfig, type OverlayConfig } from '../config/schema';
 import { surfaceOf } from './layout';
 import { resized } from '../test/resize-observer';
@@ -111,6 +118,71 @@ const move = (target: Element, init: PointerEventInit = {}) =>
   target.dispatchEvent(
     new PointerEvent('pointermove', { bubbles: true, buttons: 1, pointerId: 1, ...init }),
   );
+
+describe('LayoutEditor - the stage says what to do when it has nothing to show', () => {
+  // Skipping the wizard with zero keys used to leave the stage a bare black
+  // rectangle: the only "No keys yet." lived in a fold of the side panel,
+  // closed by default on a screen this size (constat 1).
+  const EMPTY_STATE = 'No keys yet — Add key on the right, then press one.';
+
+  it('shows the message when there are no keys and the wizard is closed', () => {
+    const { container } = editor(defaultConfig());
+
+    expect(container.querySelector('.stage')!.textContent).toContain(EMPTY_STATE);
+  });
+
+  it('says nothing once a key exists', () => {
+    const { container } = editor(twoKeys());
+
+    expect(container.querySelector('.stage')!.textContent).not.toContain(EMPTY_STATE);
+  });
+
+  it('stays quiet while the wizard draws its own card over the same spot', () => {
+    // `App.svelte` renders the wizard's setup card and this editor on the
+    // same stage at once (spec §9.1) — two messages saying "nothing here
+    // yet" would be one too many, and the wizard's is the one already asking
+    // out loud for a first key.
+    laidOut(STAGE);
+    const view = render(LayoutEditor, {
+      props: {
+        config: defaultConfig(),
+        frame: [],
+        selectedIds: [],
+        stageBox: { ...STAGE },
+        onChange: vi.fn(),
+        storage: { getItem: () => null, setItem: () => {} },
+        wizardOpen: true,
+      },
+    });
+
+    expect(view.container.textContent).not.toContain(EMPTY_STATE);
+  });
+});
+
+describe('LayoutEditor - the sidebar delete glyph is not the emoji Windows recolours', () => {
+  // `.trash` used to hold a bare 🗑 — the one emoji in an otherwise monochrome,
+  // tokenized UI, and Windows renders it in full colour regardless of theme.
+  it('draws an inline monochrome SVG instead of the emoji', () => {
+    expect(appSource).not.toContain('🗑');
+    expect(appSource).toMatch(/class="trash"[\s\S]{0,800}<svg[^>]*aria-hidden="true"[^>]*>/);
+    expect(appSource).toMatch(/stroke="currentColor"/);
+  });
+
+  it('keeps the button’s own accessible name untouched', () => {
+    expect(appSource).toContain("aria-label={'Delete ' + key.label}");
+  });
+});
+
+describe('LayoutEditor - Hide and Show read like the rest of the interface', () => {
+  // Every other control in this UI reads in Sentence case; the password
+  // reveal toggle alone spoke in lowercase, in both places it appears.
+  it('capitalizes the reveal toggle wherever it shows up', () => {
+    expect(appSource).not.toMatch(/'hide'|'show'/);
+    expect(wizardSource).not.toMatch(/'hide'|'show'/);
+    expect(appSource).toContain("revealed ? 'Hide' : 'Show'");
+    expect(wizardSource).toContain("revealed ? 'Hide' : 'Show'");
+  });
+});
 
 describe('LayoutEditor - a drag that never ends', () => {
   // Every one of these leaves the editor in a state the user cannot get out

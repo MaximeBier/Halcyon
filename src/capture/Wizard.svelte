@@ -216,7 +216,7 @@
               onchange={onReconnect}
             />
             <button type="button" onclick={() => (revealed = !revealed)}>
-              {revealed ? 'hide' : 'show'}
+              {revealed ? 'Hide' : 'Show'}
             </button>
           </span>
         </label>

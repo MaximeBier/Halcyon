@@ -25,6 +25,7 @@
     onDismissSuggestion = () => {},
     learning = $bindable(false),
     learningBanner = false,
+    wizardOpen = false,
   }: {
     config: OverlayConfig;
     frame: readonly FrameKey[];
@@ -74,6 +75,18 @@
      * without a card already announcing it, this follows it one for one.
      */
     learningBanner?: boolean;
+    /**
+     * Whether the wizard's own card is covering this same stage right now.
+     *
+     * The empty-state message below answers the exact question the wizard's
+     * card is already answering out loud — "there is nothing here yet" — for
+     * the one span of time (`Wizard.svelte`, spec §9.1) a first key has not
+     * been added. Drawing both at once said it twice, one of them sitting
+     * behind the card and invisible. The page above passes `false` once the
+     * wizard has been skipped or finished, which is the case a 0-key config
+     * used to leave a bare black rectangle on screen (constat 1).
+     */
+    wizardOpen?: boolean;
   } = $props();
 
   /**
@@ -116,6 +129,16 @@
   /** What the editor shows: the draft while dragging, the real one otherwise. */
   const shown = $derived(draft ?? config);
   const resolved = $derived(resolve(shown));
+
+  /**
+   * Nothing to arrange, and nobody already saying so.
+   *
+   * `shown` rather than `config`: a gesture never runs with zero keys, so the
+   * two never disagree, and reading the same value the rest of this file
+   * already reads (see the `.source` line's own `shown.keys.length` check
+   * below) keeps one rule for "the stage has nothing on it" instead of two.
+   */
+  const showsEmptyStage = $derived(shown.keys.length === 0 && !wizardOpen);
 
   const unit = $derived(shown.style.unit);
   const gap = $derived(shown.style.gap);
@@ -613,6 +636,15 @@
         ></button>
       {/each}
 
+      {#if showsEmptyStage}
+        <!-- Centred over the whole canvas, and inert: a lasso drawn under it,
+             or a click meant to clear the selection, has to reach the canvas
+             underneath exactly as it would if this were not here at all. -->
+        <div class="empty">
+          <p>No keys yet — Add key on the right, then press one.</p>
+        </div>
+      {/if}
+
       {#if sizable}
         <!-- After the key handles in the DOM, so they paint over the one they
              belong to; the press stops here and never reaches it. One box on
@@ -888,6 +920,31 @@
   .canvas :global(svg) {
     pointer-events: none;
     display: block;
+  }
+  /**
+   * The message a 0-key stage used to show nothing at all in place of.
+   *
+   * `pointer-events: none`, deliberately: this sits over the same canvas the
+   * bare-stage handler and the lasso both listen on, and a message that ate
+   * the click meant to start a marquee would trade one empty-stage confusion
+   * for another. Centred on the whole canvas rather than following any key,
+   * since with zero keys there is nothing to anchor it to.
+   */
+  .empty {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    text-align: center;
+    pointer-events: none;
+  }
+  .empty p {
+    margin: 0;
+    max-inline-size: 36ch;
+    font-size: var(--he-size-md, 16px);
+    color: var(--he-text-muted, #8b90a0);
   }
   .handle {
     position: absolute;
