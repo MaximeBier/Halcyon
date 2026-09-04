@@ -1,7 +1,16 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { isResolvedConfig } from './validate';
 import { resolve } from './resolve';
-import { defaultConfig, DEFAULT_STYLE, type KeyConfig } from './schema';
+import {
+  defaultConfig,
+  DEFAULT_STYLE,
+  RADIUS_BOUNDS,
+  BORDER_WIDTH_BOUNDS,
+  OPACITY_BOUNDS,
+  FONT_WEIGHT_BOUNDS,
+  type KeyConfig,
+} from './schema';
 
 const aKey: KeyConfig = {
   id: 174,
@@ -142,5 +151,39 @@ describe('isResolvedConfig - rules that must match the import side', () => {
     // to the browser. It sits right next to unit and gap, which are bounded.
     expect(styled({ radius: -5 })).toBe(false);
     expect(styled({ radius: 0 })).toBe(true);
+  });
+
+  it('refuses a radius past what any key could ever show', () => {
+    // Past `RADIUS_BOUNDS.max`, SVG clamps `rx` to half the shorter side on
+    // its own: nothing past it changes what the key draws, and a value there
+    // is either a typo or a file built for a renderer that has no such cap.
+    expect(styled({ radius: RADIUS_BOUNDS.max })).toBe(true);
+    expect(styled({ radius: RADIUS_BOUNDS.max + 1 })).toBe(false);
+  });
+
+  it('refuses a border width outside what a border can be', () => {
+    // `borderWidth` sits on the config root, not on a key's style — unlike
+    // `radius`, it never goes through `styled`.
+    const config = resolved();
+
+    expect(isResolvedConfig({ ...config, borderWidth: BORDER_WIDTH_BOUNDS.max })).toBe(true);
+    expect(isResolvedConfig({ ...config, borderWidth: BORDER_WIDTH_BOUNDS.max + 1 })).toBe(false);
+  });
+
+  it('refuses an opacity outside what CSS can paint', () => {
+    // Values past `[0, 1]` are clamped by CSS itself, silently — the renderer
+    // never errors, so a `1.5` that slipped through import would sit in the
+    // profile and in every export of it, looking chosen on purpose.
+    expect(styled({ opacity: OPACITY_BOUNDS.min })).toBe(true);
+    expect(styled({ opacity: OPACITY_BOUNDS.max })).toBe(true);
+    expect(styled({ opacity: OPACITY_BOUNDS.max + 0.5 })).toBe(false);
+    expect(styled({ opacity: OPACITY_BOUNDS.min - 0.1 })).toBe(false);
+  });
+
+  it('refuses a font weight outside the numeric CSS scale', () => {
+    expect(styled({ fontWeight: FONT_WEIGHT_BOUNDS.min })).toBe(true);
+    expect(styled({ fontWeight: FONT_WEIGHT_BOUNDS.max })).toBe(true);
+    expect(styled({ fontWeight: FONT_WEIGHT_BOUNDS.min - 1 })).toBe(false);
+    expect(styled({ fontWeight: FONT_WEIGHT_BOUNDS.max + 9000 })).toBe(false);
   });
 });

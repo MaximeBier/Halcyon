@@ -77,7 +77,15 @@ function loadAt(storage: Store, key: string): LoadedConfig {
   // The cleaned version is the one in use, so it is the one that belongs in
   // storage. Left unwritten, the "keys were dropped" notice comes back on
   // every reload, about something the user cannot act on.
-  if (result.dropped > 0) write(storage, key, exportConfig(result.config));
+  //
+  // Backed up first, exactly as the `unreadable` branch above does: dropped
+  // keys may be a hand-edited file, or they may be the symptom of a
+  // serialisation bug worth being able to look at again — and once the
+  // canonical rewrite lands, the raw original is gone for good.
+  if (result.dropped > 0) {
+    write(storage, backupKey(key), raw);
+    write(storage, key, exportConfig(result.config));
+  }
 
   return { config: result.config, problem: null, dropped: result.dropped };
 }

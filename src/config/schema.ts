@@ -249,6 +249,27 @@ export const RADIUS_BOUNDS = { min: 0, max: 100 } as const;
 export const BORDER_WIDTH_BOUNDS = { min: 0, max: 16 } as const;
 
 /**
+ * What an opacity may be.
+ *
+ * CSS clamps anything outside `[0, 1]` on its own, silently — the browser
+ * paints a fully-opaque or fully-transparent key and reports nothing, so a
+ * `42` or a `-5` that slipped through import would sit in the profile and in
+ * every export of it, looking like a value someone chose on purpose.
+ */
+export const OPACITY_BOUNDS = { min: 0, max: 1 } as const;
+
+/**
+ * What a font weight may be, in the numeric scale CSS `font-weight` uses.
+ *
+ * The floor matters: a weight of `0` is invalid CSS and falls back to
+ * `normal` with no error anywhere the panel could show one. The ceiling
+ * follows CSS Fonts Level 4, which lets a variable font's weight axis run all
+ * the way to 1000 — past that a browser clamps silently, the same failure
+ * mode as the floor.
+ */
+export const FONT_WEIGHT_BOUNDS = { min: 1, max: 1000 } as const;
+
+/**
  * Values from the mockup (spec §16.2). They live in `src/styles/tokens.ts`;
  * they are the same values, not placeholders.
  */

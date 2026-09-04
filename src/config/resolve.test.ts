@@ -204,7 +204,16 @@ describe('overrides that came from imported JSON', () => {
 function other(property: keyof GlobalStyle): unknown {
   const value = DEFAULT_STYLE[property];
   const alternative = ((): unknown => {
-    if (typeof value === 'number') return value + 1;
+    if (typeof value === 'number') {
+      // `+ 1` reached past every numeric bound harmlessly back when there
+      // were none. `opacity`'s default already sits at its ceiling, so
+      // incrementing lands outside the range this helper means to prove
+      // `isStyleValue` still accepts — the guard below would catch that as a
+      // false failure of the product rule instead of a bad test fixture, so
+      // a value moves down instead whenever up would leave the bound.
+      const increased = value + 1;
+      return isStyleValue(property, increased) ? increased : value - 1;
+    }
     if (property === 'fillDirection') return 'down';
     if (property === 'restVisibility') return 'hidden';
     if (property === 'activeBorder') return 'active';

@@ -9,7 +9,7 @@ import {
   type LayoutOverride,
   type OverlayConfig,
 } from './schema';
-import { isExtent, isPosition, isStyleValue } from './validate';
+import { hasKeyShape, isStyleValue } from './validate';
 
 export type MigrationResult =
   /**
@@ -80,19 +80,13 @@ function knownKeyStyle(raw: unknown): Partial<KeyStyle> {
   return pickStyle(raw, STYLE_KEYS) as Partial<KeyStyle>;
 }
 
+/**
+ * The eight fields `hasKeyShape` checks, with no opinion on `style`: a
+ * malformed or absent one is fine here, since `knownKeyStyle` filters it
+ * property by property right after this gate, whatever shape it arrives in.
+ */
 function isKeyConfig(value: unknown): value is KeyConfig {
-  if (typeof value !== 'object' || value === null) return false;
-  const key = value as Loose;
-  return (
-    Number.isInteger(key.id) &&
-    Number.isInteger(key.usage) &&
-    (key.mode === 'key' || key.mode === 'axis') &&
-    typeof key.label === 'string' &&
-    isPosition(key.x) &&
-    isPosition(key.y) &&
-    isExtent(key.w) &&
-    isExtent(key.h)
-  );
+  return hasKeyShape(value, () => true);
 }
 
 /**

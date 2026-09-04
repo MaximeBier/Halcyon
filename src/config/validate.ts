@@ -1,6 +1,19 @@
-import { STYLE_KEYS, DEFAULT_STYLE, type ResolvedConfig } from './schema';
+import {
+  STYLE_KEYS,
+  DEFAULT_STYLE,
+  RADIUS_BOUNDS,
+  BORDER_WIDTH_BOUNDS,
+  OPACITY_BOUNDS,
+  FONT_WEIGHT_BOUNDS,
+  type ResolvedConfig,
+} from './schema';
 
 type Loose = Record<string, unknown>;
+
+/** A number inside a `{ min, max }` pair, both ends included. */
+function inBounds(value: number, bounds: { readonly min: number; readonly max: number }): boolean {
+  return value >= bounds.min && value <= bounds.max;
+}
 
 /**
  * The style rules both sides share.
@@ -72,8 +85,17 @@ export function isStyleValue(property: string, value: unknown): boolean {
   // A unit of zero collapses the scene, a negative one produces an invalid SVG
   // width that browsers discard: a blank overlay, on air, in silence.
   if (property === 'unit') return (value as number) > 0;
-  if (property === 'gap' || property === 'radius' || property === 'borderWidth')
-    return (value as number) >= 0;
+  if (property === 'gap') return (value as number) >= 0;
+  // These four had a floor and no ceiling until the 2026-09-04 review: a
+  // `radius` or `borderWidth` past what any key could show, or an `opacity`
+  // or `fontWeight` outside what CSS can paint, survived import untouched and
+  // came back out of every export looking chosen on purpose. The bounds
+  // themselves live on `schema.ts`, not here, so the global field and the
+  // per-key override can never drift from each other.
+  if (property === 'radius') return inBounds(value as number, RADIUS_BOUNDS);
+  if (property === 'borderWidth') return inBounds(value as number, BORDER_WIDTH_BOUNDS);
+  if (property === 'opacity') return inBounds(value as number, OPACITY_BOUNDS);
+  if (property === 'fontWeight') return inBounds(value as number, FONT_WEIGHT_BOUNDS);
   return true;
 }
 
@@ -119,7 +141,23 @@ function isCompleteStyle(value: unknown): boolean {
   return STYLE_KEYS.every((property) => isStyleValue(property, style[property]));
 }
 
-function isResolvedKey(value: unknown): boolean {
+/**
+ * The eight fields every key carries, on either side of the boundary.
+ *
+ * `isKeyConfig` (migrate, the import boundary) and `isResolvedKey` (below,
+ * the wire boundary) checked these eight identically and disagreed only on a
+ * ninth: whether `style` has to be complete. Two hand-kept copies of eight
+ * fields is a rule that drifts the day one side changes and the other does
+ * not — found in the 2026-09-04 review. `styleOk` is a parameter rather than
+ * a ninth field here, so each caller states its own rule instead of this
+ * function guessing which boundary it is being asked from.
+ *
+ * Lives here rather than in `migrate`, which already imports `isExtent` and
+ * `isPosition` from this module: the dependency runs one way, and a shared
+ * shape check has to sit on the side already being imported from, or it
+ * would draw the arrow back the other way and close a cycle.
+ */
+export function hasKeyShape(value: unknown, styleOk: (style: unknown) => boolean): boolean {
   if (typeof value !== 'object' || value === null) return false;
 
   const key = value as Loose;
@@ -132,8 +170,12 @@ function isResolvedKey(value: unknown): boolean {
     isPosition(key.y) &&
     isExtent(key.w) &&
     isExtent(key.h) &&
-    isCompleteStyle(key.style)
+    styleOk(key.style)
   );
+}
+
+function isResolvedKey(value: unknown): boolean {
+  return hasKeyShape(value, isCompleteStyle);
 }
 
 /**
@@ -163,7 +205,12 @@ export function isResolvedConfig(value: unknown): value is ResolvedConfig {
     // through `STYLE_KEYS`: it became inheritable on 2026-08-25 and left this
     // shape's root, where it would now be a second, disagreeing truth.
     HEX_COLOR.test(config.borderColor as string) &&
+    // Bounded rather than merely non-negative, since 2026-09-04: `borderWidth`
+    // sits on the config root and never goes through `isStyleValue` the way a
+    // key's own properties do, so the schema's ceiling had to be repeated here
+    // by hand or the wire would accept what import already refuses.
     isNonNegative(config.borderWidth) &&
+    inBounds(config.borderWidth as number, BORDER_WIDTH_BOUNDS) &&
     Array.isArray(config.keys) &&
     config.keys.every(isResolvedKey)
   );

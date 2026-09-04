@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import {
   loadConfig,
@@ -147,6 +148,20 @@ describe('what loading leaves behind in storage', () => {
     loadConfig(storage);
 
     expect(storage.map.get('halcyon:config')).toBe(raw);
+  });
+
+  it('backs up the raw file before the cleaned version overwrites it', () => {
+    // The `unreadable` path already does this (below): a file we could not
+    // parse at all is kept aside before the defaults take its place. A file
+    // that parsed but lost keys on the way in got no such courtesy, and the
+    // dropped keys are exactly the ones worth being able to look at again —
+    // they may be the symptom of a serialisation bug, not a hand-edited file.
+    const raw = JSON.stringify({ version: 1, layout: 'iso', style: {}, keys: [aKey, aKey] });
+    const storage = aStore(raw);
+
+    loadConfig(storage);
+
+    expect(storage.map.get('halcyon:backup:halcyon:config')).toBe(raw);
   });
 
   it('puts a configuration from a newer version aside before anything overwrites it', () => {
