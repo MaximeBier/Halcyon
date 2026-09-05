@@ -11,6 +11,69 @@
 
 export type InstallState = 'standalone' | 'installed' | 'installable' | 'manual';
 
+/** What Chrome's `beforeinstallprompt` carries, which the DOM types do not name. */
+export interface InstallPromptLike {
+  prompt(): Promise<unknown>;
+}
+
+/** What the page knows about the install, held for the guide to read. */
+export interface InstallWatch {
+  /** The stashed `beforeinstallprompt`, single-use: spent on the button's click. */
+  prompt: InstallPromptLike | null;
+  /** `appinstalled` seen — this tab stayed a tab, but the install happened. */
+  installed: boolean;
+}
+
+/**
+ * Holds Chrome's install prompt from the moment the page loads, for whoever
+ * asks for it later.
+ *
+ * On the window for the page's whole life, and from the page's root — not
+ * from the guide's popover. Chrome fires `beforeinstallprompt` once, early,
+ * and a listener that only exists while the guide is mounted misses it
+ * whenever something else has the page first: the setup wizard has since
+ * board 4a, and the guide then offered the address bar where it could have
+ * offered the button (found on 2026-09-05, right after the wizard closed).
+ *
+ * `preventDefault` is what tells the browser the page will ask in its own
+ * time. `appinstalled` spends the prompt as surely as the button does.
+ */
+export function watchInstall(
+  target: Pick<Window, 'addEventListener' | 'removeEventListener'>,
+  onChange: (state: InstallWatch) => void,
+): () => void {
+  let prompt: InstallPromptLike | null = null;
+  let installed = false;
+
+  const onPrompt = (event: Event) => {
+    event.preventDefault();
+    prompt = event as unknown as InstallPromptLike;
+    onChange({ prompt, installed });
+  };
+  const onInstalled = () => {
+    installed = true;
+    prompt = null;
+    onChange({ prompt, installed });
+  };
+
+  target.addEventListener('beforeinstallprompt', onPrompt);
+  target.addEventListener('appinstalled', onInstalled);
+  return () => {
+    target.removeEventListener('beforeinstallprompt', onPrompt);
+    target.removeEventListener('appinstalled', onInstalled);
+  };
+}
+
+/**
+ * Whether the page runs in the installed window. A page that cannot ask —
+ * jsdom has no `matchMedia` — is not in an app window.
+ */
+export function runsStandalone(
+  matchMedia: ((query: string) => { matches: boolean }) | undefined,
+): boolean {
+  return matchMedia?.('(display-mode: standalone)').matches ?? false;
+}
+
 /**
  * Where the install step stands, derived from the state every time — the same
  * reasoning as the wizard's `nextStep`: never a flag that only moves forward.

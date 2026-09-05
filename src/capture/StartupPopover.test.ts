@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, cleanup } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import StartupPopover from './StartupPopover.svelte';
+import type { InstallWatch } from './startup';
 
 afterEach(cleanup);
 
@@ -10,27 +11,23 @@ const CHROME_UA =
 const EDGE_UA = `${CHROME_UA} Edg/139.0.0.0`;
 
 /** Rendered shut — every test that reads a step opens the guide first. */
-function guide(props: { agent?: string; standalone?: boolean } = {}) {
+function guide(
+  props: { agent?: string; standalone?: boolean; install?: Partial<InstallWatch> } = {},
+) {
+  const onInstall = vi.fn();
   const rendered = render(StartupPopover, {
-    props: { agent: CHROME_UA, standalone: false, ...props },
+    props: {
+      agent: props.agent ?? CHROME_UA,
+      standalone: props.standalone ?? false,
+      install: { prompt: null, installed: false, ...props.install },
+      onInstall,
+    },
   });
   const open = async () => {
     rendered.container.querySelector<HTMLButtonElement>('[data-startup-trigger]')!.click();
     await tick();
   };
-  return { ...rendered, open };
-}
-
-/**
- * What Chrome sends: an event named `beforeinstallprompt` carrying a
- * `prompt()`. The type is Chrome's own — jsdom has no constructor for it, so
- * the test builds the shape the component actually reads.
- */
-function installPromptEvent() {
-  const prompt = vi.fn().mockResolvedValue(undefined);
-  const event = new Event('beforeinstallprompt', { cancelable: true });
-  Object.assign(event, { prompt });
-  return { event, prompt };
+  return { ...rendered, open, onInstall };
 }
 
 describe('StartupPopover - the guide itself', () => {
@@ -67,30 +64,28 @@ describe('StartupPopover - the install step', () => {
     expect(container.querySelector('[data-step="install"]')?.textContent).toContain('install icon');
   });
 
-  it('turns a captured prompt into the install button', async () => {
-    const { container, open } = guide();
-    const { event, prompt } = installPromptEvent();
-
-    window.dispatchEvent(event);
+  it('turns a held prompt into the install button, and spends it through the page', async () => {
+    // The page holds the prompt (`watchInstall`), not this popover: Chrome
+    // fires it once, early, and this popover is not mounted while the setup
+    // wizard has the page. The click hands the spending back to the page.
+    const { container, open, onInstall } = guide({
+      install: { prompt: { prompt: () => Promise.resolve() } },
+    });
     await open();
 
-    // Stashed, not let through: preventDefault is what tells the browser the
-    // page will ask in its own time.
-    expect(event.defaultPrevented).toBe(true);
-
     container.querySelector<HTMLButtonElement>('[data-install]')!.click();
-    await tick();
 
-    expect(prompt).toHaveBeenCalledOnce();
+    expect(onInstall).toHaveBeenCalledOnce();
   });
 
-  it('spends the prompt on the click - it is single-use', async () => {
-    const { container, open } = guide();
-    window.dispatchEvent(installPromptEvent().event);
+  it('drops the button once the page has spent the prompt', async () => {
+    const { container, open, rerender } = guide({
+      install: { prompt: { prompt: () => Promise.resolve() } },
+    });
     await open();
+    expect(container.querySelector('[data-install]')).not.toBeNull();
 
-    container.querySelector<HTMLButtonElement>('[data-install]')!.click();
-    await tick();
+    await rerender({ install: { prompt: null, installed: false } });
     await tick();
 
     expect(container.querySelector('[data-install]')).toBeNull();
@@ -107,11 +102,8 @@ describe('StartupPopover - the install step', () => {
   });
 
   it('sees an install announced from the old tab', async () => {
-    const { container, open } = guide();
+    const { container, open } = guide({ install: { installed: true } });
     await open();
-
-    window.dispatchEvent(new Event('appinstalled'));
-    await tick();
 
     expect(container.querySelector('[data-step="install"]')?.textContent).toContain(
       'Halcyon has its own window now.',

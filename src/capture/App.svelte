@@ -56,6 +56,7 @@
   import SettingsMenu from './SettingsMenu.svelte';
   import Sheet from './Sheet.svelte';
   import StartupPopover from './StartupPopover.svelte';
+  import { runsStandalone, watchInstall, type InstallWatch } from './startup';
   import Toast from './Toast.svelte';
   import { deletionToast, loadToast, type Notice } from './notice';
   import { createHistory } from './history';
@@ -310,6 +311,27 @@
   let snapshot = $state<string | null>(null);
   /** The Diagnostics sheet, opened from the ⚙ menu and nowhere else. */
   let diagnosticsOpen = $state(false);
+
+  /**
+   * Whether this page runs in the installed window. Read once: a page does
+   * not move between a tab and an app window while it is open.
+   */
+  const standalone = runsStandalone(globalThis.matchMedia?.bind(globalThis));
+  /**
+   * Chrome's install prompt, held from the first moment of the page (see
+   * `watchInstall`): the guide that spends it is not mounted while the setup
+   * wizard has the page, and the prompt fires once.
+   */
+  let install = $state<InstallWatch>({ prompt: null, installed: false });
+  watchInstall(window, (next) => (install = next));
+
+  async function installApp() {
+    const held = install.prompt;
+    // Cleared before the ask, not after: the browser allows one call ever, and
+    // a second click during the dialog must find no button to press.
+    install = { ...install, prompt: null };
+    await held?.prompt();
+  }
 
   /**
    * A probe on the report stream, never on a clock (global constraint 1).
@@ -761,14 +783,31 @@
      hands happen to be. -->
 <svelte:window onkeydown={onHistoryKey} />
 
+<!-- The mark and the name, so the window is recognisable in a taskbar full of
+     Chrome — and the way back to the home page from a tab. Not a link inside
+     the installed app: an app window has no home page to go back to, and a
+     click there would swap the capture for a landing page mid-stream. -->
+{#snippet brand()}
+  {#if standalone}
+    <span class="brand">
+      <img class="mark" src="/logo/halcyon-logo.svg" width="22" height="22" alt="" />
+      <span class="wordmark">HALCYON</span>
+    </span>
+  {:else}
+    <a class="brand" href="/" title="Halcyon home page">
+      <img class="mark" src="/logo/halcyon-logo.svg" width="22" height="22" alt="" />
+      <span class="wordmark">HALCYON</span>
+    </a>
+  {/if}
+{/snippet}
+
 <div class="app">
   {#if wizardOpen}
     <!-- The setup has the page to itself (board 4a): the mark, and the card.
          Nothing else is mounted — the stage cannot be worked on until the
          keyboard answers, and the setup exists to get it there. -->
     <header class="bar">
-      <img class="mark" src="/logo/halcyon-logo.svg" width="22" height="22" alt="" />
-      <span class="wordmark">HALCYON</span>
+      {@render brand()}
     </header>
 
     <!-- What cannot work here is the page, not one of its sections. It shows
@@ -793,8 +832,7 @@
     <header class="bar">
       <!-- The mark and the name, so the window is recognisable in a taskbar
          full of Chrome. Decorative: the page's name is in the title. -->
-      <img class="mark" src="/logo/halcyon-logo.svg" width="22" height="22" alt="" />
-      <span class="wordmark">HALCYON</span>
+      {@render brand()}
 
       <!-- The OBS pill is the whole OBS interface (board 3a): its popover
          carries the URL, the recommended size and the two credentials the
@@ -830,7 +868,7 @@
 
       <!-- In the header for the same reason undo is: the guide must be findable
          from every state of the page, and it anchors to nothing on the stage. -->
-      <StartupPopover />
+      <StartupPopover {standalone} {install} onInstall={installApp} />
 
       {#if canResume}
         <!-- Amber, and in the header: findable long after the card was put
@@ -1072,14 +1110,28 @@
     padding: 0 20px;
     border-block-end: 1px solid var(--he-border);
   }
-  .mark {
+  .brand {
     flex: none;
+    display: inline-flex;
+    align-items: center;
+    /* Tighter between the mark and the name than to the pills: the two are
+       one sign. */
+    gap: 14px;
+    color: var(--he-text);
+    text-decoration: none;
+  }
+  a.brand:hover .wordmark {
+    color: var(--he-accent);
+  }
+  a.brand:focus-visible {
+    outline: 2px solid var(--he-accent);
+    outline-offset: 3px;
+    border-radius: var(--he-radius);
+  }
+  .mark {
     display: block;
   }
   .wordmark {
-    flex: none;
-    /* Tighter to the mark than to the pills: the two are one sign. */
-    margin-inline-start: -4px;
     font-size: var(--he-size-md);
     font-weight: 800;
     letter-spacing: 0.05em;

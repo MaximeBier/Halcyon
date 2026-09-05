@@ -1,6 +1,13 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { autostartPath, browserFlavor, installHint, installState } from './startup';
+import {
+  autostartPath,
+  browserFlavor,
+  installHint,
+  installState,
+  runsStandalone,
+  watchInstall,
+} from './startup';
 
 const CHROME_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36';
@@ -85,5 +92,69 @@ describe('installHint - the line that stands where the button cannot', () => {
 
   it('points at the address bar when no prompt ever came', () => {
     expect(installHint('manual')).toBe('Use the install icon at the right end of the address bar.');
+  });
+});
+
+describe('watchInstall - the prompt is held from the first moment of the page', () => {
+  function fakeWindow() {
+    const listeners = new Map<string, (event: Event) => void>();
+    return {
+      addEventListener: (type: string, handler: (event: Event) => void) =>
+        void listeners.set(type, handler),
+      removeEventListener: (type: string) => void listeners.delete(type),
+      fire: (type: string, event: Event = new Event(type, { cancelable: true })) => {
+        listeners.get(type)?.(event);
+        return event;
+      },
+      listening: () => [...listeners.keys()].sort(),
+    };
+  }
+
+  it('stashes the prompt and stops the browser asking on its own', () => {
+    const target = fakeWindow();
+    const seen: unknown[] = [];
+    watchInstall(target, (state) => seen.push(state));
+
+    const prompt = () => Promise.resolve();
+    const event = Object.assign(new Event('beforeinstallprompt', { cancelable: true }), { prompt });
+    target.fire('beforeinstallprompt', event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(seen).toEqual([{ prompt: event, installed: false }]);
+  });
+
+  it('spends the prompt when the install is announced from the tab', () => {
+    // `appinstalled` fires in the tab that triggered the install; whatever
+    // prompt that tab still held is used up.
+    const target = fakeWindow();
+    const seen: { prompt: unknown; installed: boolean }[] = [];
+    watchInstall(target, (state) => seen.push(state));
+
+    target.fire('beforeinstallprompt');
+    target.fire('appinstalled');
+
+    expect(seen.at(-1)).toEqual({ prompt: null, installed: true });
+  });
+
+  it('lets go of both listeners', () => {
+    const target = fakeWindow();
+    const stop = watchInstall(target, () => {});
+    expect(target.listening()).toEqual(['appinstalled', 'beforeinstallprompt']);
+
+    stop();
+
+    expect(target.listening()).toEqual([]);
+  });
+});
+
+describe('runsStandalone - whether the page is in the app window', () => {
+  it('asks the display mode', () => {
+    expect(runsStandalone(() => ({ matches: true }))).toBe(true);
+    expect(runsStandalone(() => ({ matches: false }))).toBe(false);
+  });
+
+  it('answers no where it cannot ask', () => {
+    // jsdom has no `matchMedia`; a page that cannot ask is not in an app window.
+    expect(runsStandalone(undefined)).toBe(false);
   });
 });

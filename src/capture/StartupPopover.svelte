@@ -1,5 +1,11 @@
 <script lang="ts">
-  import { autostartPath, browserFlavor, installHint, installState } from './startup';
+  import {
+    autostartPath,
+    browserFlavor,
+    installHint,
+    installState,
+    type InstallWatch,
+  } from './startup';
   import { copyToClipboard } from './clipboard';
 
   /**
@@ -13,33 +19,36 @@
   let {
     /** Overridable for the tests; the flavor only picks which address to show. */
     agent = navigator.userAgent,
-    standalone = runsStandalone(),
+    standalone,
+    install,
+    onInstall,
   }: {
     agent?: string;
-    standalone?: boolean;
+    /** `(display-mode: standalone)` — the page runs in the installed window. */
+    standalone: boolean;
+    /**
+     * What the page has heard about the install (`watchInstall`). Held by
+     * the page and not here: Chrome fires `beforeinstallprompt` once, early,
+     * and this popover is not mounted while the setup wizard has the page.
+     */
+    install: InstallWatch;
+    /** Spends the held prompt — the page's, since the page holds it. */
+    onInstall: () => void;
   } = $props();
 
-  /** What Chrome's `beforeinstallprompt` carries, which the DOM types do not name. */
-  interface InstallPromptLike {
-    prompt(): Promise<unknown>;
-  }
-
   let open = $state(false);
-  /** The stashed `beforeinstallprompt`, single-use: spent on the button's click. */
-  let prompt = $state<InstallPromptLike | null>(null);
-  /** `appinstalled` seen — this tab stayed a tab, but the install happened. */
-  let installed = $state(false);
   let copied = $state<'idle' | 'done' | 'failed'>('idle');
   let root = $state<HTMLElement | null>(null);
   let trigger = $state<HTMLButtonElement | null>(null);
   let dialog = $state<HTMLElement | null>(null);
 
-  /** jsdom has no `matchMedia`; a page that cannot ask is not in an app window. */
-  function runsStandalone(): boolean {
-    return globalThis.matchMedia?.('(display-mode: standalone)').matches ?? false;
-  }
-
-  const step = $derived(installState({ standalone, installed, promptAvailable: prompt !== null }));
+  const step = $derived(
+    installState({
+      standalone,
+      installed: install.installed,
+      promptAvailable: install.prompt !== null,
+    }),
+  );
   const path = $derived(autostartPath(browserFlavor(agent)));
 
   function toggle() {
@@ -47,34 +56,9 @@
     copied = 'idle';
   }
 
-  async function install() {
-    const held = prompt;
-    // Cleared before the ask, not after: the browser allows one call ever, and
-    // a second click during the dialog must find no button to press.
-    prompt = null;
-    await held?.prompt();
-  }
-
   async function copy() {
     copied = (await copyToClipboard(navigator, path.address)) ? 'done' : 'failed';
   }
-
-  $effect(() => {
-    // On the window for the page's whole life, not the popover's: the event
-    // fires once, early, and a guide opened later must still hold it.
-    const onPrompt = (event: Event) => {
-      event.preventDefault();
-      prompt = event as unknown as InstallPromptLike;
-    };
-    const onInstalled = () => (installed = true);
-
-    window.addEventListener('beforeinstallprompt', onPrompt);
-    window.addEventListener('appinstalled', onInstalled);
-    return () => {
-      window.removeEventListener('beforeinstallprompt', onPrompt);
-      window.removeEventListener('appinstalled', onInstalled);
-    };
-  });
 
   $effect(() => {
     if (!open) return;
@@ -146,7 +130,7 @@
         <li data-step="install" class:done={step === 'standalone' || step === 'installed'}>
           <span class="title">Install Halcyon as an app</span>
           {#if step === 'installable'}
-            <button class="install" data-install type="button" onclick={install}>
+            <button class="install" data-install type="button" onclick={onInstall}>
               Install Halcyon…
             </button>
           {:else}
