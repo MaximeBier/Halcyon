@@ -25,11 +25,13 @@ The page walks you through three steps.
 
 ### 1 · Connect your keyboard
 
-Click **Allow keyboard** and pick your Wooting from the list Chrome shows.
+Plug in your Wooting. If it does not show up on its own, click **Choose
+device…** and pick it from the list Chrome shows.
 
 If you later turn gamepad mode on in Wootility, Chrome sees a different device
 and the page loses the keyboard. Chrome will not ask again on its own: click
-**Allow keyboard** once more and pick the Wooting in the list it shows.
+the keyboard's name at the top of the page and pick the Wooting in the list it
+shows.
 
 ### 2 · Connect OBS
 
@@ -37,7 +39,8 @@ In OBS: **Tools → WebSocket Server Settings**. Tick *Enable WebSocket server*
 and *Enable Authentication*, and keep the password it shows you.
 
 Type the port and that password into the two fields, then click **Copy URL**.
-In OBS, add a **Browser** source and paste it.
+In OBS, add a **Browser** source and paste it. Later on, the same fields and
+the URL are one click away: click **OBS** at the top of the page.
 
 Two things to know here:
 
@@ -52,11 +55,12 @@ Two things to know here:
 ### 3 · Add your keys
 
 Press a key and it appears on the overlay. Press the next one. You can move,
-resize and recolour them afterwards.
+resize and recolour them afterwards; **Add key** at the top starts the capture
+again whenever you want more.
 
-Under **Keys at rest** you choose how much of the keyboard shows while your
-hands are still: the whole thing, the outlines alone, or nothing at all until a
-key goes down.
+Under **Global style → Behavior → Keys at rest** you choose how much of the
+keyboard shows while your hands are still: the whole thing, the outlines alone,
+or nothing at all until a key goes down.
 
 ## Start it automatically
 
@@ -88,12 +92,13 @@ page gave you, password included. If it went black after an OBS update, see
 **Travel stays at zero.** The keyboard is connected but sending nothing: unplug
 it and plug it back in, then allow it again if Chrome asks.
 
-**Nothing happens when you press a key in step 3.** The status bar at the top
-says which of the three links is broken — keyboard, OBS, or overlay.
+**Nothing happens when you press a key.** The two indicators at the top say
+which link is broken — the keyboard, or OBS and its overlay. A red one can be
+clicked to try again.
 
 ## Reporting a problem
 
-Open the **Diagnostics** panel at the bottom of the page and click **Copy log**,
+Click the **⚙** at the top right, open **Diagnostics** and click **Copy log**,
 then paste that into your report. It carries everything needed to understand the
 problem without asking you three more questions.
 
