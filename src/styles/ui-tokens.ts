@@ -9,6 +9,11 @@ export const UI_TOKENS = {
   bg: '#0E1015',
   stage: '#0B0D11',
   surface: '#151823',
+  /**
+   * A step below `surface`, for a box that groups controls without lifting
+   * them: the style groups in the sidebar and the wizard's rail (boards 3a, 4a).
+   */
+  surfaceLow: '#10131B',
   popover: '#141722',
   border: '#1B1E27',
   borderControl: '#232838',

@@ -15,12 +15,23 @@ import type { ActiveBorder, FillDirection, RestVisibility } from '../config/sche
  * saying the same thing in two ways became two lists saying the same thing.
  */
 
+/**
+ * The arrow alone, for the segmented control of board 3a — four glyphs in a
+ * row, where a word each would not fit and the arrow says it all.
+ */
+export const FILL_ARROWS: Readonly<Record<FillDirection, string>> = {
+  up: '↑',
+  down: '↓',
+  left: '←',
+  right: '→',
+};
+
 /** An arrow ← reads better filled right to left than bottom to top. */
 export const FILL_DIRECTIONS: readonly [FillDirection, string][] = [
-  ['up', '↑ Up'],
-  ['down', '↓ Down'],
-  ['left', '← Left'],
-  ['right', '→ Right'],
+  ['up', `${FILL_ARROWS.up} Up`],
+  ['down', `${FILL_ARROWS.down} Down`],
+  ['left', `${FILL_ARROWS.left} Left`],
+  ['right', `${FILL_ARROWS.right} Right`],
 ];
 
 /**

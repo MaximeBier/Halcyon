@@ -860,17 +860,10 @@
       <!-- Global appearance. Per-key overrides live in the popover the editor
            anchors to the selection, never here (spec §16.4). -->
       <section class="block">
-        <!-- Open on a first run, unlike the per-key block in the popover. The
-             contents of this one *is* what someone came to the section for;
-             the popover's is the exception, and its header already says
-             whether this key has any. -->
-        <Collapsible
-          id="style"
-          title="Global style · all keys"
-          modified={styled}
-          defaultOpen
-          {storage}
-        >
+        <!-- Open on a first run, unlike the per-key block in the popover: this
+             fold shows the three group headers (board 3a), and the groups
+             themselves start shut — so open, it costs three lines. -->
+        <Collapsible id="style" title="Global style" modified={styled} defaultOpen {storage}>
           <StylePanel {config} onChange={updateConfig} />
         </Collapsible>
       </section>
@@ -1154,8 +1147,13 @@
     display: flex;
     flex-direction: column;
     gap: 9px;
-    padding: 10px 18px;
+    padding: 12px 16px;
     border-block-end: 1px solid var(--he-border);
+  }
+  /* The one control someone comes to the panel for, framed a little wider
+     than the folds under it (board 3a). */
+  .block:first-child {
+    padding-block: 14px;
   }
   /* The one section worth the leftover room: folding the others is what this
      is for. */
@@ -1206,10 +1204,10 @@
   .keys li {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 5px 9px;
+    gap: 10px;
+    padding: 6px 8px;
     border-radius: var(--he-radius);
-    font-size: var(--he-size-md);
+    font-size: var(--he-size-xs);
   }
   .keys li:hover {
     background: var(--he-surface);
@@ -1221,7 +1219,7 @@
     all: unset;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     flex: 1;
     min-inline-size: 0;
     cursor: pointer;
@@ -1231,8 +1229,9 @@
     outline-offset: 2px;
   }
   .label {
-    font-weight: 600;
-    min-inline-size: 2.5rem;
+    font-weight: 700;
+    color: var(--he-text);
+    min-inline-size: 24px;
   }
   .mode {
     font-size: var(--he-size-xs);

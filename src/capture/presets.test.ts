@@ -12,6 +12,7 @@ describe('PRESETS', () => {
       activeColor: DEFAULT_STYLE.activeColor,
       fillColor: DEFAULT_STYLE.fillColor,
       restColor: DEFAULT_STYLE.restColor,
+      borderColor: DEFAULT_STYLE.borderColor,
     });
   });
 
@@ -40,8 +41,10 @@ describe('PRESETS', () => {
 });
 
 describe('withPreset', () => {
-  it('sets the three colours together, and nothing else', () => {
-    // The point of a preset: three colours chosen to work with each other.
+  it('sets the four colours together, and nothing else', () => {
+    // The point of a preset: four colours chosen to work with each other, the
+    // border included — the blue theme's grey around a coral key is the
+    // mismatch a preset exists to prevent.
     // Setting one and leaving the others is what someone does by hand when the
     // result looks wrong.
     const config = defaultConfig();
@@ -53,6 +56,7 @@ describe('withPreset', () => {
       activeColor: PRESETS[2]!.activeColor,
       fillColor: PRESETS[2]!.fillColor,
       restColor: PRESETS[2]!.restColor,
+      borderColor: PRESETS[2]!.borderColor,
       radius: 12,
       fillDirection: config.style.fillDirection,
     });
@@ -91,14 +95,16 @@ describe('presetFor', () => {
       activeColor: PRESETS[3]!.activeColor.toUpperCase(),
       fillColor: PRESETS[3]!.fillColor.toLowerCase(),
       restColor: PRESETS[3]!.restColor.toUpperCase(),
+      borderColor: PRESETS[3]!.borderColor.toUpperCase(),
     };
 
     expect(presetFor(shouted)).toBe(PRESETS[3]);
   });
 
-  it('names nothing once one of the three has been changed', () => {
-    // Two of three is not a preset: the swatch would claim a trio that is not
+  it('names nothing once one of the four has been changed', () => {
+    // Three of four is not a preset: the swatch would claim a set that is not
     // on screen any more.
     expect(presetFor({ ...DEFAULT_STYLE, restColor: '#010203' })).toBeNull();
+    expect(presetFor({ ...DEFAULT_STYLE, borderColor: '#010203' })).toBeNull();
   });
 });
