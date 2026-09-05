@@ -42,6 +42,8 @@
   import { createJournal, describeAnomaly, hexDump, type JournalEntry } from './journal';
   import { createStreamProbe, type StreamReading } from './probe';
   import {
+    completesSetup,
+    handsOverToEditor,
     loadStatus,
     nextStep,
     saveStatus,
@@ -111,8 +113,6 @@
   let announced = $state('');
 
   let learning = $state(false);
-  /** The label of the last key learned, which the wizard's third step confirms. */
-  let lastKey = $state<string | null>(null);
   /**
    * The last key learned, and when — plain data, read only when learning
    * stops. Learning fires below the firmware's actuation on purpose
@@ -127,7 +127,6 @@
     if (!learnedByStopPress(lastLearned, performance.now())) return;
     takeBack(lastLearned!.id);
     lastLearned = null;
-    lastKey = null;
   });
 
   /**
@@ -373,12 +372,21 @@
   const canResume = $derived(showsResume(setup, step));
 
   /**
-   * Written the first time everything works, whether the wizard was followed
-   * or skipped. Without it, an OBS restart the next evening reopens a setup
-   * that was finished weeks ago — `nextStep` reads the world, not history.
+   * Written down the moment the keys are reached, whether the wizard was
+   * followed or skipped (`completesSetup`). Without it, an OBS restart the
+   * next evening reopens a setup that was finished weeks ago — `nextStep`
+   * reads the world, not history.
+   *
+   * From the open wizard, reaching the keys is the wizard handing over
+   * (board 4a): it closes, and the editor opens with the capture already
+   * armed onto an empty stage that says what to press. Read before the write,
+   * since the write is what makes it false.
    */
   $effect(() => {
-    if (step === 'done' && setup !== 'done') remember('done');
+    if (!completesSetup(setup, step)) return;
+    const handingOver = handsOverToEditor(setup, step);
+    remember('done');
+    if (handingOver) learning = true;
   });
 
   function remember(status: WizardStatus) {
@@ -597,7 +605,6 @@
     resetSelection: () => {
       selectedIds = [];
       keysAnchor = null;
-      lastKey = null;
     },
     clearHistory: () => {
       history.clear();
@@ -685,11 +692,10 @@
       // one already placed — which is what keeps the thousands of reports a
       // single press produces from reaching `updateConfig`.
       if (next === config) return;
-      // Read from the result, not from the report: the label is the layout's
-      // business, and the wizard's third step names the key it just saw.
+      // Read from the result, not from the report: what was added is the
+      // layout's business, and the Escape guard above needs the usage.
       const before = config.keys.map((key) => key.id);
       const added = next.keys.filter((key) => !before.includes(key.id)).at(-1);
-      lastKey = added?.label ?? null;
       if (added) lastLearned = { id: added.id, usage: added.usage, at: performance.now() };
       updateConfig(next);
     },
@@ -756,192 +762,202 @@
 <svelte:window onkeydown={onHistoryKey} />
 
 <div class="app">
-  <header class="bar">
-    <!-- The mark and the name, so the window is recognisable in a taskbar
-         full of Chrome. Decorative: the page's name is in the title. -->
-    <img class="mark" src="/logo/halcyon-logo.svg" width="22" height="22" alt="" />
-    <span class="wordmark">HALCYON</span>
+  {#if wizardOpen}
+    <!-- The setup has the page to itself (board 4a): the mark, and the card.
+         Nothing else is mounted — the stage cannot be worked on until the
+         keyboard answers, and the setup exists to get it there. -->
+    <header class="bar">
+      <img class="mark" src="/logo/halcyon-logo.svg" width="22" height="22" alt="" />
+      <span class="wordmark">HALCYON</span>
+    </header>
 
-    <!-- The OBS pill is the whole OBS interface (board 3a): its popover
+    <!-- What cannot work here is the page, not one of its sections. It shows
+         itself or nothing. -->
+    <Unsupported keyboard={keyboardStatus} />
+
+    <div class="welcome">
+      <Wizard
+        {step}
+        keyboard={keyboardStatus}
+        device={keyboardName}
+        obs={obsStatus}
+        overlaysInObs={listeners.inObs}
+        {settings}
+        {url}
+        onAllowKeyboard={() => link.requestPermission()}
+        onReconnect={reconnect}
+        onSkip={() => remember('skipped')}
+      />
+    </div>
+  {:else}
+    <header class="bar">
+      <!-- The mark and the name, so the window is recognisable in a taskbar
+         full of Chrome. Decorative: the page's name is in the title. -->
+      <img class="mark" src="/logo/halcyon-logo.svg" width="22" height="22" alt="" />
+      <span class="wordmark">HALCYON</span>
+
+      <!-- The OBS pill is the whole OBS interface (board 3a): its popover
          carries the URL, the recommended size and the two credentials the
          sidebar fold used to. The size is only quoted once there is a key to
          pack — an empty layout has no size worth giving a browser source. -->
-    <StatusBar
-      keyboard={keyboardStatus}
-      device={keyboardName}
-      obs={obsStatus}
-      {rate}
-      overlays={listeners}
-      {otherCapture}
-      {url}
-      size={config.keys.length > 0 ? size : null}
-      {settings}
-      onPickDevice={() => link.requestPermission()}
-      onRetryObs={reconnect}
-      onCopyUrl={copyUrl}
-    />
+      <StatusBar
+        keyboard={keyboardStatus}
+        device={keyboardName}
+        obs={obsStatus}
+        {rate}
+        overlays={listeners}
+        {otherCapture}
+        {url}
+        size={config.keys.length > 0 ? size : null}
+        {settings}
+        onPickDevice={() => link.requestPermission()}
+        onRetryObs={reconnect}
+        onCopyUrl={copyUrl}
+      />
 
-    <!-- Document-level controls. In the header because it is the one zone
+      <!-- Document-level controls. In the header because it is the one zone
          visible in every state of the page: wizard up, folds shut, popover
          gone — and the first need for undo comes when the selection has just
          disappeared, so nothing anchored to it can carry the button. -->
-    <div class="edits">
-      <button aria-label="Undo" title="Undo · Ctrl+Z" disabled={!canUndo} onclick={undo}>↶</button>
-      <button aria-label="Redo" title="Redo · Ctrl+Y" disabled={!canRedo} onclick={redo}>↷</button>
-      <!-- The spoken half of the two buttons: it follows, it never interrupts. -->
-      <p class="sr" role="status">{announced}</p>
-    </div>
+      <div class="edits">
+        <button aria-label="Undo" title="Undo · Ctrl+Z" disabled={!canUndo} onclick={undo}>↶</button
+        >
+        <button aria-label="Redo" title="Redo · Ctrl+Y" disabled={!canRedo} onclick={redo}>↷</button
+        >
+        <!-- The spoken half of the two buttons: it follows, it never interrupts. -->
+        <p class="sr" role="status">{announced}</p>
+      </div>
 
-    <!-- In the header for the same reason undo is: the guide must be findable
+      <!-- In the header for the same reason undo is: the guide must be findable
          from every state of the page, and it anchors to nothing on the stage. -->
-    <StartupPopover />
+      <StartupPopover />
 
-    {#if canResume}
-      <!-- Amber, and in the header: findable long after the card was put
+      {#if canResume}
+        <!-- Amber, and in the header: findable long after the card was put
            aside, from any screen (board 6f). -->
-      <button class="resume" onclick={() => remember('open')}>
-        <span class="dot" aria-hidden="true"></span>
-        Resume setup · {stepNumber(step)}/3
-      </button>
-    {/if}
+        <button class="resume" onclick={() => remember('open')}>
+          <span class="dot" aria-hidden="true"></span>
+          Resume setup · {stepNumber(step)}/3
+        </button>
+      {/if}
 
-    <!-- Last, and the rarest: the layout override, the device picker, the
+      <!-- Last, and the rarest: the layout override, the device picker, the
          door to Diagnostics and the build (board 3a). -->
-    <SettingsMenu
-      layout={config.layoutOverride}
-      {toReport}
-      onLayout={(value) => updateConfig(setLayoutOverride(config, value, layout))}
-      onPickDevice={() => link.requestPermission()}
-      onDiagnostics={() => (diagnosticsOpen = true)}
-    />
-  </header>
+      <SettingsMenu
+        layout={config.layoutOverride}
+        {toReport}
+        onLayout={(value) => updateConfig(setLayoutOverride(config, value, layout))}
+        onPickDevice={() => link.requestPermission()}
+        onDiagnostics={() => (diagnosticsOpen = true)}
+      />
+    </header>
 
-  <!-- A row of its own under the header (board 3a): every profile in view,
+    <!-- A row of its own under the header (board 3a): every profile in view,
        switching is one click. The open profile's count is read live — it
        moves with every key learned — where the others' come from storage,
        which nothing can change while they are not on screen. -->
-  <ProfileBar
-    names={profileNames}
-    active={profile}
-    keyCount={(name) => (name === profile ? config.keys.length : profiles.keyCount(name))}
-    onSelect={switchProfile}
-    onCreate={profileActions.createProfile}
-    onDuplicate={profileActions.duplicateProfile}
-    onRename={profileActions.renameProfile}
-    onRemove={profileActions.removeProfile}
-    onExport={profileActions.downloadProfile}
-    onImport={profileActions.importProfile}
-  >
-    <!-- At the right end of the profile row, where the room was empty: the
+    <ProfileBar
+      names={profileNames}
+      active={profile}
+      keyCount={(name) => (name === profile ? config.keys.length : profiles.keyCount(name))}
+      onSelect={switchProfile}
+      onCreate={profileActions.createProfile}
+      onDuplicate={profileActions.duplicateProfile}
+      onRename={profileActions.renameProfile}
+      onRemove={profileActions.removeProfile}
+      onExport={profileActions.downloadProfile}
+      onImport={profileActions.importProfile}
+    >
+      <!-- At the right end of the profile row, where the room was empty: the
          one control someone comes to the page for. Inert without a keyboard,
          and saying why on hover; the keyboard pill is where the picker is. -->
-    <KeyLearner
-      bind:learning
-      disabled={keyboardStatus !== 'connected'}
-      reason={keyboardHint(keyboardStatus)}
-      onCancel={() => (learning = false)}
-    />
-  </ProfileBar>
-
-  <!-- Above the setup card, and outside the panels: what cannot work here is
-       the page, not one of its sections. It shows itself or nothing. -->
-  <Unsupported keyboard={keyboardStatus} />
-
-  <div class="split">
-    <main class="stage">
-      {#if wizardOpen}
-        <!-- On the stage, not beside it: the setup is an orchestration of the
-             editor, not a second interface (spec §9.1). -->
-        <div class="setup" class:banner={step === 'keys'}>
-          <Wizard
-            {step}
-            keyboard={keyboardStatus}
-            device={keyboardName}
-            obs={obsStatus}
-            overlaysInObs={listeners.inObs}
-            {settings}
-            {url}
-            bind:learning
-            added={lastKey}
-            onAllowKeyboard={() => link.requestPermission()}
-            onReconnect={reconnect}
-            onSkip={() => remember('skipped')}
-          />
-        </div>
-      {/if}
-
-      <!-- The same component OBS renders, from the same resolved shape — with
-           the editor decorations on, which the broadcast never gets. -->
-      <!-- `learningBanner` is suppressed for exactly the one step where
-           Wizard.svelte already draws the same banner over this same flag
-           (board 6c) — every other moment learning is armed, wizard or not,
-           the stage carries its own. -->
-      <LayoutEditor
-        bind:this={editor}
-        {config}
-        {frame}
-        bind:selectedIds
-        bind:stageBox
-        onChange={updateConfig}
-        {storage}
-        layout={activeLayout}
-        suggestAxis={selectedIds.length === 1 && suggestedIds.includes(selectedIds[0]!)}
-        onDismissSuggestion={() => {
-          // Proposing a mode for a heterogeneous group would mean nothing, so
-          // the suggestion is single-selection only — and so is dismissing it.
-          suggester.dismiss(selectedIds[0]!);
-          observed += 1;
-        }}
+      <KeyLearner
         bind:learning
-        learningBanner={learning && !(wizardOpen && step === 'keys')}
-        {wizardOpen}
+        disabled={keyboardStatus !== 'connected'}
+        reason={keyboardHint(keyboardStatus)}
+        onCancel={() => (learning = false)}
       />
-    </main>
+    </ProfileBar>
 
-    <aside class="panel">
-      <!-- Global appearance. Per-key overrides live in the popover the editor
+    <!-- Above the setup card, and outside the panels: what cannot work here is
+       the page, not one of its sections. It shows itself or nothing. -->
+    <Unsupported keyboard={keyboardStatus} />
+
+    <div class="split">
+      <main class="stage">
+        <!-- The same component OBS renders, from the same resolved shape — with
+           the editor decorations on, which the broadcast never gets. -->
+        <LayoutEditor
+          bind:this={editor}
+          {config}
+          {frame}
+          bind:selectedIds
+          bind:stageBox
+          onChange={updateConfig}
+          {storage}
+          layout={activeLayout}
+          suggestAxis={selectedIds.length === 1 && suggestedIds.includes(selectedIds[0]!)}
+          onDismissSuggestion={() => {
+            // Proposing a mode for a heterogeneous group would mean nothing, so
+            // the suggestion is single-selection only — and so is dismissing it.
+            suggester.dismiss(selectedIds[0]!);
+            observed += 1;
+          }}
+          bind:learning
+          learningBanner={learning}
+        />
+      </main>
+
+      <aside class="panel">
+        <!-- Global appearance. Per-key overrides live in the popover the editor
            anchors to the selection, never here (spec §16.4). -->
-      <section class="block">
-        <!-- Open on a first run, unlike the per-key block in the popover: this
+        <section class="block">
+          <!-- Open on a first run, unlike the per-key block in the popover: this
              fold shows the three group headers (board 3a), and the groups
              themselves start shut — so open, it costs three lines. -->
-        <Collapsible id="style" title="Global style" modified={styled} defaultOpen {storage}>
-          <StylePanel {config} onChange={updateConfig} />
-        </Collapsible>
-      </section>
+          <Collapsible id="style" title="Global style" modified={styled} defaultOpen {storage}>
+            <StylePanel {config} onChange={updateConfig} />
+          </Collapsible>
+        </section>
 
-      <section class="block keys-block">
-        <Collapsible id="keys" title="Keys" note={String(config.keys.length)} defaultOpen {storage}>
-          {#if config.keys.length === 0}
-            <p class="fine">No keys yet.</p>
-          {:else}
-            <ul class="keys">
-              {#each config.keys as key (key.id)}
-                <li class:selected={selectedIds.includes(key.id)}>
-                  <!-- The row is the only thing that can reach an off-screen
+        <section class="block keys-block">
+          <Collapsible
+            id="keys"
+            title="Keys"
+            note={String(config.keys.length)}
+            defaultOpen
+            {storage}
+          >
+            {#if config.keys.length === 0}
+              <p class="fine">No keys yet.</p>
+            {:else}
+              <ul class="keys">
+                {#each config.keys as key (key.id)}
+                  <li class:selected={selectedIds.includes(key.id)}>
+                    <!-- The row is the only thing that can reach an off-screen
                        key (spec §16.5): its handle is clipped away with the
                        stage overflow. So the row selects — plain, ctrl-toggle,
                        shift-range — and a double click opens the popover,
                        which already folds itself back inside the stage. -->
-                  <button
-                    class="pick"
-                    aria-pressed={selectedIds.includes(key.id)}
-                    onclick={(event) => pickKey(key.id, event)}
-                    ondblclick={() => editor?.open(key.id)}
-                  >
-                    <span class="label">{key.label}</span>
-                    <span class="mode">{key.mode}</span>
-                    {#if offscreen.includes(key.id)}
-                      <!-- Before the override tag: this one says the key cannot
+                    <button
+                      class="pick"
+                      aria-pressed={selectedIds.includes(key.id)}
+                      onclick={(event) => pickKey(key.id, event)}
+                      ondblclick={() => editor?.open(key.id)}
+                    >
+                      <span class="label">{key.label}</span>
+                      <span class="mode">{key.mode}</span>
+                      {#if offscreen.includes(key.id)}
+                        <!-- Before the override tag: this one says the key cannot
                            be seen at all, which outranks how it is painted. -->
-                      <span
-                        class="offscreen"
-                        title="Not on the work surface: widen the window, or lower the key size in the global style"
-                      >
-                        off screen
-                      </span>
-                    {/if}
-                    <!-- Same amber, same shape as the override tag beside it: at a
+                        <span
+                          class="offscreen"
+                          title="Not on the work surface: widen the window, or lower the key size in the global style"
+                        >
+                          off screen
+                        </span>
+                      {/if}
+                      <!-- Same amber, same shape as the override tag beside it: at a
                          glance the two say one thing — this key was customized. The
                          words separate them for whoever reads on, because the ways
                          back differ: "Reset to global" for a style, "Reset to
@@ -951,59 +967,60 @@
                          the key itself. Four arrows drawn as a clean cluster, one of
                          them Right Ctrl wearing a down arrow, and nothing on screen
                          to say which. -->
-                    {#if detectedLabelFor(key, activeLayout) !== null}
-                      <span
-                        class="customized"
-                        title="Renamed by hand · this is not the name its position produces"
-                      >
-                        renamed
-                      </span>
-                    {/if}
-                    {#if hasOverrides(key)}<span class="customized">override</span>{/if}
-                  </button>
-                  <button
-                    class="trash"
-                    aria-label={'Delete ' + key.label}
-                    onclick={() => updateConfig(removeKey(config, key.id))}
-                  >
-                    <!-- Replaces the trash-can emoji this button used to hold —
+                      {#if detectedLabelFor(key, activeLayout) !== null}
+                        <span
+                          class="customized"
+                          title="Renamed by hand · this is not the name its position produces"
+                        >
+                          renamed
+                        </span>
+                      {/if}
+                      {#if hasOverrides(key)}<span class="customized">override</span>{/if}
+                    </button>
+                    <button
+                      class="trash"
+                      aria-label={'Delete ' + key.label}
+                      onclick={() => updateConfig(removeKey(config, key.id))}
+                    >
+                      <!-- Replaces the trash-can emoji this button used to hold —
                          the one coloured glyph in an otherwise monochrome,
                          tokenized UI, since Windows renders it in full colour
                          regardless of theme. `currentColor` ties this one to the
                          button's own text colour instead, and the name someone
                          hears from a screen reader lives on the button above,
                          not on this decoration. -->
-                    <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
-                      <path
-                        d="M3.5 4.5h9M6.5 4.5V3a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1.5M4.5 4.5l.6 8.6a1 1 0 0 0 1 .9h3.8a1 1 0 0 0 1-.9l.6-8.6M6.5 7.3v4M9.5 7.3v4"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="1.2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      />
-                    </svg>
-                  </button>
-                </li>
-              {/each}
-            </ul>
+                      <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
+                        <path
+                          d="M3.5 4.5h9M6.5 4.5V3a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1.5M4.5 4.5l.6 8.6a1 1 0 0 0 1 .9h3.8a1 1 0 0 0 1-.9l.6-8.6M6.5 7.3v4M9.5 7.3v4"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
+                      </svg>
+                    </button>
+                  </li>
+                {/each}
+              </ul>
 
-            {#if selectedIds.length > 1}
-              <button
-                class="link"
-                onclick={() => {
-                  updateConfig(removeKeys(config, selectedIds));
-                  selectedIds = [];
-                }}
-              >
-                Delete {selectedIds.length} selected keys
-              </button>
+              {#if selectedIds.length > 1}
+                <button
+                  class="link"
+                  onclick={() => {
+                    updateConfig(removeKeys(config, selectedIds));
+                    selectedIds = [];
+                  }}
+                >
+                  Delete {selectedIds.length} selected keys
+                </button>
+              {/if}
             {/if}
-          {/if}
-        </Collapsible>
-      </section>
-    </aside>
-  </div>
+          </Collapsible>
+        </section>
+      </aside>
+    </div>
+  {/if}
 
   {#if diagnosticsOpen}
     <!-- Over the stage, from the ⚙ menu (board 3a). Mounted only while open,
@@ -1137,28 +1154,18 @@
     min-inline-size: 0;
     background: var(--he-stage);
   }
-  /* Over the editor, because the setup is walking someone through it. The
-     third step is a banner at the top instead: a card in the middle would
-     cover the very keys it is asking for (board 6c). */
-  .setup {
-    position: absolute;
-    inset: 0;
-    z-index: 5;
+  /* The setup alone on the page (board 4a): the card centred on the same
+     dotted ground the stage will draw once it takes over. */
+  .welcome {
+    flex: 1;
+    min-block-size: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    /* The wrapper spans the stage so the card can be centred in it; without
-       this it would also swallow every click meant for the keys underneath. */
-    pointer-events: none;
-  }
-  .setup > :global(*) {
-    pointer-events: auto;
-  }
-  /* The third step is a banner at the top: a card in the middle would cover
-     the very keys the step is asking for (board 6c). */
-  .setup.banner {
-    align-items: start;
-    padding-block-start: 52px;
+    padding: 24px;
+    background-color: var(--he-bg);
+    background-image: radial-gradient(var(--he-surface) 1px, transparent 1px);
+    background-size: 22px 22px;
   }
 
   .panel {

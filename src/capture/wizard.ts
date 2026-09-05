@@ -59,12 +59,46 @@ export function stepNumber(step: WizardStep): number {
   return at < 0 ? ORDER.length : at + 1;
 }
 
+/**
+ * The two steps the wizard actually draws (board 4a). The third, "Add your
+ * keys", stays on its rail as the destination — but reaching it *is* leaving
+ * the wizard: the editor opens with the capture armed, and that is the step.
+ */
+const DRAWN: readonly WizardStep[] = ['keyboard', 'obs'];
+
 export function showsWizard(status: WizardStatus, step: WizardStep): boolean {
-  return status === 'open' && step !== 'done';
+  return status === 'open' && DRAWN.includes(step);
 }
 
+/**
+ * Only for the two steps the wizard has something to say about. With the
+ * keyboard and OBS both answering, "Resume setup · 3/3" would reopen a card
+ * that has nothing left to show but the editor behind it.
+ */
 export function showsResume(status: WizardStatus, step: WizardStep): boolean {
-  return status === 'skipped' && step !== 'done';
+  return status === 'skipped' && DRAWN.includes(step);
+}
+
+/**
+ * Whether the setup is to be written down as done, this instant.
+ *
+ * Reaching the keys — or past them — is the end of the setup whether the
+ * wizard was followed or skipped: what is left is the editor's ordinary work.
+ * Without this an OBS restart the next evening reopens a setup that was
+ * finished weeks ago, because `nextStep` reads the world, not history.
+ */
+export function completesSetup(status: WizardStatus, step: WizardStep): boolean {
+  return status !== 'done' && (step === 'keys' || step === 'done');
+}
+
+/**
+ * Whether reaching the keys step is the wizard handing over to the editor —
+ * the one moment the capture is armed without a click (board 4a): the wizard
+ * closes on an empty stage that says "Press any key to add it", and asking
+ * for a click first would explain nothing.
+ */
+export function handsOverToEditor(status: WizardStatus, step: WizardStep): boolean {
+  return status === 'open' && step === 'keys';
 }
 
 const STATUSES: readonly string[] = ['open', 'skipped', 'done'];

@@ -1,6 +1,8 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import {
+  completesSetup,
+  handsOverToEditor,
   loadStatus,
   nextStep,
   saveStatus,
@@ -102,6 +104,43 @@ describe('whether anything shows at all', () => {
     // Someone whose OBS is merely off tonight is not being set up again.
     expect(showsWizard('done', 'obs')).toBe(false);
     expect(showsResume('done', 'obs')).toBe(false);
+  });
+
+  it('draws nothing for the keys step, which is the editor itself', () => {
+    // Board 4a: the third step stays on the rail as the destination, and
+    // reaching it closes the wizard. Nor is there anything to resume then —
+    // "Resume setup · 3/3" would reopen a card with nothing left to show.
+    expect(showsWizard('open', 'keys')).toBe(false);
+    expect(showsResume('skipped', 'keys')).toBe(false);
+  });
+});
+
+describe('the end of the setup', () => {
+  it('is reached at the keys, or past them, whether followed or skipped', () => {
+    expect(completesSetup('open', 'keys')).toBe(true);
+    expect(completesSetup('skipped', 'keys')).toBe(true);
+    expect(completesSetup('open', 'done')).toBe(true);
+    expect(completesSetup('skipped', 'done')).toBe(true);
+  });
+
+  it('is not reached while a step is still open', () => {
+    expect(completesSetup('open', 'keyboard')).toBe(false);
+    expect(completesSetup('skipped', 'obs')).toBe(false);
+  });
+
+  it('is written down once, never again', () => {
+    expect(completesSetup('done', 'keys')).toBe(false);
+    expect(completesSetup('done', 'done')).toBe(false);
+  });
+
+  it('hands over to the editor only from the open wizard', () => {
+    // The one moment the capture is armed without a click: the wizard closes
+    // on an empty stage that says "Press any key to add it". A skipped setup
+    // that reaches the same point was never asked to listen.
+    expect(handsOverToEditor('open', 'keys')).toBe(true);
+    expect(handsOverToEditor('skipped', 'keys')).toBe(false);
+    expect(handsOverToEditor('open', 'done')).toBe(false);
+    expect(handsOverToEditor('done', 'keys')).toBe(false);
   });
 });
 

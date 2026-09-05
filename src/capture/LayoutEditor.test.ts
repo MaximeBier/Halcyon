@@ -138,25 +138,18 @@ describe('LayoutEditor - the stage says what to do when it has nothing to show',
   // Skipping the wizard with zero keys used to leave the stage a bare black
   // rectangle: the only "No keys yet." lived in a fold of the side panel,
   // closed by default on a screen this size (constat 1).
-  const EMPTY_STATE = 'No keys yet — Add key on the right, then press one.';
+  const EMPTY_STATE = 'No keys yet';
 
-  it('shows the message when there are no keys and the wizard is closed', () => {
+  it('shows the message when there are no keys', () => {
     const { container } = editor(defaultConfig());
 
     expect(container.querySelector('.stage')!.textContent).toContain(EMPTY_STATE);
+    expect(container.querySelector('.stage')!.textContent).toContain('Add key above');
   });
 
-  it('says nothing once a key exists', () => {
-    const { container } = editor(twoKeys());
-
-    expect(container.querySelector('.stage')!.textContent).not.toContain(EMPTY_STATE);
-  });
-
-  it('stays quiet while the wizard draws its own card over the same spot', () => {
-    // `App.svelte` renders the wizard's setup card and this editor on the
-    // same stage at once (spec §9.1) — two messages saying "nothing here
-    // yet" would be one too many, and the wizard's is the one already asking
-    // out loud for a first key.
+  it('says what to press while the capture is armed, and where it will show', () => {
+    // The wizard's third step, said by the stage it happens on (board 4a):
+    // the wizard closes onto an armed, empty stage, and this is the step.
     laidOut(STAGE);
     const view = render(LayoutEditor, {
       props: {
@@ -166,11 +159,20 @@ describe('LayoutEditor - the stage says what to do when it has nothing to show',
         stageBox: { ...STAGE },
         onChange: vi.fn(),
         storage: { getItem: () => null, setItem: () => {} },
-        wizardOpen: true,
+        learning: true,
       },
     });
 
-    expect(view.container.textContent).not.toContain(EMPTY_STATE);
+    expect(view.container.querySelector('[data-empty]')!.textContent).toContain(
+      'Press any key to add it',
+    );
+    expect(view.container.querySelector('[data-empty]')!.textContent).toContain('in OBS');
+  });
+
+  it('says nothing once a key exists', () => {
+    const { container } = editor(twoKeys());
+
+    expect(container.querySelector('.stage')!.textContent).not.toContain(EMPTY_STATE);
   });
 });
 

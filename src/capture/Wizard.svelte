@@ -1,19 +1,24 @@
 <script lang="ts">
   import { obsNote, stepNumber, type WizardStep } from './wizard';
-  import { keyboardHint, type ConnectionSettings } from './settings';
+  import { keyboardHint, obsHint, type ConnectionSettings } from './settings';
   import type { KeyboardStatus } from '../keyboard/device';
   import { MAX_PORT, type ObsStatus } from '../transport/obs';
   import { copyToClipboard } from './clipboard';
 
   /**
-   * The first-run setup, as boards `6a`–`6c` draw it.
+   * The first-run setup, as board `4a` draws it: a card with the step thread
+   * on its left and the current step's content on its right, alone on the
+   * page — the editor waits behind it.
    *
    * **It orchestrates, it does not duplicate** (spec §9.1). Nothing here
-   * configures anything the editor cannot: the keyboard button is the one from
-   * the toolbar, the port and password are the same two fields, and the last
-   * step is the ordinary learning mode with a banner over it. What the wizard
-   * adds is an order, and the refusal to move on before each step has proved
-   * itself.
+   * configures anything the editor cannot: the device button opens the same
+   * picker the keyboard pill does, the port and password are the same two
+   * fields the OBS popover carries. What the wizard adds is an order, and the
+   * refusal to move on before each step has proved itself.
+   *
+   * Two steps are drawn. The third, "Add your keys", stays on the rail as the
+   * destination, and reaching it closes the wizard: the editor opens with the
+   * capture armed and an empty stage that says what to do (`LayoutEditor`).
    */
   let {
     step,
@@ -23,8 +28,6 @@
     overlaysInObs,
     settings,
     url,
-    learning = $bindable(false),
-    added,
     onAllowKeyboard,
     onReconnect,
     onSkip,
@@ -36,31 +39,24 @@
     /** For the step 2 note: which half of the step is missing, and why. */
     obs: ObsStatus;
     overlaysInObs: number;
-    /** The live settings object: the same two fields the editor writes to. */
+    /** The live settings object: the same two fields the OBS popover writes to. */
     settings: ConnectionSettings;
     url: string;
-    learning: boolean;
-    /** The label of the key that just landed, for the step 3 confirmation. */
-    added: string | null;
+    /**
+     * Opens Chrome's HID picker. Called straight from the click, never through
+     * an await or a timer: WebHID grants the picker to a user gesture and to
+     * nothing else.
+     */
     onAllowKeyboard: () => void;
     onReconnect: () => void;
     onSkip: () => void;
   } = $props();
 
   const ROWS: { step: WizardStep; label: string }[] = [
-    { step: 'keyboard', label: 'Connect your keyboard' },
-    { step: 'obs', label: 'Connect OBS (WebSocket + browser source)' },
-    { step: 'keys', label: 'Add the keys you want on stream' },
+    { step: 'keyboard', label: 'Keyboard' },
+    { step: 'obs', label: 'Connect OBS' },
+    { step: 'keys', label: 'Add your keys' },
   ];
-
-  // Narrow on purpose: `step` also carries `'keys'` and `'done'`, neither of
-  // which reaches `TITLES[step]` below — the card only renders for the other
-  // two. `Record<string, string>` used to hide that behind `undefined`
-  // instead of letting the compiler prove the two branches line up.
-  const TITLES: Record<'keyboard' | 'obs', string> = {
-    keyboard: 'Connect your keyboard',
-    obs: 'Connect OBS',
-  };
 
   const at = $derived(stepNumber(step));
 
@@ -75,30 +71,46 @@
     return index === at ? 'current' : 'pending';
   }
 
-  /** What a row says on its right, and only while it is done or in progress. */
+  /**
+   * The keyboard's own failures, which never resolve into a device on their
+   * own: old firmware, nothing plugged in, or something else already holding
+   * it. `no-permission` is left out — nothing has failed yet there.
+   */
+  const keyboardFailed = $derived(
+    keyboard === 'no-analog-interface' || keyboard === 'disconnected' || keyboard === 'open-failed',
+  );
+
+  /** What a row says under its name: the summary of a step behind, the state of the one at hand. */
   function note(row: WizardStep): string | null {
+    const where = rowState(row);
     if (row === 'keyboard') {
-      if (device) return device;
-      if (rowState(row) !== 'current') return null;
-      // `no-analog-interface`, `disconnected` and `open-failed` never resolve
-      // into a device on their own — old firmware, nothing plugged in, or
-      // something else already holding it — so "searching…" was a lie that
-      // never expired. `keyboardHint` already names each one for the status
-      // bar; this row is the one a beginner is actually looking at (spec's
-      // first documented Wooting user hit exactly this wall on the firmware
-      // one). `no-permission` is left out: nothing has failed yet there.
-      if (
-        keyboard === 'no-analog-interface' ||
-        keyboard === 'disconnected' ||
-        keyboard === 'open-failed'
-      ) {
-        return keyboardHint(keyboard);
-      }
-      return 'searching…';
+      if (where === 'done') return device ? `${device} detected` : 'connected';
+      // "searching…" was a lie that never expired on the three failures;
+      // `keyboardHint` names each one, and this row is the one a beginner is
+      // actually looking at (spec's first documented Wooting user hit exactly
+      // this wall on the firmware one).
+      return keyboardFailed ? keyboardHint(keyboard) : 'searching…';
     }
-    if (row === 'obs' && rowState(row) === 'current') return obsNote(obs, overlaysInObs);
-    return null;
+    if (row === 'obs') {
+      if (where === 'done') return 'connected';
+      return where === 'current' ? obsNote(obs, overlaysInObs) : 'not connected yet';
+    }
+    return 'in the editor';
   }
+
+  /**
+   * The line at the foot of step 2, which is the one place the full sentence
+   * fits: the rail's note is a fragment, this can say what to do. `unreachable`
+   * gets `obsHint`'s paragraph — the WebSocket server, and Chrome's local
+   * network permission, which nothing else on the page names.
+   */
+  const obsLine = $derived(
+    obs === 'idle'
+      ? 'Waiting for OBS'
+      : obs === 'unreachable'
+        ? obsHint(obs)
+        : obsNote(obs, overlaysInObs).replace(/^\w/, (first) => first.toUpperCase()),
+  );
 
   let revealed = $state(false);
   /** Tri-state and blur-reset, for the reasons in `clipboard.ts`. */
@@ -107,98 +119,64 @@
   async function copy() {
     copyState = (await copyToClipboard(navigator, url)) ? 'done' : 'failed';
   }
-
-  /**
-   * Puts the setup aside, and disarms the capture on the way out.
-   *
-   * The effect below arms it on arrival at the last step and only disarms when
-   * the step *changes* — but skipping unmounts the card instead, leaving the
-   * page listening with nothing on screen to say so. The next key brushed was
-   * added to the layout in silence.
-   */
-  function skip() {
-    learning = false;
-    onSkip();
-  }
-
-  /**
-   * Arms the capture once, on arrival at the last step.
-   *
-   * The mockup shows step 3 already listening, and asking for one more click
-   * to begin the step one has just reached explains nothing. Once, though:
-   * re-arming on every pass would make cancelling a fight the user cannot win,
-   * with a button that refuses to turn off.
-   */
-  let armed = $state(false);
-  $effect(() => {
-    if (step !== 'keys') {
-      armed = false;
-      return;
-    }
-    if (!armed) {
-      armed = true;
-      learning = true;
-    }
-  });
-
-  /**
-   * Re-arms the capture from the banner itself (task 8).
-   *
-   * `armed` above only fires once per arrival at this step, so it does not
-   * notice — let alone undo — a disarm the stage performs on its own: Escape,
-   * or the tab losing focus. Nothing new is invented here: `learning = true`
-   * is the exact write the panel's "+ Add key" button already performs, since
-   * both sides bind the same flag.
-   */
-  function resume() {
-    learning = true;
-  }
 </script>
 
-{#if step === 'keys'}
-  <!-- No card here: a 410 px panel in the middle of the stage would cover the
-       one thing this step exists to show (board 6c). -->
-  <div class="banner" data-banner role="status">
-    <!-- Dimmed rather than accented while stopped: the colour is the only
-         part of this banner a glance actually reads. -->
-    <span class="beacon" class:idle={!learning} aria-hidden="true"></span>
-    <span class="lines">
-      <!-- `learning` can go false without this step ever changing — the
-           stage disarms it on its own (Escape, alt-tab) — so the banner reads
-           that flag rather than asserting "Listening" for the whole step. -->
-      <strong>{learning ? 'Listening · press any key' : 'Capture stopped'}</strong>
-      {#if added}<span class="added">{added} added</span>{/if}
-    </span>
-    {#if !learning}
-      <button class="secondary" data-action="resume" type="button" onclick={resume}>
-        Resume listening
-      </button>
-    {/if}
-    <button class="skip" data-action="skip" type="button" onclick={skip}>Skip setup</button>
-  </div>
-{:else if step === 'keyboard' || step === 'obs'}
-  <div class="card" data-card>
-    <span class="eyebrow">SETUP {at}/3</span>
-    <h2>{TITLES[step]}</h2>
+<div class="card" data-card>
+  <aside class="rail">
+    <span class="eyebrow">SETUP</span>
 
+    <ol class="steps">
+      {#each ROWS as row (row.step)}
+        <li data-row={row.step} data-state={rowState(row.step)}>
+          <span class="bullet" aria-hidden="true">
+            {rowState(row.step) === 'done' ? '✓' : stepNumber(row.step)}
+          </span>
+          <span class="text">
+            <span class="label">{row.label}</span>
+            <span class="note">{note(row.step)}</span>
+          </span>
+        </li>
+      {/each}
+    </ol>
+
+    <!-- Quiet, and at the foot of the rail on both steps: the way out is
+         always in the same place, and never dressed as the way forward. -->
+    <button class="skip" data-action="skip" type="button" onclick={onSkip}>Skip setup →</button>
+  </aside>
+
+  <section class="content">
     {#if step === 'keyboard'}
+      <h2>Plug in your keyboard</h2>
       <!-- Wooting and nothing else, because that is what the device chooser
            will show: `requestDevice` filters on their vendor id. Offering "any
            analog HE keyboard" sent people to a picker that had nothing in it. -->
       <p class="lede">
-        Plug in your Wooting keyboard. Other analog keyboards are not supported yet.
+        Halcyon looks for a Wooting keyboard over WebHID. Plug it in, or pick it by hand if nothing
+        shows up. Other analog keyboards are not supported yet.
       </p>
+
+      <p class="status" data-status data-failed={keyboardFailed}>
+        <span class="dot" aria-hidden="true"></span>
+        {keyboardFailed ? keyboardHint(keyboard) : 'Scanning devices…'}
+      </p>
+
+      <!-- One label for every status this button is shown in: it always calls
+           `requestPermission()`, which always opens the same HID picker —
+           potentially empty. "Rescan devices" used to promise an automatic
+           look that the code never performs. -->
+      <button class="secondary" data-action="keyboard" type="button" onclick={onAllowKeyboard}>
+        Choose device…
+      </button>
     {:else}
+      <h2>Connect OBS</h2>
       <p class="lede">
-        <b>a.</b> In OBS: Tools → WebSocket Server Settings → tick “Enable WebSocket server” and
-        “Enable Authentication”, and keep the generated password.
-        <br />
-        <b>b.</b> Copy the port and password into the fields below.
+        In OBS: Tools → WebSocket Server Settings → tick “Enable WebSocket server” and “Enable
+        Authentication”. To see the password, click “Show Connect Info”.
       </p>
 
       <div class="fields">
-        <label>
-          Server port
+        <label class="port">
+          Port
           <input
             type="number"
             min="1"
@@ -207,9 +185,9 @@
             onchange={onReconnect}
           />
         </label>
-        <label>
-          Server password
-          <span class="secret">
+        <label class="password">
+          Password
+          <span class="secret" class:refused={obs === 'auth-failed'}>
             <input
               type={revealed ? 'text' : 'password'}
               bind:value={settings.password}
@@ -219,104 +197,196 @@
               {revealed ? 'Hide' : 'Show'}
             </button>
           </span>
+          {#if obs === 'auth-failed'}
+            <!-- Under the field it was typed into: the correction appears
+                 where the mistake was made. -->
+            <span class="error" data-error>{obsNote(obs, overlaysInObs)}</span>
+          {/if}
         </label>
       </div>
 
-      <p class="lede"><b>c.</b> Sources → + → Browser, and paste the ready-made URL.</p>
-
-      <div class="url">
-        <input data-url readonly value={url} aria-label="Overlay URL for OBS" />
-        <button
-          class="primary"
-          data-action="copy"
-          type="button"
-          onclick={copy}
-          onblur={() => (copyState = 'idle')}
-          title={copyState === 'failed'
-            ? 'Select the URL field above and copy it by hand'
-            : undefined}
-        >
-          {copyState === 'done' ? 'Copied' : copyState === 'failed' ? 'Copy failed' : 'Copy URL'}
-        </button>
+      <div class="source">
+        <span class="caption">Then add this browser source in your scene</span>
+        <div class="url">
+          <input data-url readonly value={url} aria-label="Overlay URL for OBS" />
+          <button
+            class="primary"
+            data-action="copy"
+            type="button"
+            onclick={copy}
+            onblur={() => (copyState = 'idle')}
+            title={copyState === 'failed'
+              ? 'Select the URL field above and copy it by hand'
+              : undefined}
+          >
+            {copyState === 'done' ? 'Copied' : copyState === 'failed' ? 'Copy failed' : 'Copy URL'}
+          </button>
+        </div>
       </div>
 
-      <p class="fine">
-        Port and password stay between OBS and this app, on your machine — we never receive them.
-        Keep the random password OBS generated, and avoid showing this URL on stream.
+      <div class="spacer"></div>
+
+      <p class="foot" data-obs-line>
+        <span class="dot" class:live={obs === 'identified'} aria-hidden="true"></span>
+        <span class="line">{obsLine}</span>
+        <!-- The one page that hands out a URL with a password in it owes the
+             reader this sentence (spec §16.8). -->
+        <span class="fine">The password never leaves your computer.</span>
       </p>
     {/if}
-
-    <ol class="steps">
-      {#each ROWS as row (row.step)}
-        <li data-row={row.step} data-state={rowState(row.step)}>
-          <span class="bullet" aria-hidden="true">
-            {rowState(row.step) === 'done' ? '✓' : stepNumber(row.step)}
-          </span>
-          <span class="label">{row.label}</span>
-          {#if note(row.step)}<span class="note">{note(row.step)}</span>{/if}
-        </li>
-      {/each}
-    </ol>
-
-    <div class="actions">
-      {#if step === 'keyboard'}
-        <!-- One label for every status this button is shown in: it always
-             calls `requestPermission()`, which always opens the same HID
-             picker — potentially empty. "Rescan devices" used to promise an
-             automatic look that the code never performs. -->
-        <button class="secondary" data-action="keyboard" type="button" onclick={onAllowKeyboard}>
-          Choose device…
-        </button>
-      {/if}
-      <button class="skip" data-action="skip" type="button" onclick={skip}>Skip setup</button>
-    </div>
-  </div>
-{/if}
+  </section>
+</div>
 
 <style>
   .card {
-    inline-size: 470px;
+    display: flex;
+    inline-size: 960px;
     max-inline-size: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+    font: var(--he-font);
+    color: var(--he-text);
+    background: var(--he-surface-low);
+    border: 1px solid var(--he-border-control);
+    border-radius: 10px;
+  }
+
+  .rail {
+    flex: none;
+    inline-size: 300px;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    padding: 26px;
-
-    font: var(--he-font);
-    color: var(--he-text);
-    background: var(--he-popover);
-    border: 1px solid var(--he-border-popover);
-    border-radius: var(--he-radius-panel);
+    gap: 24px;
+    padding: 30px 26px;
+    background: var(--he-surface-low);
+    border-inline-end: 1px solid var(--he-border);
   }
   .eyebrow {
     font: var(--he-font-mono);
     font-size: var(--he-size-xs);
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     color: var(--he-accent);
+  }
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .steps li {
+    display: flex;
+    align-items: flex-start;
+    gap: 13px;
+  }
+  .bullet {
+    flex: none;
+    inline-size: 30px;
+    block-size: 30px;
+    border-radius: 50%;
+    border: 1px solid var(--he-border-popover);
+    display: grid;
+    place-items: center;
+    font-size: var(--he-size-xs);
+    color: var(--he-text-faint);
+  }
+  .text {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .label {
+    font-size: var(--he-size-sm);
+    font-weight: 600;
+    color: var(--he-text-faint);
+  }
+  .note {
+    font-size: var(--he-size-xs);
+    color: var(--he-text-ghost);
+  }
+  li[data-state='current'] .label {
+    color: var(--he-text);
+  }
+  li[data-state='current'] .note {
+    color: var(--he-text-faint);
+  }
+  li[data-state='current'] .bullet {
+    font-weight: 600;
+    color: var(--he-accent);
+    border-color: var(--he-accent);
+  }
+  li[data-state='done'] .label {
+    color: var(--he-text-muted);
+  }
+  li[data-state='done'] .note {
+    color: var(--he-ok);
+  }
+  li[data-state='done'] .bullet {
+    font-size: var(--he-size-sm);
+    color: var(--he-ok);
+    background: var(--he-surface-ok);
+    border-color: transparent;
+  }
+  .skip {
+    all: unset;
+    cursor: pointer;
+    margin-block-start: auto;
+    font-size: var(--he-size-xs);
+    color: var(--he-text-faint);
+  }
+  .skip:hover {
+    color: var(--he-text-muted);
+  }
+
+  .content {
+    flex: 1;
+    min-inline-size: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 30px 34px;
+    background: var(--he-popover);
   }
   h2 {
     margin: 0;
     font-size: var(--he-size-title);
     font-weight: 700;
+    letter-spacing: -0.01em;
   }
   .lede {
-    margin: 0;
-    font-size: var(--he-size-md);
-    line-height: 1.55;
+    margin: -8px 0 0;
+    font-size: var(--he-size-sm);
+    line-height: 1.5;
     color: var(--he-text-muted);
     text-wrap: pretty;
   }
-  .lede b {
-    color: var(--he-accent);
-    font-weight: 600;
-  }
-  .fine {
+
+  .status {
     margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 11px 14px;
     font-size: var(--he-size-xs);
-    line-height: 1.45;
-    color: var(--he-text-faint);
-    text-wrap: pretty;
+    color: var(--he-text-muted);
+    background: var(--he-stage);
+    border: 1px solid var(--he-border-control);
+    border-radius: var(--he-radius-control);
+  }
+  .dot {
+    flex: none;
+    inline-size: 8px;
+    block-size: 8px;
+    border-radius: 50%;
+    background: var(--he-override);
+  }
+  .status[data-failed='true'] .dot {
+    background: var(--he-danger);
+  }
+  .dot.live {
+    background: var(--he-ok);
   }
 
   .fields {
@@ -324,21 +394,42 @@
     gap: 12px;
   }
   label {
-    flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 5px;
-    font-size: var(--he-size-sm);
+    gap: 6px;
+    font-size: var(--he-size-xs);
     color: var(--he-text-muted);
+  }
+  .port {
+    flex: 1;
+  }
+  .password {
+    flex: 2;
   }
   .secret {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
+    background: var(--he-stage);
+    border: 1px solid var(--he-border-control);
+    border-radius: var(--he-radius);
+    padding: 0 12px 0 0;
+  }
+  .secret:focus-within {
+    border-color: var(--he-accent);
+  }
+  .secret.refused {
+    border-color: var(--he-danger);
   }
   .secret input {
-    min-inline-size: 0;
     flex: 1;
+    min-inline-size: 0;
+    border: none;
+    background: none;
+    letter-spacing: 0.15em;
+  }
+  .secret input:focus-visible {
+    outline: none;
   }
   .secret button {
     all: unset;
@@ -348,6 +439,10 @@
   }
   .secret button:hover {
     color: var(--he-accent-hover);
+  }
+  .error {
+    font-size: var(--he-size-xs);
+    color: var(--he-danger);
   }
 
   input {
@@ -359,94 +454,71 @@
     background: var(--he-stage);
     border: 1px solid var(--he-border-control);
     border-radius: var(--he-radius);
-    padding: 7px 9px;
+    padding: 9px 12px;
   }
   input:focus-visible {
-    outline: 1px solid var(--he-accent);
+    outline: none;
+    border-color: var(--he-accent);
   }
 
+  .source {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .caption {
+    font-size: var(--he-size-xs);
+    color: var(--he-text-muted);
+  }
   .url {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
   }
   .url input {
     flex: 1;
     min-inline-size: 0;
-    color: var(--he-text-faint);
+    font-size: var(--he-size-xs);
+    color: var(--he-text-muted);
     text-overflow: ellipsis;
   }
 
-  .steps {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin: 0;
-    padding: 16px 0 0;
-    list-style: none;
-    border-top: 1px solid var(--he-border);
+  .spacer {
+    flex: 1;
+    min-block-size: 8px;
   }
-  .steps li {
+  .foot {
+    margin: 0;
     display: flex;
     align-items: center;
-    gap: 10px;
-    font-size: var(--he-size-md);
-    color: var(--he-text-faint);
-  }
-  .bullet {
-    flex: none;
-    inline-size: 18px;
-    block-size: 18px;
-    border-radius: 50%;
-    border: 1px solid var(--he-border-popover);
-    display: grid;
-    place-items: center;
+    gap: 9px;
+    padding-block-start: 16px;
+    border-block-start: 1px solid var(--he-border);
     font-size: var(--he-size-xs);
-    font-weight: 700;
-  }
-  li[data-state='current'] {
-    color: var(--he-text);
-  }
-  li[data-state='current'] .label {
-    font-weight: 600;
-  }
-  li[data-state='current'] .bullet {
-    color: var(--he-bg);
-    background: var(--he-accent);
-    border-color: var(--he-accent);
-  }
-  li[data-state='done'] {
     color: var(--he-text-muted);
   }
-  li[data-state='done'] .bullet {
-    color: var(--he-ok);
-    border-color: var(--he-ok);
+  .line {
+    flex: 1;
+    line-height: 1.4;
   }
-  .note {
-    margin-left: auto;
-    font-size: var(--he-size-xs);
-    color: var(--he-override);
-  }
-  li[data-state='done'] .note {
+  .fine {
+    flex: none;
     color: var(--he-text-faint);
   }
 
-  .actions {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-  }
   .primary,
   .secondary {
     all: unset;
+    box-sizing: border-box;
     cursor: pointer;
-    font-size: var(--he-size-md);
+    text-align: center;
+    font-size: var(--he-size-xs);
     font-weight: 600;
     border-radius: var(--he-radius-control);
-    padding: 8px 16px;
     white-space: nowrap;
   }
   .secondary {
+    padding: 9px 0;
     color: var(--he-text);
     border: 1px solid var(--he-border-popover);
   }
@@ -455,20 +527,13 @@
     background: var(--he-surface);
   }
   .primary {
+    padding: 9px 18px;
+    font-weight: 700;
     color: var(--he-bg);
     background: var(--he-accent);
   }
   .primary:hover {
     background: var(--he-accent-hover);
-  }
-  .skip {
-    all: unset;
-    cursor: pointer;
-    font-size: var(--he-size-sm);
-    color: var(--he-text-faint);
-  }
-  .skip:hover {
-    color: var(--he-text-muted);
   }
   .primary:focus-visible,
   .secondary:focus-visible,
@@ -476,40 +541,5 @@
   .secret button:focus-visible {
     outline: 2px solid var(--he-accent);
     outline-offset: 2px;
-  }
-
-  .banner {
-    display: flex;
-    align-items: center;
-    gap: 13px;
-    padding: 13px 18px;
-    font: var(--he-font);
-    color: var(--he-text);
-    background: var(--he-popover);
-    border: 1px solid var(--he-accent);
-    border-radius: var(--he-radius-panel);
-  }
-  .beacon {
-    flex: none;
-    inline-size: 9px;
-    block-size: 9px;
-    border-radius: 50%;
-    background: var(--he-accent);
-  }
-  .beacon.idle {
-    background: var(--he-text-faint);
-  }
-  .lines {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-  }
-  .lines strong {
-    font-size: var(--he-size-lg);
-    font-weight: 700;
-  }
-  .added {
-    font-size: var(--he-size-sm);
-    color: var(--he-ok);
   }
 </style>

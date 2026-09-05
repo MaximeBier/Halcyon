@@ -26,6 +26,8 @@ export const UI_TOKENS = {
    * the dot's own colour is the difference.
    */
   borderOk: '#2E5D42',
+  /** The disc behind a green ✓ in the wizard's rail: a step that is behind us (board 4a). */
+  surfaceOk: '#16321F',
   borderWarn: '#4A3820',
   borderDanger: '#3A2226',
   accent: '#7C9EFF',
@@ -51,8 +53,8 @@ export const UI_TOKENS = {
   sizeSm: '15px',
   sizeMd: '16px',
   sizeLg: '18px',
-  /** The wizard's own step title, one notch above `sizeLg` (spec's mockup). */
-  sizeTitle: '27px',
+  /** The wizard's own step title (board 4a). */
+  sizeTitle: '24px',
   font: "400 16px 'Archivo', system-ui, sans-serif",
   fontMono: "400 15px 'IBM Plex Mono', ui-monospace, monospace",
   /**

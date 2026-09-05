@@ -33,7 +33,6 @@
     onDismissSuggestion = () => {},
     learning = $bindable(false),
     learningBanner = false,
-    wizardOpen = false,
   }: {
     config: OverlayConfig;
     frame: readonly FrameKey[];
@@ -75,26 +74,13 @@
     /**
      * Whether the stage should draw its own "Listening" banner.
      *
-     * Kept apart from `learning`: the wizard's third step (`Wizard.svelte`,
-     * board 6c) already draws the identical recipe over this same flag while
-     * it walks someone through adding their first keys, and a second banner
-     * underneath it would say the same thing twice. The page above passes
-     * `false` for exactly that one step; everywhere else `learning` is armed
-     * without a card already announcing it, this follows it one for one.
+     * Kept apart from `learning` since the wizard's third step drew the same
+     * banner over the same flag (board 6c). The wizard hands over to this
+     * stage before that step since board 4a, so the page passes `learning`
+     * through one for one — the seam stays, in case a card ever covers this
+     * stage again.
      */
     learningBanner?: boolean;
-    /**
-     * Whether the wizard's own card is covering this same stage right now.
-     *
-     * The empty-state message below answers the exact question the wizard's
-     * card is already answering out loud — "there is nothing here yet" — for
-     * the one span of time (`Wizard.svelte`, spec §9.1) a first key has not
-     * been added. Drawing both at once said it twice, one of them sitting
-     * behind the card and invisible. The page above passes `false` once the
-     * wizard has been skipped or finished, which is the case a 0-key config
-     * used to leave a bare black rectangle on screen (constat 1).
-     */
-    wizardOpen?: boolean;
   } = $props();
 
   /**
@@ -146,7 +132,7 @@
    * already reads (see the `.source` line's own `shown.keys.length` check
    * below) keeps one rule for "the stage has nothing on it" instead of two.
    */
-  const showsEmptyStage = $derived(shown.keys.length === 0 && !wizardOpen);
+  const showsEmptyStage = $derived(shown.keys.length === 0);
 
   const unit = $derived(shown.style.unit);
   const gap = $derived(shown.style.gap);
@@ -647,8 +633,17 @@
         <!-- Centred over the whole canvas, and inert: a lasso drawn under it,
              or a click meant to clear the selection, has to reach the canvas
              underneath exactly as it would if this were not here at all. -->
-        <div class="empty">
-          <p>No keys yet — Add key on the right, then press one.</p>
+        <div class="empty" data-empty>
+          {#if learning}
+            <!-- The wizard's third step, said by the stage it happens on
+                 (board 4a): what to do, and where it will show. Gone with the
+                 first key, which is the whole confirmation. -->
+            <p class="lead">Press any key to add it</p>
+            <p class="hint">It shows up here and in OBS at the same time</p>
+          {:else}
+            <p class="lead">No keys yet</p>
+            <p class="hint">Add key above, then press one</p>
+          {/if}
         </div>
       {/if}
 
@@ -948,8 +943,10 @@
     position: absolute;
     inset: 0;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 8px;
     padding: 24px;
     text-align: center;
     pointer-events: none;
@@ -957,8 +954,15 @@
   .empty p {
     margin: 0;
     max-inline-size: 36ch;
+  }
+  .empty .lead {
     font-size: var(--he-size-md);
+    font-weight: 600;
     color: var(--he-text-muted);
+  }
+  .empty .hint {
+    font-size: var(--he-size-xs);
+    color: var(--he-text-faint);
   }
   .handle {
     position: absolute;

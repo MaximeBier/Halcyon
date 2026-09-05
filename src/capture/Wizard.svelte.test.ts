@@ -23,42 +23,62 @@ function wizard(step: WizardStep, overrides: Record<string, unknown> = {}) {
     overlaysInObs: 0,
     settings: { port: 4455, password: 'hunter2' },
     url: 'https://halcyon.example/overlay.html?port=4455#password=hunter2',
-    learning: false,
-    added: null,
     ...handlers,
     ...overrides,
   };
   return { ...render(Wizard, { props }), ...handlers };
 }
 
-const card = (c: HTMLElement) => c.querySelector<HTMLElement>('[data-card]');
-const banner = (c: HTMLElement) => c.querySelector<HTMLElement>('[data-banner]');
-const row = (c: HTMLElement, step: string) => c.querySelector<HTMLElement>(`[data-row="${step}"]`);
+const card = (c: HTMLElement) => c.querySelector<HTMLElement>('[data-card]')!;
+const row = (c: HTMLElement, step: string) => c.querySelector<HTMLElement>(`[data-row="${step}"]`)!;
 const button = (c: HTMLElement, name: string) =>
   c.querySelector<HTMLButtonElement>(`[data-action="${name}"]`);
 
-describe('the setup card', () => {
-  it('numbers itself out of three', () => {
-    expect(card(wizard('keyboard').container)!.textContent).toContain('SETUP 1/3');
-    expect(card(wizard('obs').container)!.textContent).toContain('SETUP 2/3');
-  });
-
-  it('marks the steps already behind it', () => {
+describe('the rail', () => {
+  it('threads the three steps, and marks where one stands', () => {
     const { container } = wizard('obs', { keyboard: 'connected', device: 'Wooting 60HE' });
 
-    expect(row(container, 'keyboard')!.dataset.state).toBe('done');
-    expect(row(container, 'obs')!.dataset.state).toBe('current');
-    expect(row(container, 'keys')!.dataset.state).toBe('pending');
+    expect(row(container, 'keyboard').dataset.state).toBe('done');
+    expect(row(container, 'obs').dataset.state).toBe('current');
+    expect(row(container, 'keys').dataset.state).toBe('pending');
   });
 
   it('names the keyboard it found, rather than only ticking it', () => {
-    // A green dot says a keyboard answered, not which one — and the question
+    // A green tick says a keyboard answered, not which one — and the question
     // is asked precisely on the machine with two analog boards in it.
     const { container } = wizard('obs', { keyboard: 'connected', device: 'Wooting 60HE' });
 
-    expect(row(container, 'keyboard')!.textContent).toContain('Wooting 60HE');
+    expect(row(container, 'keyboard').textContent).toContain('Wooting 60HE detected');
   });
 
+  it('keeps the third step in view as the destination, in the editor', () => {
+    // Board 4a: the thread shows where the setup leads, and reaching that
+    // step closes the wizard — so the row says where it happens.
+    const { container } = wizard('keyboard');
+
+    expect(row(container, 'keys').textContent).toContain('Add your keys');
+    expect(row(container, 'keys').textContent).toContain('in the editor');
+  });
+
+  it('says OBS is not connected yet while the keyboard is still the question', () => {
+    const { container } = wizard('keyboard');
+
+    expect(row(container, 'obs').textContent).toContain('not connected yet');
+  });
+
+  it('can be put aside from either step, from the same place', () => {
+    for (const step of ['keyboard', 'obs'] as WizardStep[]) {
+      const { container, onSkip } = wizard(step);
+
+      button(container, 'skip')!.click();
+
+      expect(onSkip).toHaveBeenCalledTimes(1);
+      cleanup();
+    }
+  });
+});
+
+describe('step 1 · the keyboard', () => {
   it('names the one gesture the button actually performs, whatever the status', () => {
     // "Rescan devices" promised a scan the code never runs: the click opens
     // the same HID picker `onAllowKeyboard` always opens — the very picker
@@ -70,10 +90,52 @@ describe('the setup card', () => {
       'no-analog-interface',
       'open-failed',
     ] as KeyboardStatus[]) {
-      expect(button(wizard('keyboard', { keyboard }).container, 'keyboard')!.textContent).toContain(
-        'Choose device…',
-      );
+      const { container, onAllowKeyboard } = wizard('keyboard', { keyboard });
+
+      expect(button(container, 'keyboard')!.textContent).toContain('Choose device…');
+      button(container, 'keyboard')!.click();
+      expect(onAllowKeyboard).toHaveBeenCalledTimes(1);
+      cleanup();
     }
+  });
+
+  it('says it is scanning before permission has even been asked for', () => {
+    // `no-permission` is not a failure yet — nothing has been tried.
+    const { container } = wizard('keyboard', { keyboard: 'no-permission' });
+
+    expect(container.querySelector('[data-status]')!.textContent).toContain('Scanning devices…');
+    expect(row(container, 'keyboard').textContent).toContain('searching…');
+  });
+
+  // `device` stays `null` for these three statuses forever, not just until
+  // something resolves — and "searching…" used to be the only word on the
+  // card, with the real diagnosis stuck in a status bar a beginner never
+  // looks at (spec's first documented Wooting user hit exactly this wall).
+  it('names an old firmware rather than scanning forever', () => {
+    const { container } = wizard('keyboard', { keyboard: 'no-analog-interface' });
+
+    expect(container.querySelector('[data-status]')!.textContent).toMatch(/firmware/i);
+    expect(container.querySelector('[data-status]')!.getAttribute('data-failed')).toBe('true');
+  });
+
+  it('says nothing is plugged in, rather than scanning forever', () => {
+    const { container } = wizard('keyboard', { keyboard: 'disconnected' });
+
+    expect(container.querySelector('[data-status]')!.textContent).toMatch(/plug/i);
+  });
+
+  it('names another app holding the device, rather than scanning forever', () => {
+    const { container } = wizard('keyboard', { keyboard: 'open-failed' });
+
+    expect(container.querySelector('[data-status]')!.textContent).toMatch(/wootility|try again/i);
+  });
+});
+
+describe('step 2 · OBS', () => {
+  it('tells where the password is shown in OBS', () => {
+    // The generated password hides behind "Show Connect Info", and the step
+    // used to send people looking for it in the settings dialog.
+    expect(card(wizard('obs').container).textContent).toContain('Show Connect Info');
   });
 
   it('hands over the URL to paste into OBS, and copies it', async () => {
@@ -90,269 +152,51 @@ describe('the setup card', () => {
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining('overlay.html'));
   });
 
-  it('says the credentials never leave the machine', () => {
+  it('asks for a reconnect when a credential changes', async () => {
+    // Credentials are read once when the socket opens: a new port has to
+    // rebuild the client, not patch it.
+    const { container, onReconnect } = wizard('obs');
+    const port = container.querySelector<HTMLInputElement>('input[type="number"]')!;
+
+    port.value = '4456';
+    port.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(onReconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it('says the password never leaves the machine', () => {
     // The one page that hands out a URL with a password in it owes the reader
     // this sentence (spec §16.8).
-    expect(card(wizard('obs').container)!.textContent).toMatch(/never receive|your machine/i);
+    expect(card(wizard('obs').container).textContent).toContain(
+      'The password never leaves your computer.',
+    );
   });
 
-  it('can be put aside from any step', () => {
-    const { container, onSkip } = wizard('obs');
+  it('waits for OBS out loud before anything was tried', () => {
+    const { container } = wizard('obs', { keyboard: 'connected' });
 
-    button(container, 'skip')!.click();
-
-    expect(onSkip).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe('the last step is not a card', () => {
-  it('gets out of the way so the keys can be seen landing', () => {
-    // A 410 px card in the middle of the stage would cover the very thing
-    // step 3 exists to show (mockup 6c).
-    const { container } = wizard('keys', { keyboard: 'connected', learning: true });
-
-    expect(card(container)).toBeNull();
-    expect(banner(container)).not.toBeNull();
+    expect(container.querySelector('[data-obs-line]')!.textContent).toContain('Waiting for OBS');
+    expect(row(container, 'obs').textContent).toContain('waiting…');
   });
 
-  it('confirms the key that just landed', () => {
-    const { container } = wizard('keys', { keyboard: 'connected', learning: true, added: 'D' });
+  it('puts a refused password under the field it was typed into', () => {
+    // The correction appears where the mistake was made, not in a header pill
+    // a beginner never looks at.
+    const { container } = wizard('obs', { keyboard: 'connected', obs: 'auth-failed' });
 
-    expect(banner(container)!.textContent).toContain('D added');
-  });
-});
-
-describe('the banner tells the truth about whether it is listening', () => {
-  /**
-   * Mounts on the last step already armed — as `armed`'s once-only effect
-   * always leaves it, regardless of what `learning` is handed in — then
-   * simulates the stage disarming it on its own (Escape, `blur`,
-   * `visibilitychange`) the way task 8 lets it. A fresh mount with
-   * `learning: false` cannot stand in for this: `armed` starts `false` too,
-   * so the arrival effect would force it back to listening on the very first
-   * render.
-   */
-  async function disarmedAtKeys(overrides: Record<string, unknown> = {}) {
-    let value = true;
-    const view = render(Wizard, {
-      props: {
-        step: 'keys' as WizardStep,
-        keyboard: 'connected' as KeyboardStatus,
-        device: 'Wooting 60HE',
-        obs: 'identified' as ObsStatus,
-        overlaysInObs: 1,
-        settings: { port: 4455, password: '' },
-        url: 'https://halcyon.example/overlay.html?port=4455',
-        get learning() {
-          return value;
-        },
-        set learning(next: boolean) {
-          value = next;
-        },
-        added: null,
-        onAllowKeyboard: vi.fn(),
-        onReconnect: vi.fn(),
-        onSkip: vi.fn(),
-        ...overrides,
-      },
-    });
-    await tick();
-
-    value = false;
-    await view.rerender({});
-    await tick();
-
-    return { ...view, getLearning: () => value };
-  }
-
-  it('says so while it is', () => {
-    const { container } = wizard('keys', { keyboard: 'connected', learning: true });
-
-    expect(banner(container)!.textContent).toContain('Listening · press any key');
+    expect(container.querySelector('[data-error]')!.textContent).toContain('password refused');
+    expect(row(container, 'obs').textContent).toContain('password refused');
   });
 
-  it('says so once Escape or a lost tab has stopped it', async () => {
-    // Task 8 gave the stage (LayoutEditor) the right to disarm `learning` on
-    // its own while this step is still open. The banner used to assert
-    // "Listening" unconditionally on the step alone, which turns into a lie
-    // the moment that happens.
-    const { container } = await disarmedAtKeys();
+  it('gives the silent server the full sentence, site settings included', () => {
+    // Two dead ends hide behind `unreachable` and neither announces itself:
+    // the WebSocket server is off, or Chrome's local network access was
+    // refused — once, silently, for good until site settings lift it.
+    const { container } = wizard('obs', { keyboard: 'connected', obs: 'unreachable' });
 
-    expect(banner(container)!.textContent).not.toContain('Listening · press any key');
-    expect(banner(container)!.textContent).toContain('stopped');
-  });
-
-  it('still confirms the last key landed, even while stopped', async () => {
-    const { container } = await disarmedAtKeys({ added: 'D' });
-
-    expect(banner(container)!.textContent).toContain('D added');
-  });
-
-  it('re-arms from the banner itself, the same write "+ Add key" performs', async () => {
-    // Not a new arming route: `learning = true` is exactly what the panel's
-    // button does, since `learning` is bound the same way in both places.
-    const { container, getLearning } = await disarmedAtKeys();
-
-    container.querySelector<HTMLButtonElement>('[data-action="resume"]')!.click();
-    await tick();
-
-    expect(getLearning()).toBe(true);
-  });
-});
-
-describe('arming the capture', () => {
-  it('starts listening the moment the last step opens', async () => {
-    // The mockup shows step 3 already listening: asking for one more click to
-    // begin the step one just arrived at is a click that explains nothing.
-    const listening: boolean[] = [];
-    const { rerender } = render(Wizard, {
-      props: {
-        step: 'obs' as WizardStep,
-        keyboard: 'connected' as KeyboardStatus,
-        device: 'Wooting 60HE',
-        obs: 'identified' as ObsStatus,
-        overlaysInObs: 1,
-        settings: { port: 4455, password: '' },
-        url: 'https://halcyon.example/overlay.html?port=4455',
-        get learning() {
-          return listening.at(-1) ?? false;
-        },
-        set learning(value: boolean) {
-          listening.push(value);
-        },
-        added: null,
-        onAllowKeyboard: vi.fn(),
-        onReconnect: vi.fn(),
-        onSkip: vi.fn(),
-      },
-    });
-
-    expect(listening).toEqual([]);
-
-    await rerender({ step: 'keys' });
-    await tick();
-
-    expect(listening).toEqual([true]);
-  });
-
-  it('does not arm it again after it was called off', async () => {
-    // Cancelling and being re-armed by the same effect is a fight the user
-    // cannot win: the button would refuse to turn off.
-    const listening: boolean[] = [];
-    let value = false;
-    const { rerender } = render(Wizard, {
-      props: {
-        step: 'keys' as WizardStep,
-        keyboard: 'connected' as KeyboardStatus,
-        device: 'Wooting 60HE',
-        obs: 'identified' as ObsStatus,
-        overlaysInObs: 1,
-        settings: { port: 4455, password: '' },
-        url: 'https://halcyon.example/overlay.html?port=4455',
-        get learning() {
-          return value;
-        },
-        set learning(next: boolean) {
-          value = next;
-          listening.push(next);
-        },
-        added: null,
-        onAllowKeyboard: vi.fn(),
-        onReconnect: vi.fn(),
-        onSkip: vi.fn(),
-      },
-    });
-    await tick();
-    expect(listening).toEqual([true]);
-
-    value = false;
-    await rerender({ added: 'D' });
-    await tick();
-
-    expect(listening).toEqual([true]);
-  });
-});
-
-describe('putting the setup aside', () => {
-  it('stops listening on the way out of the last step', async () => {
-    // Arriving at step 3 arms the capture. Skipping from there used to unmount
-    // the card with the capture still armed: the banner vanished, and the next
-    // key the person brushed was added to the layout in silence.
-    const listening: boolean[] = [];
-    let value = false;
-    const { container } = render(Wizard, {
-      props: {
-        step: 'keys' as WizardStep,
-        keyboard: 'connected' as KeyboardStatus,
-        device: 'Wooting 60HE',
-        obs: 'identified' as ObsStatus,
-        overlaysInObs: 1,
-        settings: { port: 4455, password: '' },
-        url: 'https://halcyon.example/overlay.html?port=4455',
-        get learning() {
-          return value;
-        },
-        set learning(next: boolean) {
-          value = next;
-          listening.push(next);
-        },
-        added: null,
-        onAllowKeyboard: vi.fn(),
-        onReconnect: vi.fn(),
-        onSkip: vi.fn(),
-      },
-    });
-    await tick();
-    expect(listening).toEqual([true]);
-
-    container.querySelector<HTMLButtonElement>('[data-action="skip"]')!.click();
-    await tick();
-
-    expect(value).toBe(false);
-  });
-});
-
-describe('the keyboard row tells the truth', () => {
-  // `device` stays `null` for these three statuses forever, not just until
-  // something resolves — and "searching…" used to be the only word on the
-  // card, with the real diagnosis stuck in a status bar a beginner never
-  // looks at (spec's first documented Wooting user hit exactly this wall).
-  it('names an old firmware rather than searching forever', () => {
-    const { container } = wizard('keyboard', { keyboard: 'no-analog-interface' });
-
-    expect(row(container, 'keyboard')!.textContent).toMatch(/firmware/i);
-  });
-
-  it('says nothing is plugged in, rather than searching forever', () => {
-    const { container } = wizard('keyboard', { keyboard: 'disconnected' });
-
-    expect(row(container, 'keyboard')!.textContent).toMatch(/plug/i);
-  });
-
-  it('names another app holding the device, rather than searching forever', () => {
-    const { container } = wizard('keyboard', { keyboard: 'open-failed' });
-
-    expect(row(container, 'keyboard')!.textContent).toMatch(/wootility|try again/i);
-  });
-
-  it('still says searching before permission has even been asked for', () => {
-    // `no-permission` is not a failure yet — nothing has been tried — so the
-    // row keeps saying what it always said rather than reaching for a verdict.
-    const { container } = wizard('keyboard', { keyboard: 'no-permission' });
-
-    expect(row(container, 'keyboard')!.textContent).toContain('searching…');
-  });
-});
-
-describe('the OBS row tells the truth', () => {
-  // Three failures used to share one "waiting…" while the header pill knew
-  // better — and the person mid-setup is looking at the card, not the header.
-  it('distinguishes a refused password from a silent server', () => {
-    const refused = wizard('obs', { keyboard: 'connected', obs: 'auth-failed' });
-    expect(row(refused.container, 'obs')!.textContent).toContain('password refused');
-
-    const silent = wizard('obs', { keyboard: 'connected', obs: 'unreachable' });
-    expect(row(silent.container, 'obs')!.textContent).toContain('press a key');
+    expect(container.querySelector('[data-obs-line]')!.textContent).toMatch(/websocket server/i);
+    expect(container.querySelector('[data-obs-line]')!.textContent).toMatch(/site settings/i);
+    expect(container.querySelector('[data-error]')).toBeNull();
   });
 
   it('says the socket is up but nothing inside OBS listens yet', () => {
@@ -362,12 +206,8 @@ describe('the OBS row tells the truth', () => {
       overlaysInObs: 0,
     });
 
-    expect(row(container, 'obs')!.textContent).toContain('waiting for the browser source');
-  });
-
-  it('still waits quietly before anything was tried', () => {
-    const { container } = wizard('obs', { keyboard: 'connected' });
-
-    expect(row(container, 'obs')!.textContent).toContain('waiting…');
+    expect(container.querySelector('[data-obs-line]')!.textContent).toContain(
+      'waiting for the browser source',
+    );
   });
 });
