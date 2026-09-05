@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  overlayTally,
-  rateLabel,
+  obsPill,
   canPickDevice,
   canRetryObs,
   captureWarning,
@@ -338,60 +337,60 @@ describe('createObsProbe', () => {
   });
 });
 
-describe('rateLabel', () => {
-  it('shows the throughput once there is a socket to measure', () => {
-    expect(rateLabel(0, true)).toBe('0 fps');
-    expect(rateLabel(58, true)).toBe('58 fps');
+describe('obsPill', () => {
+  const none = { inObs: 0, inBrowser: 0 };
+
+  it('carries the tally and the throughput once connected', () => {
+    expect(obsPill('identified', { inObs: 1, inBrowser: 0 }, 58)).toBe('OBS · 1 overlay · 58 fps');
+    expect(obsPill('identified', { inObs: 2, inBrowser: 0 }, 0)).toBe('OBS · 2 overlays · 0 fps');
   });
 
-  it('says nothing when OBS is down and zero is the only figure possible', () => {
-    // The rate counts frames leaving for OBS, and the page zeroes it itself
-    // when the socket stops being identified. Printed there it is a constant,
-    // not a measurement.
-    expect(rateLabel(0, false)).toBeNull();
-  });
-
-  it('keeps a figure above zero even with OBS gone', () => {
-    // The socket drops a tick before the reset runs. A pill that vanished in
-    // between would read as the stream having stopped on its own.
-    expect(rateLabel(58, false)).toBe('58 fps');
-  });
-});
-
-describe('overlayTally', () => {
   it('says nobody has reported in, once OBS is there to report through', () => {
-    expect(overlayTally({ inObs: 0, inBrowser: 0 }, true)).toMatch(/no overlay/i);
+    expect(obsPill('identified', none, 0)).toMatch(/no overlay/i);
   });
 
-  it('says nothing at all when OBS is down and the zero is arithmetic', () => {
-    // Heartbeats only arrive over the OBS socket, and the registry is cleared
-    // when it drops — so "no overlay" there is not an observation, it is the
-    // OBS pill said twice, in red, on a row of its own.
-    expect(overlayTally({ inObs: 0, inBrowser: 0 }, false)).toBeNull();
-  });
-
-  it('still names whoever is listening when OBS has just gone', () => {
-    // Between the socket dropping and the registry being cleared, a count that
-    // vanished would read as the overlays having left. Only the empty case is
-    // redundant; a number never is.
-    expect(overlayTally({ inObs: 1, inBrowser: 0 }, false)).toBe('1 overlay in OBS');
-  });
-
-  it('names the one that matters on its own', () => {
-    // The overlay in OBS is the one on air. It is the figure someone is looking
-    // for, so it comes first and it is never folded into a total.
-    expect(overlayTally({ inObs: 1, inBrowser: 0 }, true)).toBe('1 overlay in OBS');
-    expect(overlayTally({ inObs: 2, inBrowser: 0 }, true)).toBe('2 overlays in OBS');
-  });
-
-  it('counts a tab apart, since opening one is how the count got useless', () => {
-    expect(overlayTally({ inObs: 0, inBrowser: 1 }, true)).toBe('1 overlay in a browser');
-    expect(overlayTally({ inObs: 1, inBrowser: 1 }, true)).toBe(
-      '1 overlay in OBS · 1 in a browser',
+  it('counts a tab apart, since opening one is how a single count got useless', () => {
+    // The overlay in OBS is the one on air: it comes first and is never
+    // folded into a total (spec §16.7).
+    expect(obsPill('identified', { inObs: 0, inBrowser: 1 }, 58)).toBe(
+      'OBS · 1 overlay in a browser · 58 fps',
     );
-    expect(overlayTally({ inObs: 2, inBrowser: 3 }, true)).toBe(
-      '2 overlays in OBS · 3 in a browser',
+    expect(obsPill('identified', { inObs: 1, inBrowser: 1 }, 58)).toBe(
+      'OBS · 1 overlay · 1 in a browser · 58 fps',
     );
+    expect(obsPill('identified', { inObs: 2, inBrowser: 3 }, 58)).toBe(
+      'OBS · 2 overlays · 3 in a browser · 58 fps',
+    );
+  });
+
+  it('prints neither figure while OBS is down, where both could only be constants', () => {
+    // Heartbeats only arrive over the OBS socket and the registry is cleared
+    // when it drops; the rate is zeroed there too. Neither is a measurement.
+    for (const status of [
+      'idle',
+      'connecting',
+      'unreachable',
+      'disconnected',
+      'auth-failed',
+    ] as const) {
+      expect(obsPill(status, { inObs: 1, inBrowser: 1 }, 58)).not.toMatch(/overlay|fps/);
+    }
+  });
+
+  it('invites the click on exactly the states the pill retries', () => {
+    for (const status of [
+      'idle',
+      'connecting',
+      'unreachable',
+      'disconnected',
+      'auth-failed',
+    ] as const) {
+      expect(/click to retry/.test(obsPill(status, none, 0))).toBe(canRetryObs(status));
+    }
+  });
+
+  it('names the password when that is what OBS refused', () => {
+    expect(obsPill('auth-failed', none, 0)).toMatch(/password/i);
   });
 });
 

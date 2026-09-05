@@ -4,7 +4,6 @@
   import {
     createObsClient,
     DEFAULT_OBS_PORT,
-    MAX_PORT,
     normalizePort,
     type ObsClient,
     type ObsStatus,
@@ -16,7 +15,6 @@
     overlayUrl,
     browserStorage,
     keyboardHint,
-    sourceState,
     createObsProbe,
     type ObsProbeStatus,
   } from './settings';
@@ -610,14 +608,8 @@
   const styled = $derived(hasGlobalOverrides(config.style));
 
   /** See `clipboard.ts`: the copy can silently not happen, and used to lie. */
-  let urlCopied = $state<'idle' | 'done' | 'failed'>('idle');
-
-  /** The panel's own reveal — the wizard's is gone once the setup is done. */
-  let revealed = $state(false);
-
-  async function copyUrl() {
+  async function copyUrl(): Promise<boolean> {
     const copied = await copyToClipboard(navigator, url);
-    urlCopied = copied ? 'done' : 'failed';
     // The journal is what goes into a bug report. A line claiming the URL
     // was copied when it was not sends whoever reads it down the wrong path.
     note(
@@ -626,6 +618,7 @@
         ? 'Overlay URL copied.'
         : 'Overlay URL could not be copied — select the field and copy it by hand.',
     );
+    return copied;
   }
 
   /**
@@ -736,14 +729,22 @@
 
 <div class="app">
   <header class="bar">
+    <!-- The OBS pill is the whole OBS interface (board 3a): its popover
+         carries the URL, the recommended size and the two credentials the
+         sidebar fold used to. The size is only quoted once there is a key to
+         pack — an empty layout has no size worth giving a browser source. -->
     <StatusBar
       keyboard={keyboardStatus}
       obs={obsStatus}
       {rate}
       overlays={listeners}
       {otherCapture}
+      {url}
+      size={config.keys.length > 0 ? size : null}
+      {settings}
       onPickDevice={() => link.requestPermission()}
       onRetryObs={reconnect}
+      onCopyUrl={copyUrl}
     />
 
     <!-- Document-level controls. In the header because it is the one zone
@@ -853,81 +854,6 @@
         >
           <KeyLearner bind:learning onCancel={() => (learning = false)} />
         </Gated>
-      </section>
-
-      <!-- Before the style panel, as the lot of 2026-08-21 has it: while
-           nothing works yet, the overlay URL is what one comes here for. -->
-      <section class="block">
-        <!-- The note counts only the overlays in OBS: this fold is about the
-             browser source, and a tab opened to check the overlay works
-             answers a different question. -->
-        <Collapsible
-          id="obs"
-          title="OBS browser source"
-          note={listeners.inObs > 0 ? `${listeners.inObs} in OBS` : null}
-          defaultOpen
-          {storage}
-        >
-          <Gated available={obsStatus === 'identified'} reason="Available once OBS is connected">
-            <div class="url">
-              <input readonly value={url} aria-label="Overlay URL for OBS" />
-              <button
-                class="link"
-                onclick={copyUrl}
-                onblur={() => (urlCopied = 'idle')}
-                title={urlCopied === 'failed' ? 'Select the field and copy it by hand' : undefined}
-              >
-                {urlCopied === 'done' ? 'Copied' : urlCopied === 'failed' ? 'Failed' : 'Copy'}
-              </button>
-            </div>
-
-            {#if config.keys.length > 0}
-              <p class="figure">
-                <span>Recommended source size</span>
-                <span class="value">{size.width} × {size.height} px</span>
-              </p>
-            {/if}
-
-            <p class="state">
-              <span class="dot" data-live={listeners.inObs > 0} aria-hidden="true"></span>
-              {sourceState(listeners)}
-            </p>
-          </Gated>
-
-          <!-- Not in the mockup, which shows only the URL here and leaves the
-               two fields to the wizard. They have to stay reachable once the
-               setup is done and the wizard is gone for good. -->
-          <label class="field">
-            Port
-            <input
-              type="number"
-              min="1"
-              max={MAX_PORT}
-              bind:value={settings.port}
-              onchange={reconnect}
-            />
-          </label>
-          <label class="field">
-            Password
-            <!-- The wizard's reveal, repeated here: this is the field one
-                 comes back to weeks later, when the password OBS generated is
-                 long forgotten. -->
-            <span class="secret">
-              <input
-                type={revealed ? 'text' : 'password'}
-                bind:value={settings.password}
-                onchange={reconnect}
-              />
-              <button type="button" onclick={() => (revealed = !revealed)}>
-                {revealed ? 'Hide' : 'Show'}
-              </button>
-            </span>
-          </label>
-          <p class="fine">
-            Stored in this browser and carried in the URL above. Anyone with access to this machine
-            can read it.
-          </p>
-        </Collapsible>
       </section>
 
       <!-- Global appearance. Per-key overrides live in the popover the editor
@@ -1246,26 +1172,6 @@
     background: var(--he-stage);
   }
 
-  .url {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 7px 9px;
-    background: var(--he-stage);
-    border: 1px solid var(--he-border-control);
-    border-radius: var(--he-radius);
-  }
-  .url input {
-    flex: 1;
-    min-inline-size: 0;
-    border: none;
-    background: none;
-    padding: 0;
-    font: var(--he-font-mono);
-    font-size: var(--he-size-xs);
-    color: var(--he-text-faint);
-    text-overflow: ellipsis;
-  }
   .link {
     all: unset;
     cursor: pointer;
@@ -1281,79 +1187,11 @@
     outline-offset: 2px;
   }
 
-  .figure,
-  .state,
   .fine {
     margin: 0;
     font-size: var(--he-size-xs);
     color: var(--he-text-faint);
     line-height: 1.45;
-  }
-  .figure {
-    display: flex;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 6px 9px;
-    background: var(--he-surface);
-    border-radius: var(--he-radius);
-  }
-  .figure .value {
-    font: var(--he-font-mono);
-    font-size: var(--he-size-xs);
-    color: var(--he-text);
-  }
-  .state {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-  }
-  .state .dot {
-    inline-size: 6px;
-    block-size: 6px;
-    border-radius: 50%;
-    background: var(--he-border-hover);
-  }
-  .state .dot[data-live='true'] {
-    background: var(--he-ok);
-  }
-
-  .field {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    font-size: var(--he-size-sm);
-    color: var(--he-text-muted);
-    padding-block: 3px;
-  }
-  .secret {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .secret input {
-    min-inline-size: 0;
-    flex: 1;
-  }
-  .secret button {
-    all: unset;
-    cursor: pointer;
-    font-size: var(--he-size-xs);
-    color: var(--he-accent);
-  }
-  .secret button:focus-visible {
-    outline: 2px solid var(--he-accent);
-    outline-offset: 2px;
-  }
-  .field input {
-    inline-size: 8rem;
-    font: var(--he-font-mono);
-    font-size: var(--he-size-sm);
-    color: var(--he-text);
-    background: var(--he-stage);
-    border: 1px solid var(--he-border-control);
-    border-radius: var(--he-radius);
-    padding: 4px 7px;
   }
 
   .keys {

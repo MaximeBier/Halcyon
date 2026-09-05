@@ -9,6 +9,7 @@ import editorSource from './LayoutEditor.svelte?raw';
 // wires up. The rule under test is structural — no emoji, an SVG with the
 // right attributes, Sentence case — and the source text says all of it.
 import appSource from './App.svelte?raw';
+import obsPopoverSource from './ObsPopover.svelte?raw';
 import wizardSource from './Wizard.svelte?raw';
 import { DEFAULT_STYLE, defaultConfig, type OverlayConfig } from '../config/schema';
 import { surfaceOf } from './layout';
@@ -189,11 +190,12 @@ describe('LayoutEditor - the sidebar delete glyph is not the emoji Windows recol
 
 describe('LayoutEditor - Hide and Show read like the rest of the interface', () => {
   // Every other control in this UI reads in Sentence case; the password
-  // reveal toggle alone spoke in lowercase, in both places it appears.
+  // reveal toggle alone spoke in lowercase, in both places it appears — the
+  // OBS pill's popover since board 3a, and the wizard.
   it('capitalizes the reveal toggle wherever it shows up', () => {
-    expect(appSource).not.toMatch(/'hide'|'show'/);
+    expect(obsPopoverSource).not.toMatch(/'hide'|'show'/);
     expect(wizardSource).not.toMatch(/'hide'|'show'/);
-    expect(appSource).toContain("revealed ? 'Hide' : 'Show'");
+    expect(obsPopoverSource).toContain("revealed ? 'Hide' : 'Show'");
     expect(wizardSource).toContain("revealed ? 'Hide' : 'Show'");
   });
 });

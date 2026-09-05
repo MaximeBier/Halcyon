@@ -72,6 +72,8 @@ export const UI_TOKENS = {
   menuWidth: '280px',
   /** StartupPopover's onboarding menu — wider, it carries the setup steps. */
   guideWidth: '320px',
+  /** The OBS pill's popover: URL, size, port and password (board 3a). */
+  statusPopoverWidth: '330px',
 } as const;
 
 const CSS_PREFIX = '--he-';

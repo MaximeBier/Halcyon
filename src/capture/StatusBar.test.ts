@@ -7,13 +7,20 @@ import type { ObsStatus } from '../transport/obs';
 afterEach(cleanup);
 
 function bar(overrides: { keyboard?: KeyboardStatus; obs?: ObsStatus } = {}) {
-  const handlers = { onPickDevice: vi.fn(), onRetryObs: vi.fn() };
+  const handlers = {
+    onPickDevice: vi.fn(),
+    onRetryObs: vi.fn(),
+    onCopyUrl: vi.fn(() => Promise.resolve(true)),
+  };
   const props = {
     keyboard: 'connected' as KeyboardStatus,
     obs: 'identified' as ObsStatus,
     rate: 58,
     overlays: { inObs: 1, inBrowser: 0 },
     otherCapture: false,
+    url: 'http://localhost:5173/overlay.html?port=4455',
+    size: { width: 216, height: 216 },
+    settings: { port: 4455, password: 'secret' },
     ...handlers,
     ...overrides,
   };
@@ -22,6 +29,7 @@ function bar(overrides: { keyboard?: KeyboardStatus; obs?: ObsStatus } = {}) {
 
 const pill = (c: HTMLElement, name: string) =>
   c.querySelector<HTMLElement>(`[data-pill="${name}"]`)!;
+const popover = (c: HTMLElement) => c.querySelector<HTMLElement>('[data-obs-popover]');
 
 describe('a pill that can fix what it reports', () => {
   it('opens the device picker from the keyboard pill itself', async () => {
@@ -43,12 +51,16 @@ describe('a pill that can fix what it reports', () => {
     }
   });
 
-  it('retries the socket from the OBS pill', async () => {
-    const { container, onRetryObs } = bar({ obs: 'unreachable' });
+  it('retries the socket from the OBS pill while OBS is down, and opens nothing', async () => {
+    for (const obs of ['unreachable', 'disconnected'] as ObsStatus[]) {
+      const { container, onRetryObs } = bar({ obs });
 
-    await fireEvent.click(pill(container, 'obs'));
+      await fireEvent.click(pill(container, 'obs'));
 
-    expect(onRetryObs).toHaveBeenCalledTimes(1);
+      expect(onRetryObs).toHaveBeenCalledTimes(1);
+      expect(popover(container)).toBeNull();
+      cleanup();
+    }
   });
 });
 
@@ -66,21 +78,89 @@ describe('a pill with nothing to offer', () => {
 
     expect(pill(container, 'keyboard').tagName).not.toBe('BUTTON');
   });
+});
 
-  it('is not a button when OBS is connected, or when the password was refused', () => {
-    for (const obs of ['identified', 'auth-failed'] as ObsStatus[]) {
-      const { container } = bar({ obs });
-
-      expect(pill(container, 'obs').tagName).not.toBe('BUTTON');
-      cleanup();
-    }
-  });
-
-  it('leaves the two measures as plain text', () => {
-    // They report, they do not ask. Nothing about a frame rate is actionable.
+describe('the one OBS pill', () => {
+  it('folds the state, the tally and the rate into one line', () => {
     const { container } = bar();
 
-    expect(pill(container, 'rate').tagName).not.toBe('BUTTON');
-    expect(pill(container, 'overlays').tagName).not.toBe('BUTTON');
+    expect(pill(container, 'obs').textContent).toContain('OBS · 1 overlay · 58 fps');
+    expect(container.querySelector('[data-pill="rate"]')).toBeNull();
+    expect(container.querySelector('[data-pill="overlays"]')).toBeNull();
+  });
+
+  it('opens the popover on a click once connected', async () => {
+    // Nothing to retry: the click is the door to the URL, the size and the
+    // credentials, which the sidebar no longer carries (board 3a).
+    const { container, onRetryObs } = bar({ obs: 'identified' });
+
+    await fireEvent.click(pill(container, 'obs'));
+
+    expect(popover(container)).not.toBeNull();
+    expect(onRetryObs).not.toHaveBeenCalled();
+    expect(pill(container, 'obs').getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('opens the popover on a click when the password was refused', async () => {
+    // Another identical attempt would fail identically; the field is what
+    // this state wants, and the popover is where it is.
+    const { container, onRetryObs } = bar({ obs: 'auth-failed' });
+
+    await fireEvent.click(pill(container, 'obs'));
+
+    expect(popover(container)).not.toBeNull();
+    expect(onRetryObs).not.toHaveBeenCalled();
+  });
+
+  it('reaches the popover on a right click while OBS is down', async () => {
+    // The click is the retry then, so the credentials need another gesture —
+    // and a wrong port is exactly what makes OBS unreachable.
+    const { container, onRetryObs } = bar({ obs: 'unreachable' });
+
+    const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    pill(container, 'obs').dispatchEvent(event);
+    await Promise.resolve();
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(popover(container)).not.toBeNull();
+    expect(onRetryObs).not.toHaveBeenCalled();
+  });
+
+  it('closes on Escape and hands the focus back to the pill', async () => {
+    const { container } = bar();
+    await fireEvent.click(pill(container, 'obs'));
+    expect(document.activeElement).toBe(popover(container));
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await Promise.resolve();
+
+    expect(popover(container)).toBeNull();
+    expect(document.activeElement).toBe(pill(container, 'obs'));
+  });
+
+  it('closes on a click outside, and stays on a click inside', async () => {
+    const { container } = bar();
+    await fireEvent.click(pill(container, 'obs'));
+
+    popover(container)!.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    await Promise.resolve();
+    expect(popover(container)).not.toBeNull();
+
+    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    await Promise.resolve();
+    expect(popover(container)).toBeNull();
+  });
+
+  it('hands a changed credential to the same retry the pill uses', async () => {
+    // The fold's rule, kept: credentials are read once when the socket opens,
+    // so a new port or password has to rebuild the client, not patch it.
+    const { container, onRetryObs } = bar();
+    await fireEvent.click(pill(container, 'obs'));
+
+    const port = popover(container)!.querySelector<HTMLInputElement>('input[type="number"]')!;
+    port.value = '4456';
+    await fireEvent.change(port);
+
+    expect(onRetryObs).toHaveBeenCalledTimes(1);
   });
 });
