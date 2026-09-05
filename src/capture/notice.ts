@@ -26,16 +26,6 @@ export interface Notice {
   action?: { label: string; run: () => void };
 }
 
-/**
- * Two devices, two jobs (spec §16.6).
- *
- * The toast says something just happened and leaves; the profile line says
- * what the loaded profile is worth, and stays. One place doing both is the
- * failure the mockup removed: a "2 keys skipped" left on screen for hours, in
- * the same spot that later announces an unreadable file.
- */
-
-/** Shared with the profile menu, which counts the same things the same way. */
 export const keysLabel = (count: number) => `${count} key${count === 1 ? '' : 's'}`;
 
 /** Nothing was imported, so nothing was lost — and that is the part to say. */
@@ -117,33 +107,6 @@ export function loadToast(problem: 'unreadable' | 'too-new' | null): Notice | nu
     tone: 'error',
     message: `Saved profile ${cause} · started from the defaults · the copy is kept aside`,
   };
-}
-
-/** Where the profile on screen came from, because the same count means two things. */
-export interface Health {
-  problem: 'unreadable' | 'too-new' | null;
-  dropped: number;
-  from: 'load' | 'import';
-}
-
-export function profileStatus(name: string, keyCount: number, health: Health): string {
-  if (health.problem !== null) {
-    const cause = health.problem === 'too-new' ? 'written by a newer version' : 'unreadable';
-    return `${name} · ${cause} · started from the defaults`;
-  }
-
-  // Keys dropped by an import came from someone else's keyboard, which is
-  // ordinary; keys dropped while loading were lost out of this very profile,
-  // which is damage. Sending someone to look for an import they never made is
-  // the worse of the two mistakes.
-  const lost =
-    health.dropped === 0
-      ? ''
-      : health.from === 'import'
-        ? ` · ${health.dropped} skipped on the last import`
-        : ` · ${health.dropped} could not be read`;
-
-  return `${name} · ${keysLabel(keyCount)}${lost}`;
 }
 
 /**

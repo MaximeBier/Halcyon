@@ -56,7 +56,7 @@
   import ProfileBar from './ProfileBar.svelte';
   import StartupPopover from './StartupPopover.svelte';
   import Toast from './Toast.svelte';
-  import { deletionToast, loadToast, profileStatus, type Health, type Notice } from './notice';
+  import { deletionToast, loadToast, type Notice } from './notice';
   import { createHistory } from './history';
   import { createProfileActions } from './profile-actions';
   import type { DecodeAnomaly } from '../keyboard/decode';
@@ -80,20 +80,7 @@
   const opened = profiles.load(openedName);
   let config = $state(opened.config);
 
-  /**
-   * What the open profile is worth, kept past the toast that announced it.
-   *
-   * The two are not redundant (spec §16.6): the toast says something just
-   * happened, this says what we are looking at — hours later, when the only
-   * question left is why there are four keys instead of six.
-   */
-  let health = $state<Health>({
-    problem: opened.problem,
-    dropped: opened.dropped,
-    from: 'load',
-  });
-
-  /** The passing half. Replaced, never queued: the last thing said is the one that matters. */
+  /** Replaced, never queued: the last thing said is the one that matters. */
   let toast = $state<Notice | null>(loadToast(opened.problem));
 
   /**
@@ -552,14 +539,10 @@
     else redo();
   }
 
-  /** What the profile menu shows permanently, under the list (spec §16.6). */
-  const status = $derived(profileStatus(profile, config.keys.length, health));
-  const statusWarn = $derived(health.problem !== null || health.dropped > 0);
-
   /**
    * The profile CRUD — open / create / duplicate / rename / remove / import /
    * download — lives in `profile-actions.ts`: one coherent unit (store,
-   * health, toast, history.clear, broadcast) that touches App's runes only
+   * toast, history.clear, broadcast) that touches App's runes only
    * through the getters and setters handed in here. This component owns the
    * reactivity; the module owns the sequencing.
    */
@@ -570,7 +553,6 @@
     setProfile: (name) => (profile = name),
     setConfig: (next) => (config = next),
     setProfileNames: (names) => (profileNames = names),
-    setHealth: (next) => (health = next),
     setToast: (notice) => (toast = notice),
     resetSelection: () => {
       selectedIds = [];
@@ -797,8 +779,6 @@
     names={profileNames}
     active={profile}
     keyCount={(name) => (name === profile ? config.keys.length : profiles.keyCount(name))}
-    {status}
-    {statusWarn}
     onSelect={switchProfile}
     onCreate={profileActions.createProfile}
     onDuplicate={profileActions.duplicateProfile}

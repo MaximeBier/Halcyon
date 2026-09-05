@@ -4,7 +4,7 @@ import { createProfileActions } from './profile-actions';
 import { defaultConfig, type OverlayConfig } from '../config/schema';
 import { exportProfile } from '../config/storage';
 import { profileFileName } from './profile-file';
-import { loadToast, type Health, type Notice } from './notice';
+import { loadToast, type Notice } from './notice';
 
 /**
  * A stub `File`, typed by `Pick<>` rather than `as never`: `importProfile`
@@ -20,7 +20,11 @@ function setup(
     profile?: string;
     config?: OverlayConfig;
     names?: string[];
-    load?: (name: string) => { config: OverlayConfig; problem: Health['problem']; dropped: number };
+    load?: (name: string) => {
+      config: OverlayConfig;
+      problem: 'unreadable' | 'too-new' | null;
+      dropped: number;
+    };
     renames?: boolean;
     replaces?: boolean;
   } = {},
@@ -97,8 +101,6 @@ function setup(
       config = next;
     },
     setProfileNames: (list) => calls.push(`setProfileNames(${list.join(',')})`),
-    setHealth: (health) =>
-      calls.push(`setHealth(${health.problem},${health.dropped},${health.from})`),
     setToast: (notice) => {
       calls.push(`setToast(${notice?.tone ?? 'null'})`);
       toasts.push(notice);
@@ -119,7 +121,6 @@ function setup(
       'store.list',
       `setProfileNames(${names.join(',')})`,
       `store.load(${name})`,
-      'setHealth(null,0,load)',
       'setConfig',
       'resetSelection',
       'clearHistory',
@@ -132,7 +133,7 @@ function setup(
 
 describe('createProfileActions', () => {
   describe('openProfile', () => {
-    it('walks the whole door — select, name, load, health, config, reset, history, broadcast', () => {
+    it('walks the whole door — select, name, load, config, reset, history, broadcast', () => {
       const { actions, calls, openDoors } = setup();
 
       const result = actions.openProfile('Valorant');
@@ -321,7 +322,6 @@ describe('createProfileActions', () => {
         'store.list',
         'store.importFrom(Valorant)',
         ...openDoors('Valorant'),
-        'setHealth(null,0,import)',
         'setToast(success)',
       ]);
       expect(toasts.at(-1)?.message).toBe('Profile imported as "Valorant"');
@@ -343,11 +343,7 @@ describe('createProfileActions', () => {
       calls.length = 0;
       toast!.action!.run();
 
-      expect(calls).toEqual([
-        'store.replaceFrom(Apex,Apex 2)',
-        ...openDoors('Apex'),
-        'setHealth(null,0,import)',
-      ]);
+      expect(calls).toEqual(['store.replaceFrom(Apex,Apex 2)', ...openDoors('Apex')]);
     });
 
     it('Replace does nothing when the collided profile is already gone', async () => {
@@ -365,7 +361,7 @@ describe('createProfileActions', () => {
       calls.length = 0;
       toast!.action!.run();
 
-      // Nothing to reconcile the import into: no reopening, no health update.
+      // Nothing to reconcile the import into: no reopening.
       expect(calls).toEqual(['store.replaceFrom(Apex,Apex 2)']);
     });
   });

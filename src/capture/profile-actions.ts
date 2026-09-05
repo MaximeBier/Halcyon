@@ -8,7 +8,6 @@ import {
   loadToast,
   profileDeletedToast,
   READ_FAILED,
-  type Health,
   type Notice,
 } from './notice';
 
@@ -16,7 +15,7 @@ import {
  * The profile CRUD block App.svelte used to carry directly against its own
  * runes — open / create / duplicate / rename / remove / import / download,
  * plus the two closures the Replace and delete-Undo features hung off it.
- * One coherent unit (store + health + toast + history.clear + broadcast),
+ * One coherent unit (store + toast + history.clear + broadcast),
  * factored out the same way `createCaptureSession` is: every rune it touches
  * arrives as a getter or a setter, so the reactivity stays in the component
  * and this module stays plain values in, plain calls out.
@@ -47,7 +46,6 @@ export interface ProfileActionsDeps {
   setProfile(name: string): void;
   setConfig(config: OverlayConfig): void;
   setProfileNames(names: string[]): void;
-  setHealth(health: Health): void;
   setToast(notice: Notice | null): void;
   /**
    * Forgets the selection, the shift-anchor and the last key learned — the
@@ -85,7 +83,6 @@ export function createProfileActions(deps: ProfileActionsDeps): ProfileActions {
     deps.setProfileNames(deps.store.list());
 
     const next = deps.store.load(name);
-    deps.setHealth({ problem: next.problem, dropped: next.dropped, from: 'load' });
     deps.setConfig(next.config);
     // Both name keys of the profile being left. Two profiles can share a
     // matrix index, so a stale selection does not merely look wrong —
@@ -201,14 +198,11 @@ export function createProfileActions(deps: ProfileActionsDeps): ProfileActions {
 
     const landed = deps.store.importFrom(requestedName, result.config);
     openProfile(landed);
-    // After `openProfile`, which sets `health` from a re-read of what we have
-    // just written — where the dropped count is zero, because the keys were
-    // dropped on the way in and the stored file no longer has them. The
-    // count worth showing is the one from the import.
-    deps.setHealth({ problem: null, dropped: result.dropped, from: 'import' });
 
     // No collision: exactly the toast this feature always showed, no action
-    // attached (spec's constat — the free-name path never changes).
+    // attached (spec's constat — the free-name path never changes). The
+    // dropped count lives on the toast alone: keys dropped on the way in are
+    // gone from the stored file, and nothing re-reads them later.
     deps.setToast(
       collided
         ? importedToast(landed, result.dropped, {
@@ -221,10 +215,6 @@ export function createProfileActions(deps: ProfileActionsDeps): ProfileActions {
               // Toast.svelte).
               if (!deps.store.replaceFrom(collidedWith, landed, result.config)) return;
               openProfile(collidedWith);
-              // Same override as above, and for the same reason: a fresh
-              // read of what `replaceFrom` just wrote reports zero dropped
-              // keys.
-              deps.setHealth({ problem: null, dropped: result.dropped, from: 'import' });
             },
           })
         : importedToast(landed, result.dropped),

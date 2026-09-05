@@ -20,7 +20,6 @@ function bar(overrides: Record<string, unknown> = {}) {
     names: ['Apex', 'ZQSD minimal'],
     active: 'Apex',
     keyCount: (name: string) => COUNTS[name] ?? 0,
-    status: 'Apex · 6 keys',
     ...handlers,
     ...overrides,
   };
@@ -187,13 +186,6 @@ describe('the active tab menu', () => {
     action(container, 'export')!.click();
 
     expect(onExport).toHaveBeenCalledTimes(1);
-  });
-
-  it('carries the permanent status line', async () => {
-    const { container } = bar({ status: 'Apex · 4 keys · 2 skipped on the last import' });
-    await openMore(container);
-
-    expect(menu(container)!.textContent).toContain('2 skipped on the last import');
   });
 });
 

@@ -6,7 +6,6 @@ import {
   importFailedToast,
   loadToast,
   profileDeletedToast,
-  profileStatus,
   READ_FAILED,
 } from './notice';
 import { defaultConfig } from '../config/schema';
@@ -102,52 +101,6 @@ describe('what a profile says when it will not open', () => {
 
   it('separates a profile ahead of this build from a broken one', () => {
     expect(loadToast('too-new')!.message).toContain('newer version');
-  });
-});
-
-describe('what the profile menu says, permanently', () => {
-  it('names the profile and counts its keys', () => {
-    expect(profileStatus('Apex', 6, { problem: null, dropped: 0, from: 'load' })).toBe(
-      'Apex · 6 keys',
-    );
-  });
-
-  it('counts a single key without pluralising it', () => {
-    expect(profileStatus('Apex', 1, { problem: null, dropped: 0, from: 'load' })).toBe(
-      'Apex · 1 key',
-    );
-  });
-
-  it('keeps the skipped count long after the toast has gone', () => {
-    // The whole reason the two exist side by side: the toast says it happened,
-    // the line says what the profile is worth (spec §16.6).
-    expect(profileStatus('Apex', 4, { problem: null, dropped: 2, from: 'import' })).toBe(
-      'Apex · 4 keys · 2 skipped on the last import',
-    );
-  });
-
-  it('does not blame an import for keys the saved profile itself had lost', () => {
-    // The same count reaches this line from two places, and they mean opposite
-    // things: a file from another keyboard is normal, a saved profile that lost
-    // keys is damage. Sending someone to look for an import they never did is
-    // the worse of the two mistakes.
-    expect(profileStatus('Apex', 4, { problem: null, dropped: 2, from: 'load' })).toBe(
-      'Apex · 4 keys · 2 could not be read',
-    );
-  });
-
-  it('says where an unreadable saved profile left us', () => {
-    expect(profileStatus('Apex', 0, { problem: 'unreadable', dropped: 0, from: 'load' })).toBe(
-      'Apex · unreadable · started from the defaults',
-    );
-  });
-
-  it('separates a profile from a newer version from a broken one', () => {
-    // They fail identically on screen and mean opposite things: one is corrupt,
-    // the other is intact and simply ahead of this build.
-    expect(profileStatus('Apex', 0, { problem: 'too-new', dropped: 0, from: 'load' })).toBe(
-      'Apex · written by a newer version · started from the defaults',
-    );
   });
 });
 

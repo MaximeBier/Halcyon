@@ -16,8 +16,6 @@
     names,
     active,
     keyCount,
-    status,
-    statusWarn = false,
     onSelect,
     onCreate,
     onDuplicate,
@@ -34,10 +32,6 @@
      * others cannot move while they are not on screen.
      */
     keyCount: (name: string) => number;
-    /** The line that stays (spec §16.6), under the active tab's menu. */
-    status: string;
-    /** Amber, per the mockup: a fact worth keeping visible, not just readable. */
-    statusWarn?: boolean;
     onSelect: (name: string) => void;
     onCreate: (name: string) => void;
     onDuplicate: () => void;
@@ -295,10 +289,6 @@
               <button class="row" data-action="export" type="button" onclick={() => act(onExport)}>
                 Export “{active}” as JSON
               </button>
-
-              {#if status}
-                <span class="status" class:warn={statusWarn}>{status}</span>
-              {/if}
             {/if}
           </div>
         {/if}
@@ -536,15 +526,5 @@
     overflow: hidden;
     clip-path: inset(50%);
     white-space: nowrap;
-  }
-
-  .status {
-    padding: 4px 10px 5px;
-    font-size: var(--he-size-xs);
-    line-height: 1.4;
-    color: var(--he-text-faint);
-  }
-  .status.warn {
-    color: var(--he-override);
   }
 </style>
