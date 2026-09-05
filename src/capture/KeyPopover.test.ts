@@ -4,7 +4,7 @@ import { tick } from 'svelte';
 import KeyPopover from './KeyPopover.svelte';
 import popoverSource from './KeyPopover.svelte?raw';
 import { setKeyLabel, setKeyStyle } from '../config/edit';
-import { DEFAULT_STYLE, RADIUS_BOUNDS, defaultConfig, type OverlayConfig } from '../config/schema';
+import { DEFAULT_STYLE, defaultConfig, type OverlayConfig } from '../config/schema';
 import { surfaceOf } from './layout';
 
 afterEach(cleanup);
@@ -388,22 +388,46 @@ describe('KeyPopover - the Style block', () => {
     expect(onChange.mock.calls[0]![0].keys[0].style).toEqual({ restColor: '#0a0b0c' });
   });
 
-  it('overrides the radius, because a round key in a square block is a layout intent', () => {
+  it('overrides the border colour, the fourth colour a key may argue about', () => {
+    // A border in the theme's grey around a key painted coral is the mismatch
+    // that made the border a per-key colour (2026-09-05).
     const { container, onChange } = popover();
 
-    change(swatch(container, 'radius'), '11');
+    change(swatch(container, 'borderColor'), '#ff00aa');
 
-    expect(onChange.mock.calls[0]![0].keys[0].style).toEqual({ radius: 11 });
+    expect(onChange.mock.calls[0]![0].keys[0].style).toEqual({ borderColor: '#ff00aa' });
   });
 
-  it('refuses an empty radius rather than reading it as zero', () => {
-    // `+''` is 0, so a field cleared to be retyped would square the key and
-    // broadcast it — the defect the size fields already guard against.
+  const hex = (c: Element, property: string) =>
+    row(c, property).querySelector<HTMLInputElement>('[data-hex]')!;
+
+  it('writes the hex beside every swatch', () => {
+    // A swatch alone cannot be copied into anything, and two greys a shade
+    // apart cannot be told apart by eye.
+    const { container } = popover(setKeyStyle(twoKeys(), [1], 'activeColor', '#ff0000'));
+
+    expect(hex(container, 'activeColor').value).toBe('#ff0000');
+    expect(hex(container, 'borderColor').value).toBe(DEFAULT_STYLE.borderColor);
+  });
+
+  it('takes a hex typed into the field, hash or no hash', () => {
+    // A colour copied from a brand sheet arrives as six characters, which a
+    // swatch cannot take.
     const { container, onChange } = popover();
 
-    change(swatch(container, 'radius'), '');
+    change(hex(container, 'activeColor'), 'FF00AA');
+
+    expect(onChange.mock.calls[0]![0].keys[0].style).toEqual({ activeColor: '#ff00aa' });
+    expect(hex(container, 'activeColor').value).toBe('#ff00aa');
+  });
+
+  it('puts the field back when what was typed is not a colour', () => {
+    const { container, onChange } = popover();
+
+    change(hex(container, 'restColor'), 'rebeccapurple');
 
     expect(onChange).not.toHaveBeenCalled();
+    expect(hex(container, 'restColor').value).toBe(DEFAULT_STYLE.restColor);
   });
 
   it('marks the overridden lines and says nothing about the others', () => {
@@ -417,24 +441,49 @@ describe('KeyPopover - the Style block', () => {
     expect(marker(container, 'activeColor')).toBeNull();
   });
 
-  it('counts the overrides in the header of the fold', () => {
+  it('counts the overrides in the STYLE heading', () => {
     // What a fold hides has to be readable while it is shut (spec §9.3).
     const twice = setKeyStyle(
       setKeyStyle(twoKeys(), [1], 'fillColor', '#123456'),
       [1],
-      'radius',
-      9,
+      'borderColor',
+      '#ff00aa',
     );
 
-    expect(popover(twice).container.querySelector('summary')!.textContent).toContain('2 override');
+    expect(popover(twice).container.querySelector('[data-style-toggle]')!.textContent).toContain(
+      '2 overrides',
+    );
+  });
+
+  it('turns the name of an overridden line amber, and leaves the others plain', () => {
+    // The name says where the value comes from, in the one colour the whole
+    // page uses for "customized" — no `override` / `global` word beside it.
+    // The amber name is also the way back for that line.
+    const { container } = popover(setKeyStyle(twoKeys(), [1], 'fillColor', '#123456'));
+
+    const overriddenName = marker(container, 'fillColor')!;
+    expect(overriddenName.textContent!.trim()).toBe('Travel fill');
+    expect(overriddenName.getAttribute('title')).toMatch(/reset to global/i);
+    expect(row(container, 'restColor').querySelector('[data-marker]')).toBeNull();
+    expect(row(container, 'restColor').textContent).not.toMatch(/global|override/);
+    expect(row(container, 'fillColor').textContent).not.toMatch(/override/);
+  });
+
+  it('keeps every plain name a label of its control', () => {
+    const { container } = popover();
+
+    expect(row(container, 'restColor').querySelector('label[for="key-restColor"]')).not.toBeNull();
+    expect(
+      row(container, 'restVisibility').querySelector('label[for="key-restVisibility"]'),
+    ).not.toBeNull();
   });
 
   it('hands every override back in one gesture', () => {
     const twice = setKeyStyle(
       setKeyStyle(twoKeys(), [1], 'fillColor', '#123456'),
       [1],
-      'radius',
-      9,
+      'borderColor',
+      '#ff00aa',
     );
     const { container, onChange } = popover(twice);
 
@@ -453,12 +502,12 @@ describe('KeyPopover - the Style block', () => {
     const twice = setKeyStyle(
       setKeyStyle(twoKeys(), [1], 'fillColor', '#123456'),
       [1],
-      'radius',
-      9,
+      'borderColor',
+      '#ff00aa',
     );
     const { container, onChange } = popover(twice);
 
-    marker(container, 'radius')!.click();
+    marker(container, 'borderColor')!.click();
 
     expect(onChange.mock.calls[0]![0].keys[0].style).toEqual({ fillColor: '#123456' });
   });
@@ -506,10 +555,12 @@ describe('KeyPopover - the Style block', () => {
     expect(dropdown(container, 'activeBorder').value).toBe('active');
   });
 
-  it('keeps the fill direction inside the block, where the lot puts it', () => {
+  it('keeps the fill direction inside the block, as four arrows', () => {
     const { container, onChange } = popover();
 
-    choose(dropdown(container, 'fillDirection'), 'left');
+    row(container, 'fillDirection')
+      .querySelector<HTMLButtonElement>('[data-direction="left"]')!
+      .click();
 
     expect(onChange.mock.calls[0]![0].keys[0].style).toEqual({ fillDirection: 'left' });
   });
@@ -533,8 +584,30 @@ describe('KeyPopover - the Style block is shut on a first run', () => {
       },
     });
 
-    expect(container.querySelector('details')!.open).toBe(false);
+    expect(container.querySelector('[data-style-toggle]')!.getAttribute('aria-expanded')).toBe(
+      'false',
+    );
     expect(container.querySelector('[data-style-row="fillColor"]')).toBeNull();
+  });
+
+  it('unfolds on its heading, and remembers it', async () => {
+    const storage = memory();
+    const { container } = render(KeyPopover, {
+      props: {
+        config: twoKeys(),
+        selectedIds: [1],
+        surface: SURFACE,
+        onChange: vi.fn(),
+        onClose: vi.fn(),
+        storage,
+      },
+    });
+
+    container.querySelector<HTMLButtonElement>('[data-style-toggle]')!.click();
+    await tick();
+
+    expect(container.querySelector('[data-style-row="fillColor"]')).not.toBeNull();
+    expect(storage.getItem('halcyon:open:key-style')).toBe('1');
   });
 });
 
@@ -688,7 +761,7 @@ describe('KeyPopover - resetting a group', () => {
 
   it('clears what every key of the selection overrides, not the first one only', () => {
     const config = twoKeys();
-    config.keys[0]!.style = { radius: 4 };
+    config.keys[0]!.style = { borderColor: '#ff00aa' };
     config.keys[1]!.style = { activeColor: '#ff0000' };
     const { container, onChange } = popover(config, [1, 2]);
 
@@ -700,52 +773,21 @@ describe('KeyPopover - resetting a group', () => {
   });
 });
 
-describe('KeyPopover - a field never shows a figure nothing holds', () => {
-  const radius = (container: Element) => container.querySelector<HTMLInputElement>('#key-radius')!;
-
-  // The clamp is local and invisible: at 100 already, typing 500 changes
-  // nothing in the configuration, so Svelte never rewrites the input and it
-  // goes on reading 500. A silent clamp is how someone concludes the setting
-  // is broken — the 2026-08-20 review, acted on in StylePanel and not here.
-  it('writes the clamped radius back into the field', () => {
-    const config = twoKeys();
-    config.keys[0]!.style = { radius: RADIUS_BOUNDS.max };
-    const { container } = popover(config);
-
-    change(radius(container), '500');
-
-    expect(radius(container).value).toBe(String(RADIUS_BOUNDS.max));
-  });
-
-  it('puts the stored value back when the field is emptied', () => {
-    const { container } = popover();
-    const before = radius(container).value;
-
-    change(radius(container), '');
-
-    expect(radius(container).value).toBe(before);
-  });
-
-  // A NaN would reach the configuration, fail `isResolvedConfig` on the wire,
-  // and freeze the overlay on its last valid frame.
-  it('refuses a value that is not a finite number', () => {
-    const { container, onChange } = popover();
-
-    change(radius(container), 'NaN');
-
-    expect(onChange).not.toHaveBeenCalled();
-  });
-
-  // A group of buttons could not take a `<label for>` — nothing in it is
-  // labelable, so the `for` dangled and the `aria-labelledby` beside it pointed
-  // at no element. The three style choices are `<select>`s since 2026-08-26, so
-  // the plain label is available again, and it is what is asserted: a `for`
-  // that resolves to a real control names it in every reader.
-  it('names the fill direction with a label that resolves to its control', () => {
+describe('KeyPopover - what names what', () => {
+  // A group of buttons cannot take a `<label for>` — nothing in it is
+  // labelable — so the four arrows name themselves through `aria-labelledby`,
+  // and the id it points at has to exist: a dangling reference names nothing
+  // in any reader. Each arrow carries its full word besides.
+  it('names the fill direction group, and each arrow in it', () => {
     const { container } = popover(twoKeys(), [1]);
-    const label = container.querySelector<HTMLLabelElement>('label[for="key-fillDirection"]');
+    const group = container.querySelector<HTMLElement>(
+      '[data-style-row="fillDirection"] [role="group"]',
+    )!;
+    const labelled = container.querySelector(`#${group.getAttribute('aria-labelledby')}`);
 
-    expect(label?.textContent).toBe('Fill direction');
-    expect(container.querySelector('#key-fillDirection')?.tagName).toBe('SELECT');
+    expect(labelled?.textContent).toBe('Fill direction');
+    expect(group.querySelector('[data-direction="left"]')?.getAttribute('aria-label')).toMatch(
+      /left/i,
+    );
   });
 });

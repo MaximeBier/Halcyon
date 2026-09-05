@@ -55,17 +55,17 @@ describe('StylePanel - three groups, one open at a time', () => {
     expect(container.querySelector('input[name="radius"]')).toBeNull();
   });
 
-  it('shuts the open group when another opens', async () => {
-    // An accordion, so the panel never grows past one group's worth — the
-    // keys list below keeps its room.
+  it('keeps a group open when another opens', async () => {
+    // Not an accordion: a border width is chosen with the border's colour in
+    // view, and the first draft shut Colors the moment Shape was opened.
     const { container } = await panel(defaultConfig(), 'colors');
 
     head(container, 'behavior').click();
     await Promise.resolve();
 
-    expect(head(container, 'colors').getAttribute('aria-expanded')).toBe('false');
+    expect(head(container, 'colors').getAttribute('aria-expanded')).toBe('true');
     expect(head(container, 'behavior').getAttribute('aria-expanded')).toBe('true');
-    expect(container.querySelector('[data-preset]')).toBeNull();
+    expect(container.querySelector('[data-preset]')).not.toBeNull();
     expect(container.querySelector('select[name="restVisibility"]')).not.toBeNull();
   });
 
@@ -90,6 +90,28 @@ describe('StylePanel', () => {
 
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange.mock.calls[0]![0].style.activeColor).toBe('#ff0000');
+  });
+
+  it('writes a colour typed as hex, and shows it normalised', async () => {
+    // The code beside the swatch is a field: a colour copied from a brand
+    // sheet arrives as six characters, hash or no hash, in either case.
+    const { container, onChange } = await panel(defaultConfig(), 'colors');
+    const field = container.querySelector<HTMLInputElement>('input[name="fillColorHex"]')!;
+
+    change(field, 'AB12CD ');
+
+    expect(onChange.mock.calls[0]![0].style.fillColor).toBe('#ab12cd');
+    expect(field.value).toBe('#ab12cd');
+  });
+
+  it('puts the hex field back when what was typed is not a colour', async () => {
+    const { container, onChange } = await panel(defaultConfig(), 'colors');
+    const field = container.querySelector<HTMLInputElement>('input[name="restColorHex"]')!;
+
+    change(field, 'grey');
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(field.value).toBe(DEFAULT_STYLE.restColor);
   });
 
   it('writes the global fill direction from the arrow pressed', async () => {

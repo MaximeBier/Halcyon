@@ -12,8 +12,12 @@ import { MAX_TRAVEL } from '../keyboard/analog-report';
  * root field and rejects the whole configuration; a v4 overlay handed a v3
  * message would read `undefined` on every key. Neither can be told apart from
  * a broken overlay without this number.
+ *
+ * 5 since 2026-09-05: `borderColor` made the same move down to the keys, and
+ * `radius` the opposite one up to the root. Same two failure modes, in both
+ * directions at once.
  */
-export const PROTOCOL_VERSION = 4;
+export const PROTOCOL_VERSION = 5;
 
 /** [matrix index, travel 0..1023, actuation]. `active` is always transmitted. */
 export type FrameKey = readonly [id: number, travel: number, active: 0 | 1];

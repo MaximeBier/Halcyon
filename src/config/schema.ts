@@ -85,8 +85,20 @@ export interface KeyStyle {
   /** An arrow ← reads better filled right to left, not bottom to top. */
   fillDirection: FillDirection;
   opacity: number;
-  /** Corner radius, in pixels. */
-  radius: number;
+  /**
+   * The resting colour of this key's outline.
+   *
+   * Per key since 2026-09-05, the fourth colour beside the three above: a key
+   * that argues with the theme about its colours argues about all four, and
+   * a border in the theme's grey around a key painted coral is the mismatch
+   * that made the request. Its *width* stays global — it is the outline of
+   * the overlay, and two thicknesses in one layout read as a mistake.
+   *
+   * It had left `KeyStyle` on 2026-08-22 and come back to `GlobalStyle` a day
+   * later, when the outline became the whole of a key under `outline`. Both
+   * reasons still hold; this is the per-key half of the second.
+   */
+  borderColor: string;
   /**
    * How much of this key is drawn while nothing is happening to it.
    *
@@ -130,24 +142,20 @@ export interface KeyStyle {
 
 export interface GlobalStyle extends KeyStyle {
   /**
-   * The outline of a resting key: its colour, and how thick it is.
+   * Corner radius, in pixels — one for every key.
    *
-   * `borderColor` **left `KeyStyle` on 2026-08-22** and comes back here a day
-   * later, and the two decisions do not contradict each other. It went because
-   * a border around a filled key is a detail nobody needs to set. It is back
-   * because a key with no background at all *is* its border, and one pixel of
-   * `#232838` over an arbitrary video is a key nobody can see.
-   *
-   * Here rather than in `KeyStyle`, so it is the outline of the overlay and not
-   * an argument each key has with the theme. The **actuated** border may follow
-   * `activeColor` instead, which is per key: that asymmetry is §7.4 asking for
-   * it, and `KeyStyle.activeBorder` is where each key answers for itself.
-   *
-   * That last sentence stood here unconditionally from 2026-08-22 to
-   * 2026-08-26, describing a behaviour `1eb5457` had removed in between.
+   * It was per key from task 13 to 2026-09-05, on the reasoning that a round
+   * key in a square block is a layout intent. Nobody ever had that intent: a
+   * layout is drawn in one shape, and a field to round one key differently
+   * was a field to make a mistake with. Global, like the two sizes and the
+   * border's width, which describe the overlay rather than a key.
    */
-  borderColor: string;
-  /** In pixels. Zero draws no border at all, which is a choice. */
+  radius: number;
+  /**
+   * How thick the outline of a key is, in pixels. Zero draws no border at
+   * all, which is a choice. Global where the colour is per key: two
+   * thicknesses in one layout read as a mistake, two colours as a theme.
+   */
   borderWidth: number;
   /** Pixels per key unit. */
   unit: number;
@@ -196,7 +204,7 @@ export interface ResolvedConfig {
   version: number;
   unit: number;
   gap: number;
-  borderColor: string;
+  radius: number;
   borderWidth: number;
   keys: ResolvedKey[];
 }
@@ -217,7 +225,7 @@ const INHERITABLE: Record<keyof KeyStyle, true> = {
   fillColor: true,
   fillDirection: true,
   opacity: true,
-  radius: true,
+  borderColor: true,
   restVisibility: true,
   activeBorder: true,
   fontFamily: true,
@@ -227,8 +235,8 @@ const INHERITABLE: Record<keyof KeyStyle, true> = {
 export const STYLE_KEYS = Object.keys(INHERITABLE) as readonly (keyof KeyStyle)[];
 
 /**
- * What a corner radius may be, in pixels — here rather than in one of the two
- * panels that offer it, so the global field and the per-key field cannot drift.
+ * What a corner radius may be, in pixels — here rather than in the panel that
+ * offers it, beside the other bounds the import and the wire both check.
  *
  * The floor is what matters: `rx="-5"` is an SVG error, not a square corner,
  * and what survives it is up to the browser. Zero is a legitimate choice.

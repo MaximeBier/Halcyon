@@ -17,7 +17,7 @@ const style = {
   fillColor: DEFAULT_STYLE.fillColor,
   fillDirection: DEFAULT_STYLE.fillDirection,
   opacity: DEFAULT_STYLE.opacity,
-  radius: DEFAULT_STYLE.radius,
+  borderColor: DEFAULT_STYLE.borderColor,
   restVisibility: DEFAULT_STYLE.restVisibility,
   activeBorder: DEFAULT_STYLE.activeBorder,
   fontFamily: DEFAULT_STYLE.fontFamily,
@@ -45,9 +45,15 @@ const config = (...keys: ResolvedKey[]): ResolvedConfig => ({
   version: 1,
   unit: 100,
   gap: 10,
-  borderColor: DEFAULT_STYLE.borderColor,
+  radius: DEFAULT_STYLE.radius,
   borderWidth: DEFAULT_STYLE.borderWidth,
   keys,
+});
+
+/** The same key, its border painted a colour nothing else uses. */
+const bordered = (over: ResolvedKey): ResolvedKey => ({
+  ...over,
+  style: { ...over.style, borderColor: '#ff00aa' },
 });
 
 describe('buildScene', () => {
@@ -194,13 +200,13 @@ describe('buildScene - the border, which may be all there is to see', () => {
   // very dark grey, over an arbitrary video, is not a key anyone can see — so
   // both its colour and its width are settings now (task 38).
   it('takes its resting colour from the style, not from a token', () => {
-    const scene = buildScene({ ...config(key()), borderColor: '#ff00aa' }, []);
+    const scene = buildScene(config(bordered(key())), []);
 
     expect(scene.keys[0]?.border.color).toBe('#ff00aa');
   });
 
   it('keeps that colour when the key fires, which is what `fixed` means', () => {
-    const scene = buildScene({ ...config(key()), borderColor: '#ff00aa' }, [[174, 300, 1]]);
+    const scene = buildScene(config(bordered(key())), [[174, 300, 1]]);
 
     expect(scene.keys[0]?.border.color).toBe('#ff00aa');
   });
@@ -214,7 +220,7 @@ describe('buildScene - the border, which may be all there is to see', () => {
     key({ ...over, style: { ...style, activeBorder: 'active', activeColor: '#00ff88' } });
 
   it('takes the active colour when the key fires and the setting asks for it', () => {
-    const scene = buildScene({ ...config(following()), borderColor: '#ff00aa' }, [[174, 300, 1]]);
+    const scene = buildScene(config(bordered(following())), [[174, 300, 1]]);
 
     expect(scene.keys[0]?.border.color).toBe('#00ff88');
   });
@@ -222,9 +228,7 @@ describe('buildScene - the border, which may be all there is to see', () => {
   it('keeps the resting colour on a key that travels without firing', () => {
     // A key in `key` mode answers to the actuation and not to the travel: that
     // is what the signal reports. Full travel, never fired, resting colour.
-    const scene = buildScene({ ...config(following()), borderColor: '#ff00aa' }, [
-      [174, MAX_TRAVEL, 0],
-    ]);
+    const scene = buildScene(config(bordered(following())), [[174, MAX_TRAVEL, 0]]);
 
     expect(scene.keys[0]?.border.color).toBe('#ff00aa');
   });
@@ -234,7 +238,7 @@ describe('buildScene - the border, which may be all there is to see', () => {
     // keys whose border moved — the layout coming apart under the fingers that
     // `1eb5457` named. Its engagement is `resting`, the same judge that decides
     // whether a `hidden` key appears: one judge cannot contradict itself.
-    const scene = buildScene({ ...config(following({ mode: 'axis' })), borderColor: '#ff00aa' }, [
+    const scene = buildScene(config(bordered(following({ mode: 'axis' }))), [
       [174, REST_TRAVEL_FLOOR + 1, 0],
     ]);
 
@@ -242,7 +246,7 @@ describe('buildScene - the border, which may be all there is to see', () => {
   });
 
   it('leaves an axis at rest its resting colour', () => {
-    const scene = buildScene({ ...config(following({ mode: 'axis' })), borderColor: '#ff00aa' }, [
+    const scene = buildScene(config(bordered(following({ mode: 'axis' }))), [
       [174, REST_TRAVEL_FLOOR, 0],
     ]);
 
@@ -263,7 +267,7 @@ describe('buildScene - the border, which may be all there is to see', () => {
         restVisibility: 'outline',
       },
     });
-    const scene = buildScene({ ...config(outlined), borderColor: '#ff00aa' }, [[174, 300, 1]]);
+    const scene = buildScene(config(bordered(outlined)), [[174, 300, 1]]);
 
     expect(scene.keys[0]?.border.color).toBe('#00ff88');
   });
@@ -279,9 +283,7 @@ describe('buildScene - the border, which may be all there is to see', () => {
   it('draws nothing to colour at a width of zero', () => {
     // The setting has no effect where there is no stroke. Written rather than
     // deduced: a border of zero is a legitimate choice, not an edge case.
-    const scene = buildScene({ ...config(following()), borderColor: '#ff00aa', borderWidth: 0 }, [
-      [174, 300, 1],
-    ]);
+    const scene = buildScene({ ...config(bordered(following())), borderWidth: 0 }, [[174, 300, 1]]);
 
     expect(scene.keys[0]?.border.width).toBe(0);
   });
@@ -311,10 +313,7 @@ describe('buildScene - the border, which may be all there is to see', () => {
     // Reduced by the inset, the stroke's outer edge — its path grown by half
     // its width — lands on an arc of radius `(r - d) + d = r` centred where the
     // key's own arc is centred. The same curve, so nothing peeks.
-    const scene = buildScene(
-      { ...config(key({ style: { ...style, radius: 8 } })), borderWidth: 4 },
-      [],
-    );
+    const scene = buildScene({ ...config(key()), radius: 8, borderWidth: 4 }, []);
 
     expect(scene.keys[0]!.border.radius).toBe(6);
   });
@@ -323,10 +322,7 @@ describe('buildScene - the border, which may be all there is to see', () => {
     // A border thicker than twice the corner radius: the reduction would go
     // below zero, which SVG discards — leaving the very square corner the
     // reduction exists to avoid.
-    const scene = buildScene(
-      { ...config(key({ style: { ...style, radius: 1 } })), borderWidth: 8 },
-      [],
-    );
+    const scene = buildScene({ ...config(key()), radius: 1, borderWidth: 8 }, []);
 
     expect(scene.keys[0]!.border.radius).toBe(0);
   });
@@ -508,7 +504,7 @@ describe('buildScene - geometry that must never reach the SVG', () => {
         version: 1,
         unit: 20,
         gap: 40,
-        borderColor: DEFAULT_STYLE.borderColor,
+        radius: DEFAULT_STYLE.radius,
         borderWidth: DEFAULT_STYLE.borderWidth,
         keys: [key({ w: 0.25 })],
       },

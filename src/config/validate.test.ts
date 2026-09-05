@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { isResolvedConfig } from './validate';
+import { isResolvedConfig, normalizeHex } from './validate';
 import { resolve } from './resolve';
 import {
   defaultConfig,
@@ -78,11 +78,11 @@ describe('isResolvedConfig', () => {
   });
 
   it('refuses a key whose style is incomplete', () => {
-    // The scene reads every property without a fallback: one missing radius
-    // renders `rx="undefined"` and the key stops being drawn.
+    // The scene reads every property without a fallback: one missing border
+    // colour renders `stroke="undefined"` and the outline stops being drawn.
     const config = resolved();
     const keys = config.keys as Record<string, unknown>[];
-    const { radius: _dropped, ...partial } = keys[0]!.style as Record<string, unknown>;
+    const { borderColor: _dropped, ...partial } = keys[0]!.style as Record<string, unknown>;
 
     expect(isResolvedConfig({ ...config, keys: [{ ...keys[0]!, style: partial }] })).toBe(false);
   });
@@ -117,7 +117,7 @@ describe('isResolvedConfig', () => {
     const config = resolved();
     const keys = config.keys as Record<string, unknown>[];
 
-    expect(keys[0]!.style).toMatchObject({ radius: DEFAULT_STYLE.radius });
+    expect(keys[0]!.style).toMatchObject({ borderColor: DEFAULT_STYLE.borderColor });
     expect(isResolvedConfig(config)).toBe(true);
   });
 });
@@ -148,22 +148,32 @@ describe('isResolvedConfig - rules that must match the import side', () => {
 
   it('refuses a negative corner radius', () => {
     // `rx="-5"` is an SVG error, not a square corner, and what survives is up
-    // to the browser. It sits right next to unit and gap, which are bounded.
-    expect(styled({ radius: -5 })).toBe(false);
-    expect(styled({ radius: 0 })).toBe(true);
+    // to the browser. On the config root since 2026-09-05, beside unit and
+    // gap, which are bounded the same way.
+    const config = resolved();
+
+    expect(isResolvedConfig({ ...config, radius: -5 })).toBe(false);
+    expect(isResolvedConfig({ ...config, radius: 0 })).toBe(true);
   });
 
   it('refuses a radius past what any key could ever show', () => {
     // Past `RADIUS_BOUNDS.max`, SVG clamps `rx` to half the shorter side on
     // its own: nothing past it changes what the key draws, and a value there
     // is either a typo or a file built for a renderer that has no such cap.
-    expect(styled({ radius: RADIUS_BOUNDS.max })).toBe(true);
-    expect(styled({ radius: RADIUS_BOUNDS.max + 1 })).toBe(false);
+    const config = resolved();
+
+    expect(isResolvedConfig({ ...config, radius: RADIUS_BOUNDS.max })).toBe(true);
+    expect(isResolvedConfig({ ...config, radius: RADIUS_BOUNDS.max + 1 })).toBe(false);
+  });
+
+  it('refuses a border colour the renderer cannot read, on the key it now sits on', () => {
+    expect(styled({ borderColor: 'grey' })).toBe(false);
+    expect(styled({ borderColor: '#ff00aa' })).toBe(true);
   });
 
   it('refuses a border width outside what a border can be', () => {
     // `borderWidth` sits on the config root, not on a key's style — unlike
-    // `radius`, it never goes through `styled`.
+    // the border's colour, it never goes through `styled`.
     const config = resolved();
 
     expect(isResolvedConfig({ ...config, borderWidth: BORDER_WIDTH_BOUNDS.max })).toBe(true);
@@ -185,5 +195,21 @@ describe('isResolvedConfig - rules that must match the import side', () => {
     expect(styled({ fontWeight: FONT_WEIGHT_BOUNDS.max })).toBe(true);
     expect(styled({ fontWeight: FONT_WEIGHT_BOUNDS.min - 1 })).toBe(false);
     expect(styled({ fontWeight: FONT_WEIGHT_BOUNDS.max + 9000 })).toBe(false);
+  });
+});
+
+describe('normalizeHex', () => {
+  it('takes a hex colour with or without its hash, and lowercases it', () => {
+    // `<input type="color">` reports lowercase; one colour written two ways
+    // would defeat every equality the presets rely on.
+    expect(normalizeHex('#FF00AA')).toBe('#ff00aa');
+    expect(normalizeHex('ff00aa')).toBe('#ff00aa');
+    expect(normalizeHex(' #f0a ')).toBe('#f0a');
+  });
+
+  it('refuses what the renderer could not check', () => {
+    expect(normalizeHex('grey')).toBeNull();
+    expect(normalizeHex('#ff00a')).toBeNull();
+    expect(normalizeHex('')).toBeNull();
   });
 });

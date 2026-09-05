@@ -76,7 +76,9 @@ function knownKeyStyle(raw: unknown): Partial<KeyStyle> {
   // by `resolve()`. Invisible to `overriddenKeys`, so no reset could remove
   // them: precisely the "stored by the editor, ignored by the renderer" the
   // comment above says this exists to prevent. Derived from the inheritable set
-  // itself, the mistake has nowhere left to happen.
+  // itself, the mistake has nowhere left to happen — which is also what makes
+  // `radius` fall off a key since 2026-09-05, when it went global, with no
+  // line written here for it.
   return pickStyle(raw, STYLE_KEYS) as Partial<KeyStyle>;
 }
 

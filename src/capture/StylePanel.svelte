@@ -1,5 +1,6 @@
 <script lang="ts">
   import { setGlobalStyle } from '../config/edit';
+  import { normalizeHex } from '../config/validate';
   import { PRESETS, presetFor, withPreset } from './presets';
   /** Shared with `KeyPopover`, whose three choices are the same three since 2026-08-26. */
   import { BORDER_STATES, FILL_ARROWS, FILL_DIRECTIONS, REST_STATES } from './style-choices';
@@ -21,10 +22,12 @@
    * because the preview renders the resolved style either way. Splitting them
    * makes the mistake unwritable rather than merely unlikely.
    *
-   * Three groups since board 3a — Colors, Shape, Behavior — one open at a
-   * time and none by default: the panel is read far more often than it is
-   * edited, and twelve controls in a column made the keys list below them
-   * something to scroll for.
+   * Three groups since board 3a — Colors, Shape, Behavior — none open by
+   * default: the panel is read far more often than it is edited, and twelve
+   * controls in a column made the keys list below them something to scroll
+   * for. Each opens on its own; the accordion of the first draft shut Colors
+   * the moment Shape was opened, and a border is chosen with its colour in
+   * view.
    */
   let {
     config,
@@ -37,14 +40,14 @@
   type Group = 'colors' | 'shape' | 'behavior';
 
   /**
-   * The one group open, if any. Component state and nothing more: it starts
-   * shut on every load, which is what "collapsed by default" means, and a
-   * session is exactly how long the memory of which one was open is worth.
+   * Which groups are open. Component state and nothing more: they start shut
+   * on every load, which is what "collapsed by default" means, and a session
+   * is exactly how long the memory of which ones were open is worth.
    */
-  let open = $state<Group | null>(null);
+  let open = $state<Record<Group, boolean>>({ colors: false, shape: false, behavior: false });
 
   function toggle(group: Group) {
-    open = open === group ? null : group;
+    open[group] = !open[group];
   }
 
   /**
@@ -79,7 +82,7 @@
   const BOUNDS = {
     unit: { min: 16, max: 200 },
     gap: { min: 0, max: 40 },
-    // Shared with the popover's own radius field, so the two cannot drift.
+    // From the schema, where the import and the wire read the same ceiling.
     radius: RADIUS_BOUNDS,
     borderWidth: BORDER_WIDTH_BOUNDS,
   } as const;
@@ -111,6 +114,17 @@
     // Written back, so the field never shows a figure the configuration does
     // not hold — a silent clamp is how someone concludes the setting is broken.
     input.value = String(value);
+    onChange(setGlobalStyle(config, property, value));
+  }
+
+  /** A colour typed as text: taken when it is one, put back when it is not. */
+  function hex(property: (typeof COLORS)[number][0], input: HTMLInputElement) {
+    const value = normalizeHex(input.value);
+    if (value === null) {
+      input.value = config.style[property];
+      return;
+    }
+    input.value = value;
     onChange(setGlobalStyle(config, property, value));
   }
 
@@ -148,7 +162,7 @@
      collapsible, and a second title directly under the first read as two
      sections where there is one. The aria-label keeps the landmark. -->
 <section aria-label="Global style">
-  <div class="group" class:open={open === 'colors'}>
+  <div class="group" class:open={open.colors}>
     <!-- No note in the header (board 3a): a group says what it holds, and the
          values wait inside. The one mark allowed is the collapsible's dot
          above, for a style that departs from the defaults. -->
@@ -156,14 +170,14 @@
       type="button"
       class="head"
       data-group="colors"
-      aria-expanded={open === 'colors'}
+      aria-expanded={open.colors}
       aria-controls="style-colors"
       onclick={() => toggle('colors')}
     >
       <span class="caret" aria-hidden="true">▸</span>
       Colors
     </button>
-    {#if open === 'colors'}
+    {#if open.colors}
       <div class="body" id="style-colors">
         <!--
           At the head of the group, as the lot of 2026-08-21 has it, and drawn
@@ -196,7 +210,18 @@
           <div class="row">
             <label for={`global-${property}`}>{label}</label>
             <div class="value">
-              <code>{config.style[property]}</code>
+              <!-- The code is a field, not a caption: a colour copied from
+                   a stream layout or a brand sheet arrives as six characters,
+                   and a swatch cannot take those. Anything that is not a hex
+                   colour is put back rather than half-applied. -->
+              <input
+                class="hex"
+                type="text"
+                name={`${property}Hex`}
+                aria-label={`${label} hex code`}
+                value={config.style[property]}
+                onchange={(event) => hex(property, event.currentTarget)}
+              />
               <!--
                 The rest swatch goes out of use under `outline` and only there:
                 that is the one state where the colour paints nothing at all.
@@ -220,19 +245,19 @@
     {/if}
   </div>
 
-  <div class="group" class:open={open === 'shape'}>
+  <div class="group" class:open={open.shape}>
     <button
       type="button"
       class="head"
       data-group="shape"
-      aria-expanded={open === 'shape'}
+      aria-expanded={open.shape}
       aria-controls="style-shape"
       onclick={() => toggle('shape')}
     >
       <span class="caret" aria-hidden="true">▸</span>
       Shape
     </button>
-    {#if open === 'shape'}
+    {#if open.shape}
       <div class="body" id="style-shape">
         <!-- A style property `KeyStyle` has carried since task 13, that the
              renderer has always applied, and that nothing could set. -->
@@ -318,19 +343,19 @@
     {/if}
   </div>
 
-  <div class="group" class:open={open === 'behavior'}>
+  <div class="group" class:open={open.behavior}>
     <button
       type="button"
       class="head"
       data-group="behavior"
-      aria-expanded={open === 'behavior'}
+      aria-expanded={open.behavior}
       aria-controls="style-behavior"
       onclick={() => toggle('behavior')}
     >
       <span class="caret" aria-hidden="true">▸</span>
       Behavior
     </button>
-    {#if open === 'behavior'}
+    {#if open.behavior}
       <div class="body" id="style-behavior">
         <!--
           How much of a key shows while nothing is happening to it.
@@ -595,10 +620,17 @@
     align-items: center;
     gap: 7px;
   }
-  code {
+  /* Seven characters of mono, framed like the other fields. */
+  .hex {
+    inline-size: 5.2rem;
+    box-sizing: border-box;
     font: var(--he-font-mono);
     font-size: var(--he-size-xs);
-    color: var(--he-text-muted);
+    color: var(--he-text);
+    background: var(--he-stage);
+    border: 1px solid var(--he-border-control);
+    border-radius: var(--he-radius);
+    padding: 3px 8px;
   }
   .unit {
     font-size: var(--he-size-xs);

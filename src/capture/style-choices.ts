@@ -49,11 +49,13 @@ export const REST_STATES: readonly [RestVisibility, string][] = [
 ];
 
 /**
- * Named for what the border does, not for what the field is called: "Takes the
- * active colour" answers "what happens when I press it", which is the question
- * somebody arriving at that row is asking.
+ * Named for what the border does, not for what the field is called: "Active
+ * colour" under a row called "Border on press" answers "what happens when I
+ * press it", which is the question somebody arriving at that row is asking.
+ * It read "Takes the active colour" until 2026-09-05, and the three extra
+ * words were what made the popover's row clip its own select.
  */
 export const BORDER_STATES: readonly [ActiveBorder, string][] = [
   ['fixed', 'Always the same'],
-  ['active', 'Takes the active colour'],
+  ['active', 'Active colour'],
 ];

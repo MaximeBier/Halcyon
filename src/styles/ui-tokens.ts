@@ -70,7 +70,7 @@ export const UI_TOKENS = {
   tabRowHeight: '50px',
   panelWidth: '380px',
   /** Read by the editor too, which has to keep the popover inside the stage. */
-  popoverWidth: '284px',
+  popoverWidth: '380px',
   /** How far the two dropdown menus (profiles, startup guide) hang below their trigger. */
   menuOffset: '30px',
   /** ProfileBar's two popovers, the active tab's and the one under `+`. */

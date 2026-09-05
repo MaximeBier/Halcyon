@@ -44,7 +44,7 @@ describe('default values', () => {
         'fontFamily',
         'fontWeight',
         'opacity',
-        'radius',
+        'borderColor',
         'restColor',
         'restVisibility',
         'activeBorder',
@@ -56,14 +56,16 @@ describe('default values', () => {
   // in the style but missing from the list would silently stop being
   // inheritable — an override the editor accepts and the renderer ignores.
   it('leaves nothing out of the inheritable list but what is global by nature', () => {
-    // The two sizes and the outline: what describes the overlay rather than a
-    // key. A key argues with the theme about its colours, not about these.
+    // The two sizes, the corner and the outline's width: what describes the
+    // overlay rather than a key. A key argues with the theme about its colours
+    // — the border's included, since 2026-09-05 — not about these.
     //
     // `restVisibility` was among them until 2026-08-25. It left the moment the
     // real case turned up — a hidden overlay with three keys kept on screen —
     // and the schema had said so in advance: global "deliberately", and adding
-    // it later costs one field. It cost one field.
-    const globalOnly = ['unit', 'gap', 'borderColor', 'borderWidth'];
+    // it later costs one field. It cost one field. `radius` joined them the
+    // day `borderColor` left: nobody ever rounded one key differently.
+    const globalOnly = ['unit', 'gap', 'radius', 'borderWidth'];
     const inheritable = Object.keys(DEFAULT_STYLE).filter((key) => !globalOnly.includes(key));
 
     expect([...STYLE_KEYS].sort()).toEqual(inheritable.sort());

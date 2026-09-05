@@ -167,7 +167,7 @@ export function buildScene(
   frame: readonly FrameKey[],
   { pack = false, reveal = false }: SceneOptions = {},
 ): Scene {
-  const { unit, gap, borderColor, borderWidth } = config;
+  const { unit, gap, radius, borderWidth } = config;
   const states = new Map(frame.map(([id, travel, active]) => [id, { travel, active }]));
 
   let width = 0;
@@ -281,7 +281,7 @@ export function buildScene(
       y,
       w,
       h,
-      radius: key.style.radius,
+      radius,
       baseFill,
       border: {
         // Inset by half the stroke, so the whole of it lands inside the key.
@@ -292,7 +292,7 @@ export function buildScene(
         // Never below zero: a border thicker than twice the radius would ask
         // for a negative one, which SVG discards — leaving the square corner
         // the reduction exists to avoid.
-        radius: Math.max(0, key.style.radius - borderWidth / 2),
+        radius: Math.max(0, radius - borderWidth / 2),
         width: borderWidth,
         // Frozen from 2026-08-23 to 2026-08-26, a setting since. It was the
         // second actuation signal before that, unconditionally — it turned to
@@ -307,7 +307,10 @@ export function buildScene(
         // got. `fixed` keeps the frozen behaviour, and stays the default — with
         // it, a key at full travel that never fired and a key that fired at
         // zero travel still draw alike, which the colour swap already reports.
-        color: key.style.activeBorder === 'active' && engaged ? key.style.activeColor : borderColor,
+        color:
+          key.style.activeBorder === 'active' && engaged
+            ? key.style.activeColor
+            : key.style.borderColor,
       },
       fill: { ...fillRect(x, y, w, h, ratio, key.style.fillDirection), color: fillColor },
       labelFill: OVERLAY_TOKENS.keyLabel,

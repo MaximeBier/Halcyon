@@ -340,17 +340,25 @@ describe('migrate - what it silently threw away', () => {
 
 describe('migrate - the bounds that stop just short', () => {
   it('refuses a negative corner radius', () => {
+    const result = migrate({ version: 1, layout: 'iso', style: { radius: -5 }, keys: [] });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.config.style.radius).toBe(DEFAULT_STYLE.radius);
+  });
+
+  it('refuses a colour the renderer cannot read, on a key as on the global', () => {
     for (const scope of ['global', 'key'] as const) {
       const result = migrate({
         version: 1,
         layout: 'iso',
-        style: scope === 'global' ? { radius: -5 } : {},
-        keys: scope === 'key' ? [{ ...aKey, style: { radius: -5 } }] : [],
+        style: scope === 'global' ? { borderColor: 'grey' } : {},
+        keys: scope === 'key' ? [{ ...aKey, style: { borderColor: 'grey' } }] : [],
       });
 
       expect(result.ok).toBe(true);
       if (!result.ok) continue;
-      if (scope === 'global') expect(result.config.style.radius).toBe(DEFAULT_STYLE.radius);
+      if (scope === 'global')
+        expect(result.config.style.borderColor).toBe(DEFAULT_STYLE.borderColor);
       else expect(result.config.keys[0]?.style).toBeUndefined();
     }
   });
@@ -391,14 +399,15 @@ describe('migrate - a key may not carry a global-only setting', () => {
   // The list of what a key may hold used to be built by subtracting a
   // hand-kept `['unit', 'gap']` from the global style. Three settings arrived
   // on 2026-08-22 that no key could override — `restVisibility`, `borderColor`,
-  // `borderWidth` — and none of them was added to it. Any profile written
-  // before that day could legitimately carry `keys[].style.borderColor`, since
-  // it *was* inheritable until then.
+  // `borderWidth` — and none of them was added to it, so they rode through on
+  // a key, were stored, and were ignored by the renderer.
   //
-  // `restVisibility` went back to being inheritable on 2026-08-25, so it is two
-  // settings now — and a key that carries it is a key the renderer reads, not a
-  // stray value to sweep up.
-  it('drops the two global-only settings from a key, and keeps the resting mode', () => {
+  // The list has moved since: `restVisibility` went back to being inheritable
+  // on 2026-08-25 and `borderColor` on 2026-09-05, while `radius` went global
+  // the same day. What a key may hold is `STYLE_KEYS`, and this holds the
+  // sweep to it: a key keeps what the renderer reads, and loses what it does
+  // not.
+  it('drops the global-only settings from a key, and keeps the inheritable ones', () => {
     const result = migrate({
       version: 1,
       layout: 'iso',
@@ -409,6 +418,7 @@ describe('migrate - a key may not carry a global-only setting', () => {
           style: {
             borderColor: '#ff00aa',
             borderWidth: 9,
+            radius: 12,
             restVisibility: 'outline',
             opacity: 0.5,
           },
@@ -417,18 +427,23 @@ describe('migrate - a key may not carry a global-only setting', () => {
     });
 
     expect(result.ok).toBe(true);
-    // The legitimate overrides survive; the two border settings do not — so the
-    // file cannot hold a value the renderer ignores and no reset can reach.
+    // The overrides the renderer reads survive; the width and the radius do
+    // not — so the file cannot hold a value the renderer ignores and no reset
+    // can reach.
     if (result.ok) {
-      expect(result.config.keys[0]?.style).toEqual({ opacity: 0.5, restVisibility: 'outline' });
+      expect(result.config.keys[0]?.style).toEqual({
+        borderColor: '#ff00aa',
+        opacity: 0.5,
+        restVisibility: 'outline',
+      });
     }
   });
 
-  it('leaves those three alone on the global style, where they belong', () => {
+  it('leaves them all alone on the global style, where every one belongs', () => {
     const result = migrate({
       version: 1,
       layout: 'iso',
-      style: { borderColor: '#ff00aa', borderWidth: 9, restVisibility: 'outline' },
+      style: { borderColor: '#ff00aa', borderWidth: 9, radius: 12, restVisibility: 'outline' },
       keys: [aKey],
     });
 
@@ -437,6 +452,7 @@ describe('migrate - a key may not carry a global-only setting', () => {
       expect(result.config.style).toMatchObject({
         borderColor: '#ff00aa',
         borderWidth: 9,
+        radius: 12,
         restVisibility: 'outline',
       });
   });

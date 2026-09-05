@@ -44,7 +44,7 @@ describe('resolve', () => {
       fillColor: DEFAULT_STYLE.fillColor,
       fillDirection: DEFAULT_STYLE.fillDirection,
       opacity: DEFAULT_STYLE.opacity,
-      radius: DEFAULT_STYLE.radius,
+      borderColor: DEFAULT_STYLE.borderColor,
       restVisibility: DEFAULT_STYLE.restVisibility,
       activeBorder: DEFAULT_STYLE.activeBorder,
       fontFamily: DEFAULT_STYLE.fontFamily,
@@ -231,9 +231,9 @@ describe('whether the global style has been touched', () => {
   // The §9.3 marker on the "Global style" fold. It used to read `STYLE_KEYS`,
   // which is the *inheritable* set — so the five properties a key cannot
   // override were invisible to it: unit, gap, restVisibility, borderColor,
-  // borderWidth. Turning the resting background off repaints every key on air
-  // and lit nothing at all; changing the border colour did light the dot until
-  // `borderColor` left `KeyStyle` on 2026-08-22, then quietly stopped.
+  // borderWidth (the set as it stood then; `radius` has since joined it and
+  // `borderColor` left). Turning the resting background off repaints every key
+  // on air and lit nothing at all.
   it('says nothing has been touched on a fresh style', () => {
     expect(hasGlobalOverrides(DEFAULT_STYLE)).toBe(false);
   });
@@ -270,9 +270,12 @@ describe('what a whole selection overrides', () => {
   // key alone. Reset then cleared the lead's properties everywhere and left
   // the others' in place — the button promising the opposite in its comment.
   it('unions what the keys override, rather than trusting the first', () => {
-    const selection = [key({ style: { radius: 4 } }), key({ id: 9, style: { opacity: 0.5 } })];
+    const selection = [
+      key({ style: { borderColor: '#ff00aa' } }),
+      key({ id: 9, style: { opacity: 0.5 } }),
+    ];
 
-    expect(overriddenInAny(selection)).toEqual(['opacity', 'radius']);
+    expect(overriddenInAny(selection)).toEqual(['opacity', 'borderColor']);
   });
 
   // The other half of the same defect, and the worse one: the reset button is
@@ -285,8 +288,8 @@ describe('what a whole selection overrides', () => {
   });
 
   it('reports a property once, however many keys carry it', () => {
-    const selection = [key({ style: { radius: 4 } }), key({ id: 9, style: { radius: 8 } })];
+    const selection = [key({ style: { opacity: 0.4 } }), key({ id: 9, style: { opacity: 0.8 } })];
 
-    expect(overriddenInAny(selection)).toEqual(['radius']);
+    expect(overriddenInAny(selection)).toEqual(['opacity']);
   });
 });

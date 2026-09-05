@@ -82,7 +82,7 @@ describe('style editing', () => {
   });
 
   it('clears a property a key never overrode without inventing one', () => {
-    const next = clearKeyStyle(config(), [1], 'radius');
+    const next = clearKeyStyle(config(), [1], 'fontWeight');
 
     expect(next.keys[0]?.style).toBeUndefined();
   });

@@ -62,6 +62,22 @@ export const ACTIVE_BORDERS: readonly string[] = ['fixed', 'active'];
  */
 export const HEX_COLOR = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 
+/**
+ * What a hex colour typed by hand becomes, or `null` when it is not one.
+ *
+ * The two editors offer the code as a field beside the swatch (2026-09-05),
+ * and a field is typed into loosely: `FF00AA` without its hash, with a space
+ * after it. Both are the colour; `rebeccapurple` is not, for the reason
+ * `HEX_COLOR` gives. Lowercased on the way out because `<input type="color">`
+ * reports lowercase, and one colour written two ways would defeat every
+ * equality the presets rely on.
+ */
+export function normalizeHex(text: string): string | null {
+  const trimmed = text.trim();
+  const hashed = trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
+  return HEX_COLOR.test(hashed) ? hashed.toLowerCase() : null;
+}
+
 /** Property names ending in `Color`, resolved once against the style shape. */
 export const COLOR_KEYS: readonly string[] = Object.keys(DEFAULT_STYLE).filter((name) =>
   name.endsWith('Color'),
@@ -201,14 +217,17 @@ export function isResolvedConfig(value: unknown): value is ResolvedConfig {
     Number.isFinite(config.version) &&
     isExtent(config.unit) &&
     isNonNegative(config.gap) &&
-    // `restVisibility` is checked on each key instead, by `isResolvedKey`
-    // through `STYLE_KEYS`: it became inheritable on 2026-08-25 and left this
-    // shape's root, where it would now be a second, disagreeing truth.
-    HEX_COLOR.test(config.borderColor as string) &&
-    // Bounded rather than merely non-negative, since 2026-09-04: `borderWidth`
-    // sits on the config root and never goes through `isStyleValue` the way a
-    // key's own properties do, so the schema's ceiling had to be repeated here
-    // by hand or the wire would accept what import already refuses.
+    // `restVisibility` and `borderColor` are checked on each key instead, by
+    // `isResolvedKey` through `STYLE_KEYS`: both became inheritable (2026-08-25,
+    // 2026-09-05) and left this shape's root, where they would now be a
+    // second, disagreeing truth. `radius` went the other way the same day.
+    //
+    // Bounded rather than merely non-negative, since 2026-09-04: these two sit
+    // on the config root and never go through `isStyleValue` the way a key's
+    // own properties do, so the schema's ceilings have to be repeated here by
+    // hand or the wire would accept what import already refuses.
+    isNonNegative(config.radius) &&
+    inBounds(config.radius as number, RADIUS_BOUNDS) &&
     isNonNegative(config.borderWidth) &&
     inBounds(config.borderWidth as number, BORDER_WIDTH_BOUNDS) &&
     Array.isArray(config.keys) &&

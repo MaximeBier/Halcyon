@@ -20,7 +20,7 @@ const config: ResolvedConfig = {
   version: 1,
   unit: 100,
   gap: 10,
-  borderColor: DEFAULT_STYLE.borderColor,
+  radius: 4,
   borderWidth: DEFAULT_STYLE.borderWidth,
   keys: [
     {
@@ -38,7 +38,7 @@ const config: ResolvedConfig = {
         fillColor: '#ffffff',
         fillDirection: 'up',
         opacity: 1,
-        radius: 4,
+        borderColor: DEFAULT_STYLE.borderColor,
         restVisibility: 'filled',
         activeBorder: 'fixed',
         fontFamily: DEFAULT_STYLE.fontFamily,
@@ -169,10 +169,7 @@ describe('KeyboardView - the fill stays inside the key', () => {
     // The requirement, stated as an equality rather than as a number: whatever
     // radius the key is drawn with, the fill is bounded by *that* one. A value
     // nothing else uses, so a hard-coded default could not pass by luck.
-    const round: ResolvedConfig = {
-      ...config,
-      keys: [{ ...config.keys[0]!, style: { ...config.keys[0]!.style, radius: 17 } }],
-    };
+    const round: ResolvedConfig = { ...config, radius: 17 };
     const { container } = render(KeyboardView, { props: { config: round, frame: [[174, 60, 0]] } });
     const rects = container.querySelectorAll('rect');
     const fill = rects[1]!;
@@ -233,7 +230,11 @@ describe('KeyboardView - the border it was given', () => {
     // Without the attribute the stroke silently falls back to one pixel, which
     // looks like the setting doing nothing — and the inset would then be wrong
     // in the other direction.
-    const thick: ResolvedConfig = { ...config, borderWidth: 4, borderColor: '#ff00aa' };
+    const thick: ResolvedConfig = {
+      ...config,
+      borderWidth: 4,
+      keys: [{ ...config.keys[0]!, style: { ...config.keys[0]!.style, borderColor: '#ff00aa' } }],
+    };
     const { container } = render(KeyboardView, { props: { config: thick, frame: [] } });
     const border = container.querySelectorAll('rect')[2]!;
 

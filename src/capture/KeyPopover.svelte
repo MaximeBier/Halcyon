@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import {
     clearKeyStyle,
     detectedLabelFor,
@@ -7,9 +8,10 @@
     setKeyStyle,
   } from '../config/edit';
   import { effectiveStyle, overriddenInAny } from '../config/resolve';
+  import { normalizeHex } from '../config/validate';
   import { GRID, moveKey, removeKeys, resizeKeys, type Rect } from './layout';
   import { ICON_SET, labelFor, type LayoutMapLike } from '../keyboard/labels';
-  import Collapsible from './Collapsible.svelte';
+  import { loadOpenState, saveOpenState } from './collapse';
   /**
    * The wording of the three style choices, shared with the global panel.
    *
@@ -18,13 +20,13 @@
    * wide and three words do not fit a third of a row of buttons. Those choices
    * are dropdowns since 2026-08-26, and a dropdown opens over the popover
    * instead of inside its row — so the width stopped deciding the wording, and
-   * two lists that no longer differ became one.
+   * two lists that no longer differ became one. The fill direction went back
+   * to four arrows on 2026-09-05 (board 3a), and borrows the arrows the
+   * global panel draws.
    */
-  import { BORDER_STATES, FILL_DIRECTIONS, REST_STATES } from './style-choices';
+  import { BORDER_STATES, FILL_ARROWS, FILL_DIRECTIONS, REST_STATES } from './style-choices';
   import {
-    RADIUS_BOUNDS,
     type ActiveBorder,
-    type FillDirection,
     type KeyMode,
     type RestVisibility,
     type KeyStyle,
@@ -58,7 +60,7 @@
     onChange: (next: OverlayConfig) => void;
     onClose: () => void;
     /**
-     * For the Style fold, which remembers whether it is open (spec §9.3).
+     * For the STYLE section, which remembers whether it is open (spec §9.3).
      *
      * Injected rather than reached for, like every other fold's: `localStorage`
      * throws outright with cookies blocked, and a popover is the last place
@@ -125,6 +127,21 @@
   });
 
   /**
+   * Whether the STYLE section is unfolded — remembered like every other fold
+   * (spec §9.3), under the key the `Collapsible` it replaced used, so nobody's
+   * choice is lost to the restyle. Shut on a first run, unlike the global
+   * panel: a per-key override is the exception, and the popover's height is
+   * load-bearing — it flips above the selection when it does not fit under.
+   * Nothing is hidden by shutting it: the heading counts the overrides.
+   */
+  let styleOpen = $state(untrack(() => loadOpenState(storage, 'key-style', false)));
+
+  function toggleStyle() {
+    styleOpen = !styleOpen;
+    saveOpenState(storage, 'key-style', styleOpen);
+  }
+
+  /**
    * Back to the name, on request — destructive like the recompute button, and
    * for the same reason: it is a click, not a side effect.
    *
@@ -153,17 +170,33 @@
     onChange(setKeyStyle(config, selectedIds, property, value));
   }
 
-  const COLORS: [keyof KeyStyle & ('activeColor' | 'fillColor' | 'restColor'), string][] = [
-    ['activeColor', 'Active color'],
+  /** A colour typed as text: taken when it is one, put back when it is not. */
+  function hex(property: (typeof COLORS)[number][0], input: HTMLInputElement) {
+    const value = normalizeHex(input.value);
+    if (value === null) {
+      input.value = effective![property];
+      return;
+    }
+    input.value = value;
+    apply(property, value);
+  }
+
+  /** The four colours a key may argue with the theme about, in the panel's order. */
+  const COLORS: [
+    keyof KeyStyle & ('activeColor' | 'fillColor' | 'restColor' | 'borderColor'),
+    string,
+  ][] = [
+    ['activeColor', 'Active'],
     ['fillColor', 'Travel fill'],
     ['restColor', 'Rest'],
+    ['borderColor', 'Border'],
   ];
 
   /**
    * Hands the whole selection back to the global style, in one write.
    *
-   * Every override the header counted, not only the five the block draws: an
-   * imported profile may carry an opacity or a font per key, which nothing
+   * Every override the heading counted, not only the six the section draws:
+   * an imported profile may carry an opacity or a font per key, which nothing
    * here can set — and a button that says "reset to global" while leaving one
    * behind is worse than no button.
    */
@@ -188,9 +221,8 @@
   /**
    * Writes the configuration's own value back into the field.
    *
-   * Every number here is clamped downstream — the radius against
-   * `RADIUS_BOUNDS`, the position against the work surface, the size against
-   * the grid. When the clamped result equals what was already stored, nothing
+   * Every number here is clamped downstream — the position against the work
+   * surface, the size against the grid. When the clamped result equals what was already stored, nothing
    * in the configuration changes, so Svelte never rewrites the input and it
    * goes on showing a figure nothing holds. **A silent clamp is how someone
    * concludes the setting is broken** — the finding of the 2026-08-20 review,
@@ -205,66 +237,70 @@
 </script>
 
 <!--
-  The name of a property, and a dot beside it when the selection overrides it —
-  any key of it, since clicking the dot clears the property on all of them.
+  The name of a style line, which says where its value comes from: in the
+  muted grey when the key inherits, in amber when the selection sets it — any
+  key of it, since clearing acts on all of them. One colour meaning one thing,
+  "this differs from the global", as on the keys list and the key itself.
 
-  **Only the exception is marked.** A column of labels reading `global` is a
-  column of statements that nothing has happened, in a panel 284 px wide — and
-  the word `override` in full weighed more than the value it described.
+  The amber name is also the way back for its line. It keeps what the
+  per-property reset could do before this section existed — return one value
+  without returning the five beside it — and it sits exactly where one reads
+  that the value was changed. The board's `override` / `global` tags said the
+  same in a column of words; the words went on 2026-09-05, the colour stayed.
 
-  The dot is the same amber the rest of the page uses for "customized", and it
-  is also the way back for its line: it keeps what the per-property reset could
-  do before this block existed — return one value without returning the four
-  beside it — and it is exactly where one would click to undo it. Padded well
-  past its six pixels, so the target is a target.
+  `control` is the id the plain name labels; `labelId` is the id the name
+  itself carries, for a group of buttons that names itself through
+  `aria-labelledby` and cannot take a `<label for>`.
 -->
-{#snippet named(property: keyof KeyStyle, label: string, control: string)}
-  <span class="name">
-    <!-- Always a `<label for>`, because a labelable control always answers to
-         that id now. It took a `group` flag until 2026-08-26: the three style
-         choices were groups of buttons, nothing in them was labelable, and the
-         `for` dangled — so those rows named themselves through an
-         `aria-labelledby` on the group instead. They are `<select>`s since, and
-         the flag had no caller left asking for the other branch. -->
+{#snippet name(
+  property: keyof KeyStyle,
+  label: string,
+  control: string | null,
+  labelId: string | null = null,
+)}
+  {#if overridden.includes(property)}
+    <button
+      type="button"
+      class="label overridden"
+      id={labelId}
+      data-marker
+      data-reset={property}
+      title="Reset to global"
+      aria-label={`${label}: reset to global`}
+      onclick={() => onChange(clearKeyStyle(config, selectedIds, property))}
+    >
+      {label}
+    </button>
+  {:else if control}
     <label for={control}>{label}</label>
-    {#if overridden.includes(property)}
-      <button
-        type="button"
-        class="mark"
-        data-marker
-        data-reset={property}
-        title="Reset to global"
-        aria-label={`${label}: reset to global`}
-        onclick={() => onChange(clearKeyStyle(config, selectedIds, property))}
-      ></button>
-    {/if}
-  </span>
+  {:else}
+    <span class="label" id={labelId}>{label}</span>
+  {/if}
 {/snippet}
 
 {#if lead && effective}
   <div class="popover" role="dialog" aria-label="Key style">
+    <!-- The name and the mode on one line (board 3a): "Z · key", and the
+         switch that changes the second word beside it. -->
     <header>
-      <span class="title">{single ? single.label : `${selection.length} keys`}</span>
-      {#if overridden.length > 0}
-        <!-- Same amber as the marker on the key itself: one colour means one
-             thing, "this differs from the global" (spec §8.2). -->
-        <span class="badge">override</span>
-      {/if}
+      <span class="title">
+        {single ? single.label : `${selection.length} keys`}
+        <span class="kind">· {mode}</span>
+      </span>
+      <div class="segmented" role="group" aria-label="Display mode">
+        {#each [['key', 'Key'], ['axis', 'Axis']] as [value, label] (value)}
+          <button
+            type="button"
+            data-mode={value}
+            class:on={mode === value}
+            aria-pressed={mode === value}
+            onclick={() => onChange(setKeyMode(config, selectedIds, value as KeyMode))}
+          >
+            {label}
+          </button>
+        {/each}
+      </div>
     </header>
-
-    <div class="segmented" role="group" aria-label="Display mode">
-      {#each [['key', 'Key'], ['axis', 'Axis']] as [value, label] (value)}
-        <button
-          type="button"
-          data-mode={value}
-          class:on={mode === value}
-          aria-pressed={mode === value}
-          onclick={() => onChange(setKeyMode(config, selectedIds, value as KeyMode))}
-        >
-          {label}
-        </button>
-      {/each}
-    </div>
 
     {#if suggestAxis && mode === 'key'}
       <!-- Worded as the observation, not as a conclusion: the keyboard says
@@ -300,155 +336,18 @@
       </p>
     {/if}
 
-    <!--
-      Every appearance property a key may hold, behind one fold (lot of
-      2026-08-21). Five of the eight: opacity and the two font properties stay
-      global — two typefaces in one overlay serve no real case. `borderColor`
-      used to be a sixth; it left the model on 2026-08-22, the resting border
-      being the `keyBorder` token again and the actuated one `activeColor`.
-
-      The tag on each line **is** the way back for that line. The plate draws a
-      tag and a single "Reset to global" at the foot; a tag that resets keeps
-      what the old per-property link could do — return one colour without
-      returning the four beside it — and costs not a pixel more.
-    -->
-    <div class="style-block">
-      <Collapsible
-        id="key-style"
-        title="Style"
-        note={overridden.length > 0
-          ? `${overridden.length} override${overridden.length === 1 ? '' : 's'}`
-          : null}
-        modified={overridden.length > 0}
-        {storage}
-      >
-        {#each COLORS as [property, label] (property)}
-          <div class="row" data-style-row={property}>
-            {@render named(property, label, `key-${property}`)}
-            <div class="value">
-              <input
-                id={`key-${property}`}
-                name={property}
-                type="color"
-                value={effective[property]}
-                onchange={(event) => apply(property, event.currentTarget.value)}
-              />
-            </div>
-          </div>
-        {/each}
-
-        <div class="row" data-style-row="fillDirection">
-          {@render named('fillDirection', 'Fill direction', 'key-fillDirection')}
-          <div class="value">
-            <select
-              id="key-fillDirection"
-              name="key-fillDirection"
-              value={effective.fillDirection}
-              onchange={(event) =>
-                apply('fillDirection', event.currentTarget.value as FillDirection)}
-            >
-              {#each FILL_DIRECTIONS as [value, label] (value)}
-                <option {value}>{label}</option>
-              {/each}
-            </select>
-          </div>
-        </div>
-
-        <!--
-          Per key since 2026-08-25, and the reason the property moved at all: an
-          overlay hidden at rest exists to be empty, and the keys worth keeping
-          on the stream are a handful, not a mode of their own. Under the fill
-          direction because both are shape rather than colour, and above the
-          radius because it is the one that changes whether a key is seen.
-
-          The editor keeps drawing every key whatever this says (`reveal`), so a
-          key hidden here is still there to be selected and given back.
-        -->
-        <div class="row" data-style-row="restVisibility">
-          {@render named('restVisibility', 'At rest', 'key-restVisibility')}
-          <div class="value">
-            <select
-              id="key-restVisibility"
-              name="key-restVisibility"
-              value={effective.restVisibility}
-              onchange={(event) =>
-                apply('restVisibility', event.currentTarget.value as RestVisibility)}
-            >
-              {#each REST_STATES as [value, label] (value)}
-                <option {value}>{label}</option>
-              {/each}
-            </select>
-          </div>
-        </div>
-
-        <!--
-          Beside the resting row, which is the setting it reads next to: one
-          says what a key shows while nothing happens, the other what its
-          outline does when something does. Per key because a border that
-          announces itself is worth having on the two keys that matter and not
-          on the twenty around them.
-
-          `borderColor` stays global on purpose — this row governs the
-          behaviour, never the resting colour.
-        -->
-        <div class="row" data-style-row="activeBorder">
-          {@render named('activeBorder', 'On press', 'key-activeBorder')}
-          <div class="value">
-            <select
-              id="key-activeBorder"
-              name="key-activeBorder"
-              value={effective.activeBorder}
-              onchange={(event) => apply('activeBorder', event.currentTarget.value as ActiveBorder)}
-            >
-              {#each BORDER_STATES as [value, label] (value)}
-                <option {value}>{label}</option>
-              {/each}
-            </select>
-          </div>
-        </div>
-
-        <div class="row" data-style-row="radius">
-          {@render named('radius', 'Radius', 'key-radius')}
-          <div class="value">
-            <input
-              id="key-radius"
-              name="radius"
-              type="number"
-              min={RADIUS_BOUNDS.min}
-              max={RADIUS_BOUNDS.max}
-              value={effective.radius}
-              onchange={(event) => {
-                const value = typed(event.currentTarget, effective!.radius);
-                if (value === null) return;
-                const clamped = Math.min(RADIUS_BOUNDS.max, Math.max(RADIUS_BOUNDS.min, value));
-                settle(event.currentTarget, clamped);
-                apply('radius', clamped);
-              }}
-            />
-            <span class="unit">px</span>
-          </div>
-        </div>
-
-        {#if overridden.length > 0}
-          <div class="row end">
-            <button type="button" class="link" data-reset-all onclick={resetStyle}>
-              Reset to global
-            </button>
-          </div>
-        {/if}
-      </Collapsible>
-    </div>
-
     {#if single}
+      <!-- One line for the label (board 3a): the word, the Text/Icon switch,
+           and the field — or the grid under it when Icon is chosen. -->
       <div class="row">
         <!-- The badge sits with the word it qualifies, not at the far end of a
-             `space-between` row where it would read as a third control. The
-             header carries the same one for style overrides: one colour, one
-             meaning — this was customized — and the word says which kind.
+             `space-between` row where it would read as a third control. One
+             colour, one meaning — this was customized — and the word says
+             which kind.
 
              Outside `#key-label`, deliberately: that id is the accessible name
-             of the segmented group below, and folding "renamed" into it would
-             have the Text/Icon buttons announce themselves as "Label renamed". -->
+             of the segmented group, and folding "renamed" into it would have
+             the Text/Icon buttons announce themselves as "Label renamed". -->
         <div class="named">
           <span class="label" id="key-label">Label</span>
           {#if detectedLabel !== null}
@@ -461,27 +360,40 @@
             </span>
           {/if}
         </div>
-        <!-- Board 6e. Not a stored mode: it chooses which editor is on screen,
-             and both write the same field. -->
-        <div class="segmented small" role="group" aria-labelledby="key-label">
-          <button
-            type="button"
-            data-label-kind="text"
-            class:on={labelKind === 'text'}
-            aria-pressed={labelKind === 'text'}
-            onclick={toText}
-          >
-            Text
-          </button>
-          <button
-            type="button"
-            data-label-kind="icon"
-            class:on={labelKind === 'icon'}
-            aria-pressed={labelKind === 'icon'}
-            onclick={() => (picked = 'icon')}
-          >
-            Icon
-          </button>
+        <div class="value">
+          <!-- Board 6e. Not a stored mode: it chooses which editor is on
+               screen, and both write the same field. -->
+          <div class="segmented small" role="group" aria-labelledby="key-label">
+            <button
+              type="button"
+              data-label-kind="text"
+              class:on={labelKind === 'text'}
+              aria-pressed={labelKind === 'text'}
+              onclick={toText}
+            >
+              Text
+            </button>
+            <button
+              type="button"
+              data-label-kind="icon"
+              class:on={labelKind === 'icon'}
+              aria-pressed={labelKind === 'icon'}
+              onclick={() => (picked = 'icon')}
+            >
+              Icon
+            </button>
+          </div>
+          {#if labelKind === 'text'}
+            <input
+              id="key-label-text"
+              name="label"
+              type="text"
+              aria-labelledby="key-label"
+              value={single.label}
+              onchange={(event) =>
+                onChange(setKeyLabel(config, single.id, event.currentTarget.value))}
+            />
+          {/if}
         </div>
       </div>
 
@@ -502,21 +414,6 @@
         <!-- Said here because it is the one thing the grid cannot show: the
              twelve are already on the keys nobody had to touch. -->
         <p class="hint">Special keys pick their icon on capture. Text keeps the layout name.</p>
-      {:else}
-        <!-- `end`, because this row has one child and `space-between` puts a
-             lone child on the left — the one control in the popover that did
-             not line up with the column every other row forms. -->
-        <div class="row end">
-          <input
-            id="key-label-text"
-            name="label"
-            type="text"
-            aria-labelledby="key-label"
-            value={single.label}
-            onchange={(event) =>
-              onChange(setKeyLabel(config, single.id, event.currentTarget.value))}
-          />
-        </div>
       {/if}
 
       {#if labelKind === 'text' && detectedLabel !== null}
@@ -556,7 +453,7 @@
               onChange(next);
             }}
           />
-          <span class="times">,</span>
+          <span class="times">·</span>
           <input
             name="y"
             type="number"
@@ -612,6 +509,154 @@
       </div>
     </div>
 
+    <hr />
+
+    <!--
+      Every appearance property a key may hold, in a flat section between two
+      hairlines (board 3a) — the inset card it used to sit in is gone. Seven of
+      the ten: opacity and the two font properties stay global — two typefaces
+      in one overlay serve no real case. The radius left this section on
+      2026-09-05, the day the border's colour joined it: nobody ever rounded
+      one key differently, and everybody wanted the coral key's outline coral.
+
+      The heading is the fold's handle and its summary at once: shut, the line
+      "STYLE · N overrides" is all that remains (spec §9.3 — what a fold hides
+      has to be readable while it is shut).
+    -->
+    <button
+      type="button"
+      class="heading"
+      data-style-toggle
+      aria-expanded={styleOpen}
+      aria-controls="key-style-rows"
+      onclick={toggleStyle}
+    >
+      <span>
+        STYLE
+        {#if overridden.length > 0}
+          <span class="count" data-override-count>
+            · {overridden.length} override{overridden.length === 1 ? '' : 's'}
+          </span>
+        {/if}
+      </span>
+      <span class="caret" aria-hidden="true">▾</span>
+    </button>
+
+    {#if styleOpen}
+      <div class="rows" id="key-style-rows">
+        {#each COLORS as [property, label] (property)}
+          <!-- The hex beside the swatch, as the global panel has it: a swatch
+               alone cannot be copied into anything, and two greys a shade
+               apart cannot be told apart by eye. -->
+          <div class="row" data-style-row={property}>
+            {@render name(property, label, `key-${property}`)}
+            <div class="value">
+              <input
+                class="hex"
+                type="text"
+                data-hex
+                name={`${property}Hex`}
+                aria-label={`${label} hex code`}
+                value={effective[property]}
+                onchange={(event) => hex(property, event.currentTarget)}
+              />
+              <input
+                id={`key-${property}`}
+                name={property}
+                type="color"
+                value={effective[property]}
+                onchange={(event) => apply(property, event.currentTarget.value)}
+              />
+            </div>
+          </div>
+        {/each}
+
+        <!--
+          Per key since 2026-08-25, and the reason the property moved at all: an
+          overlay hidden at rest exists to be empty, and the keys worth keeping
+          on the stream are a handful, not a mode of their own.
+
+          The editor keeps drawing every key whatever this says (`reveal`), so a
+          key hidden here is still there to be selected and given back.
+        -->
+        <div class="row" data-style-row="restVisibility">
+          {@render name('restVisibility', 'At rest', 'key-restVisibility')}
+          <div class="value">
+            <select
+              id="key-restVisibility"
+              name="key-restVisibility"
+              value={effective.restVisibility}
+              onchange={(event) =>
+                apply('restVisibility', event.currentTarget.value as RestVisibility)}
+            >
+              {#each REST_STATES as [value, label] (value)}
+                <option {value}>{label}</option>
+              {/each}
+            </select>
+          </div>
+        </div>
+
+        <!--
+          Beside the resting row, which is the setting it reads next to: one
+          says what a key shows while nothing happens, the other what its
+          outline does when something does. Per key because a border that
+          announces itself is worth having on the two keys that matter and not
+          on the twenty around them.
+
+          `borderColor` stays global on purpose — this row governs the
+          behaviour, never the resting colour.
+        -->
+        <div class="row" data-style-row="activeBorder">
+          {@render name('activeBorder', 'On press', 'key-activeBorder')}
+          <div class="value">
+            <select
+              id="key-activeBorder"
+              name="key-activeBorder"
+              value={effective.activeBorder}
+              onchange={(event) => apply('activeBorder', event.currentTarget.value as ActiveBorder)}
+            >
+              {#each BORDER_STATES as [value, label] (value)}
+                <option {value}>{label}</option>
+              {/each}
+            </select>
+          </div>
+        </div>
+
+        <!-- The global panel's four arrows, at this block's density. Each
+             carries its full label for whoever hears it. -->
+        <div class="row" data-style-row="fillDirection">
+          {@render name('fillDirection', 'Fill direction', null, 'key-fillDirection-label')}
+          <div class="value">
+            <div class="segmented small" role="group" aria-labelledby="key-fillDirection-label">
+              {#each FILL_DIRECTIONS as [value, label] (value)}
+                <button
+                  type="button"
+                  data-direction={value}
+                  class:on={effective.fillDirection === value}
+                  aria-pressed={effective.fillDirection === value}
+                  aria-label={label}
+                  title={label}
+                  onclick={() => apply('fillDirection', value)}
+                >
+                  {FILL_ARROWS[value]}
+                </button>
+              {/each}
+            </div>
+          </div>
+        </div>
+
+        {#if overridden.length > 0}
+          <div class="row start">
+            <button type="button" class="link" data-reset-all onclick={resetStyle}>
+              Reset to global
+            </button>
+          </div>
+        {/if}
+      </div>
+    {/if}
+
+    <hr />
+
     <button
       type="button"
       class="danger"
@@ -631,18 +676,19 @@
 <style>
   .popover {
     display: grid;
-    gap: 9px;
-    /* Border-box, or the token lies: without it the 284 px is the *content*
-       box and the panel really occupies 312 — padding and border on top. The
+    gap: 12px;
+    /* Border-box, or the token lies: without it the 380 px is the *content*
+       box and the panel really occupies 412 — padding and border on top. The
        editor clamps the popover against the stage edge using that same token,
        so a token that means something else is a popover that still overflows,
        by exactly the padding. */
     box-sizing: border-box;
     inline-size: var(--he-popover-width);
-    padding: 13px;
+    padding: 16px;
     background: var(--he-popover);
     border: 1px solid var(--he-border-popover);
     border-radius: var(--he-radius-panel);
+    font-size: var(--he-size-sm);
   }
   header {
     display: flex;
@@ -651,113 +697,153 @@
     gap: 8px;
   }
   .title {
-    font-size: var(--he-size-md);
-    font-weight: 600;
+    font-size: var(--he-size-lg);
+    font-weight: 700;
     color: var(--he-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
-  .badge {
-    font-size: var(--he-size-xs);
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--he-override);
-    border: 1px solid var(--he-override);
-    border-radius: var(--he-radius-pill);
-    padding: 1px 7px;
+  .kind {
+    font-weight: 400;
+    color: var(--he-text-muted);
   }
+
+  hr {
+    margin: 0;
+    border: none;
+    block-size: 1px;
+    background: var(--he-border-control);
+  }
+
+  /**
+   * Three columns for every row — the name, the control, the tag — so the
+   * controls line up down the popover whatever the name's length. A row that
+   * is a lone link spans both.
+   */
   .row {
-    display: flex;
+    display: grid;
+    grid-template-columns: 6.5rem minmax(0, 1fr);
+    column-gap: 8px;
     align-items: center;
-    justify-content: space-between;
-    gap: 10px;
   }
-  /* A row's label and the badge that qualifies it, held together so
-     `space-between` keeps seeing two things and not three. */
+  .row.end > *,
+  .row.start > * {
+    grid-column: 1 / -1;
+  }
+  .row.end > * {
+    justify-self: end;
+  }
+  /* A row's label and the badge that qualifies it, held together in the
+     name's column. */
   .named {
     display: flex;
     align-items: center;
     gap: 6px;
   }
-  /* The fold brings its own frame; inside the popover it is a run of rows like
-     any other, so it gets the same spacing and no second border. */
-  .style-block :global(.fold) {
-    border: none;
-    padding: 0;
-    display: grid;
-    gap: 10px;
-  }
-  .name {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  /**
-   * Six amber pixels beside the name, and nothing at all when the value is
-   * inherited — the same dot the folds use for "customized".
-   *
-   * A button, because it is also how one line goes back to the global. The box
-   * is padded to a real target while the dot stays six pixels: a negative
-   * margin keeps the row's height from following the padding.
-   */
-  .mark {
-    /* Six pixels of dot, eighteen of target: the padding is the click area and
-       the background is clipped to the content box, so only the dot is drawn.
-       The negative margin keeps the row's height off the padding. */
-    inline-size: 6px;
-    block-size: 6px;
-    box-sizing: content-box;
-    padding: 6px;
-    margin: -6px;
-    border: none;
-    border-radius: 50%;
-    background: var(--he-override) content-box;
-    cursor: pointer;
-  }
-  .mark:hover {
-    background-color: var(--he-text);
-  }
-  .mark:focus-visible {
-    outline: 2px solid var(--he-accent);
-    outline-offset: 1px;
-  }
-  .unit {
-    font-size: var(--he-size-xs);
-    color: var(--he-text-ghost);
-  }
   label,
   .label {
-    font-size: var(--he-size-md);
     color: var(--he-text-muted);
+    white-space: nowrap;
   }
   .value {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 8px;
+    min-inline-size: 0;
   }
+  /* The STYLE heading: a handle that reads as a heading, and says how many
+     lines under it depart from the global while it is shut. */
+  .heading {
+    all: unset;
+    box-sizing: border-box;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: var(--he-size-xs);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: var(--he-text-muted);
+  }
+  .heading:hover {
+    color: var(--he-text);
+  }
+  .heading:focus-visible {
+    outline: 2px solid var(--he-accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+  .count {
+    font-weight: 400;
+    letter-spacing: 0;
+    color: var(--he-override);
+  }
+  .caret {
+    transition: rotate 120ms ease-out;
+  }
+  .heading[aria-expanded='false'] .caret {
+    rotate: -90deg;
+  }
+  .rows {
+    display: grid;
+    gap: 12px;
+  }
+
+  /* The name of an overridden line: amber, and the way back for that line.
+     The underline waits for the pointer, so a column of names reads as names
+     and the one that answers a click says so once the hand is there. */
+  .label.overridden {
+    all: unset;
+    cursor: pointer;
+    font-size: inherit;
+    color: var(--he-override);
+    white-space: nowrap;
+  }
+  .label.overridden:hover {
+    text-decoration: underline;
+  }
+  .label.overridden:focus-visible {
+    outline: 2px solid var(--he-accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+  /* The renamed badge beside the Label word: the same amber, the same
+     meaning — this was customized — and the word says which kind. */
+  .badge {
+    font-size: var(--he-size-xs);
+    color: var(--he-override);
+    white-space: nowrap;
+  }
+
   .segmented {
     display: flex;
-    border: 1px solid var(--he-border-control);
-    border-radius: var(--he-radius-control);
+    flex: none;
+    border: 1px solid var(--he-border-popover);
+    border-radius: var(--he-radius);
     overflow: hidden;
   }
   .segmented button {
-    flex: 1;
     font: inherit;
-    font-size: var(--he-size-md);
+    font-size: var(--he-size-xs);
     color: var(--he-text-muted);
     background: none;
     border: 0;
-    padding: 5px 10px;
+    padding: 4px 12px;
     cursor: pointer;
   }
   .segmented button:hover {
     color: var(--he-text);
   }
   .segmented button.on {
+    font-weight: 600;
     color: var(--he-bg);
     background: var(--he-accent);
   }
   .segmented.small button {
-    padding: 4px 8px;
+    padding: 2px 9px;
   }
   /* Six across, as the board draws it — twelve glyphs in two rows fit the
      284 px panel without any of them shrinking below a target. */
@@ -789,7 +875,7 @@
   }
   .hint {
     margin: 0;
-    font-size: var(--he-size-sm);
+    font-size: var(--he-size-xs);
     line-height: 1.45;
     color: var(--he-text-faint);
   }
@@ -797,7 +883,7 @@
     margin: 0;
     display: grid;
     gap: 6px;
-    font-size: var(--he-size-sm);
+    font-size: var(--he-size-xs);
     line-height: 1.4;
     color: var(--he-text-muted);
     background: var(--he-surface);
@@ -815,15 +901,13 @@
      row above, so the two are visibly the same kind of thing. */
   [data-reset='label'] code {
     font: var(--he-font-mono);
+    font-size: var(--he-size-xs);
     color: var(--he-text);
     background: var(--he-stage);
     border: 1px solid var(--he-border-control);
     border-radius: 3px;
     padding: 1px 5px;
     margin-inline-start: 2px;
-  }
-  .row.end {
-    justify-content: flex-end;
   }
   .link.quiet {
     color: var(--he-text-faint);
@@ -833,7 +917,7 @@
   }
   .link {
     font: inherit;
-    font-size: var(--he-size-sm);
+    font-size: var(--he-size-xs);
     color: var(--he-accent);
     background: none;
     border: 0;
@@ -845,57 +929,69 @@
   }
   .danger {
     font: inherit;
-    font-size: var(--he-size-md);
+    font-size: var(--he-size-xs);
+    font-weight: 600;
     color: var(--he-danger);
     background: none;
     border: 1px solid var(--he-border-danger);
-    border-radius: var(--he-radius-control);
-    padding: 6px 10px;
+    border-radius: var(--he-radius);
+    padding: 6px 0;
+    text-align: center;
     cursor: pointer;
   }
+  .danger:hover {
+    background: var(--he-surface);
+  }
   .times {
-    font-size: var(--he-size-sm);
-    color: var(--he-text-ghost);
+    font-size: var(--he-size-xs);
+    color: var(--he-text-faint);
   }
   input[type='color'] {
-    inline-size: 30px;
+    inline-size: 22px;
     block-size: 22px;
     padding: 0;
     background: none;
     border: 1px solid var(--he-border-control);
-    border-radius: var(--he-radius);
+    border-radius: 3px;
     cursor: pointer;
   }
   input[type='text'],
   input[type='number'] {
-    inline-size: 56px;
+    inline-size: 64px;
+    box-sizing: border-box;
     font: var(--he-font-mono);
+    font-size: var(--he-size-xs);
     color: var(--he-text);
     background: var(--he-stage);
     border: 1px solid var(--he-border-control);
-    border-radius: var(--he-radius);
-    padding: 4px 6px;
+    border-radius: 3px;
+    padding: 4px 8px;
   }
   input[type='text'] {
-    inline-size: 118px;
+    /* What is left of the row beside the Text/Icon switch. */
+    flex: 1;
+    min-inline-size: 0;
   }
-  /* The global panel's own select, at this block's density: same colours, same
-     border, the smaller of the two type sizes. A select left unstyled is not
-     merely plainer — the browser paints it in its own light chrome, which on a
-     dark popover reads as a foreign control someone forgot.
+  /* Seven characters of mono beside the swatch, no wider. */
+  input.hex {
+    flex: none;
+    inline-size: 5.2rem;
+  }
+  /* The global panel's own select, at this block's density. A select left
+     unstyled is not merely plainer — the browser paints it in its own light
+     chrome, which on a dark popover reads as a foreign control someone forgot.
 
-     `max-inline-size` rather than a width: 'Takes the active colour' is the
-     longest option and would otherwise set the row, pushing the label off a
-     284 px block. The chosen value is what shows; the list opens over the
-     popover at whatever width it needs. */
+     It fills its column: the longest option ("Hidden until pressed") sets no
+     width of its own, so every select in the popover ends on the same line. */
   select {
-    max-inline-size: 148px;
+    flex: 1;
+    min-inline-size: 0;
     font: inherit;
-    font-size: var(--he-size-sm);
+    font-size: var(--he-size-xs);
     color: var(--he-text);
     background: var(--he-stage);
     border: 1px solid var(--he-border-control);
-    border-radius: var(--he-radius);
+    border-radius: 3px;
     padding: 4px 6px;
   }
   button:focus-visible,
