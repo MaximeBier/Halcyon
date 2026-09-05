@@ -200,12 +200,15 @@
   .trigger {
     all: unset;
     cursor: pointer;
-    padding: 5px 11px;
+    padding: 4px 11px;
     border: 1px solid var(--he-accent);
     border-radius: var(--he-radius-control);
-    font-size: var(--he-size-md);
+    /* The header's own size (board 3a): the pills and the gear beside it
+       speak at 14 px, and a pitch one notch louder read as a stray. */
+    font-size: var(--he-size-xs);
     font-weight: 600;
     color: var(--he-accent);
+    white-space: nowrap;
   }
   .trigger:hover,
   .trigger[aria-expanded='true'] {
