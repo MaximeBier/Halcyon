@@ -1,6 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, cleanup } from '@testing-library/svelte';
-import { tick } from 'svelte';
 import ProfileBar from './ProfileBar.svelte';
 
 afterEach(cleanup);
@@ -28,157 +27,149 @@ function bar(overrides: Record<string, unknown> = {}) {
   return { ...render(ProfileBar, { props }), ...handlers };
 }
 
-const trigger = (c: HTMLElement) => c.querySelector<HTMLButtonElement>('[data-trigger]')!;
+const tab = (c: HTMLElement, name: string) =>
+  c.querySelector<HTMLButtonElement>(`[data-tab="${name}"]`)!;
+const more = (c: HTMLElement) => c.querySelector<HTMLButtonElement>('[data-more]');
+const add = (c: HTMLElement) => c.querySelector<HTMLButtonElement>('[data-add]')!;
 const menu = (c: HTMLElement) => c.querySelector<HTMLElement>('[data-menu]');
-const item = (c: HTMLElement, name: string) =>
-  c.querySelector<HTMLElement>(`[data-profile="${name}"]`)!;
 const action = (c: HTMLElement, name: string) =>
   c.querySelector<HTMLButtonElement>(`[data-action="${name}"]`);
+const field = (c: HTMLElement) => c.querySelector<HTMLInputElement>('[data-name-field]');
 
-async function open(c: HTMLElement) {
-  trigger(c).click();
+async function openMore(c: HTMLElement) {
+  more(c)!.click();
   await Promise.resolve();
 }
 
-describe('the profile trigger', () => {
-  it('names the active profile without opening anything', () => {
+async function openAdd(c: HTMLElement) {
+  add(c).click();
+  await Promise.resolve();
+}
+
+function submit(input: HTMLInputElement, value: string) {
+  input.value = value;
+  input.form!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  return Promise.resolve();
+}
+
+describe('the tab row', () => {
+  it('shows every profile with its key count, the active one marked', () => {
+    // The whole point of the row over the dropdown it replaced: nothing to
+    // open, every profile and its size in view (board 3a).
     const { container } = bar();
 
-    expect(trigger(container).textContent).toContain('Apex');
+    expect(tab(container, 'Apex').getAttribute('aria-current')).toBe('true');
+    expect(tab(container, 'ZQSD minimal').getAttribute('aria-current')).toBeNull();
+    expect(tab(container, 'Apex').textContent).toContain('6');
+    expect(tab(container, 'ZQSD minimal').textContent).toContain('4');
     expect(menu(container)).toBeNull();
-    expect(trigger(container).getAttribute('aria-expanded')).toBe('false');
   });
 
-  it('opens and closes on its own click', async () => {
+  it('switches on a click, and does not reload the profile already open', () => {
+    // Switching reloads from storage and broadcasts to OBS. On the active
+    // profile that is a no-op at best; a stray reload is invisible until
+    // something is missing.
+    const { container, onSelect } = bar();
+
+    tab(container, 'ZQSD minimal').click();
+    expect(onSelect).toHaveBeenCalledWith('ZQSD minimal');
+
+    onSelect.mockClear();
+    tab(container, 'Apex').click();
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it('offers the options only on the active tab', () => {
+    // Every action behind `⋯` acts on the open profile: on another tab it
+    // would promise what a click there cannot keep.
     const { container } = bar();
 
-    await open(container);
+    const slot = more(container)!.parentElement!;
+    expect(slot.contains(tab(container, 'Apex'))).toBe(true);
+    expect(container.querySelectorAll('[data-more]')).toHaveLength(1);
+  });
+
+  it('promises no more than plain buttons: no tablist, tab, menu or menuitem role', async () => {
+    // `tablist` commits to arrow-key navigation, `menu` too — nothing here
+    // delivers either, only Tab does. Buttons with `aria-current` are honest.
+    const { container } = bar();
+    await openMore(container);
+
+    expect(
+      container.querySelectorAll(
+        '[role="tablist"], [role="tab"], [role="menu"], [role="menuitem"], [role="menuitemradio"]',
+      ),
+    ).toHaveLength(0);
+    expect(menu(container)!.getAttribute('aria-label')).toBeTruthy();
+    expect(more(container)!.getAttribute('aria-haspopup')).not.toBe('menu');
+  });
+});
+
+describe('the active tab menu', () => {
+  it('opens and closes on its own trigger', async () => {
+    const { container } = bar();
+
+    await openMore(container);
     expect(menu(container)).not.toBeNull();
-    expect(trigger(container).getAttribute('aria-expanded')).toBe('true');
+    expect(more(container)!.getAttribute('aria-expanded')).toBe('true');
 
-    await open(container);
+    await openMore(container);
     expect(menu(container)).toBeNull();
+    expect(more(container)!.getAttribute('aria-expanded')).toBe('false');
   });
 
-  it('closes on Escape, leaving the trigger to reopen it', async () => {
-    const { container } = bar();
-    await open(container);
+  it('opens on a right click too', async () => {
+    const { container, onSelect } = bar();
 
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    tab(container, 'Apex').dispatchEvent(
+      new MouseEvent('contextmenu', { bubbles: true, cancelable: true }),
+    );
     await Promise.resolve();
 
-    expect(menu(container)).toBeNull();
+    expect(menu(container)).not.toBeNull();
+    expect(onSelect).not.toHaveBeenCalled();
   });
 
-  it('promises no more than a popover: no menu or menuitem role anywhere in it', async () => {
-    // A `menu` role commits to arrow-key navigation, which nothing here
-    // delivers — only Tab does. Demoted honestly: a labelled popover of plain
-    // buttons, and `aria-haspopup` says as much rather than still saying menu.
-    const { container } = bar();
-    await open(container);
+  it('switches first when the right click lands on another tab', async () => {
+    // The menu acts on the open profile, so "act on this one" has to start by
+    // opening it — the honest route rather than a menu that lies about its
+    // target.
+    const { container, onSelect } = bar();
 
-    const popover = menu(container)!;
-    expect(popover.getAttribute('role')).not.toBe('menu');
-    expect(
-      popover.querySelectorAll('[role="menu"], [role="menuitem"], [role="menuitemradio"]'),
-    ).toHaveLength(0);
-    expect(popover.getAttribute('aria-label')).toBeTruthy();
-    expect(trigger(container).getAttribute('aria-haspopup')).not.toBe('menu');
+    const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    tab(container, 'ZQSD minimal').dispatchEvent(event);
+    await Promise.resolve();
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(onSelect).toHaveBeenCalledWith('ZQSD minimal');
   });
 
-  it('moves the focus into the popover on open, and back to the trigger on Escape', async () => {
+  it('closes on Escape, handing the focus back to the trigger', async () => {
     const { container } = bar();
-    await open(container);
-
+    await openMore(container);
     expect(menu(container)!.contains(document.activeElement)).toBe(true);
 
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     await Promise.resolve();
 
-    expect(document.activeElement).toBe(trigger(container));
-  });
-});
-
-describe('choosing a profile', () => {
-  it('quotes the key count of every profile but the current one', async () => {
-    // The count is what tells two similar names apart months later; on the
-    // active row the tick says the same thing more usefully (mockup 6d).
-    const { container } = bar();
-    await open(container);
-
-    expect(item(container, 'ZQSD minimal').textContent).toContain('4 keys');
-    expect(item(container, 'Apex').textContent).not.toContain('6 keys');
+    expect(menu(container)).toBeNull();
+    expect(document.activeElement).toBe(more(container));
   });
 
-  it('marks the active profile', async () => {
-    const { container } = bar();
-    await open(container);
-
-    expect(item(container, 'Apex').getAttribute('aria-current')).toBe('true');
-    expect(item(container, 'ZQSD minimal').getAttribute('aria-current')).toBeNull();
-  });
-
-  it('switches and closes on a click', async () => {
+  it('closes when another tab is clicked', async () => {
     const { container, onSelect } = bar();
-    await open(container);
+    await openMore(container);
 
-    item(container, 'ZQSD minimal').click();
+    tab(container, 'ZQSD minimal').click();
     await Promise.resolve();
 
+    expect(menu(container)).toBeNull();
     expect(onSelect).toHaveBeenCalledWith('ZQSD minimal');
-    expect(menu(container)).toBeNull();
-  });
-
-  it('does not switch to the profile already open', async () => {
-    // Switching reloads from storage. On the active profile that is a no-op at
-    // best; it also runs while the menu is the only thing on screen, so a
-    // stray reload is invisible until something is missing.
-    const { container, onSelect } = bar();
-    await open(container);
-
-    item(container, 'Apex').click();
-    await Promise.resolve();
-
-    expect(onSelect).not.toHaveBeenCalled();
-  });
-});
-
-describe('making profiles', () => {
-  it('asks for a name before creating anything', async () => {
-    const { container, onCreate } = bar();
-    await open(container);
-
-    action(container, 'new')!.click();
-    await Promise.resolve();
-
-    const field = container.querySelector<HTMLInputElement>('[data-name-field]')!;
-    expect(onCreate).not.toHaveBeenCalled();
-
-    field.value = 'Valorant';
-    field.form!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-    await Promise.resolve();
-
-    expect(onCreate).toHaveBeenCalledWith('Valorant');
-    expect(menu(container)).toBeNull();
-  });
-
-  it('creates nothing from an empty name', async () => {
-    const { container, onCreate } = bar();
-    await open(container);
-    action(container, 'new')!.click();
-    await Promise.resolve();
-
-    const field = container.querySelector<HTMLInputElement>('[data-name-field]')!;
-    field.value = '   ';
-    field.form!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-    await Promise.resolve();
-
-    expect(onCreate).not.toHaveBeenCalled();
   });
 
   it('duplicates the profile it names', async () => {
     const { container, onDuplicate } = bar();
-    await open(container);
+    await openMore(container);
 
     expect(action(container, 'duplicate')!.textContent).toContain('Apex');
     action(container, 'duplicate')!.click();
@@ -187,112 +178,93 @@ describe('making profiles', () => {
     expect(onDuplicate).toHaveBeenCalledTimes(1);
     expect(menu(container)).toBeNull();
   });
+
+  it('exports under the name of the profile', async () => {
+    const { container, onExport } = bar();
+    await openMore(container);
+
+    expect(action(container, 'export')!.textContent).toContain('Apex');
+    action(container, 'export')!.click();
+
+    expect(onExport).toHaveBeenCalledTimes(1);
+  });
+
+  it('carries the permanent status line', async () => {
+    const { container } = bar({ status: 'Apex · 4 keys · 2 skipped on the last import' });
+    await openMore(container);
+
+    expect(menu(container)!.textContent).toContain('2 skipped on the last import');
+  });
 });
 
 describe('renaming a profile', () => {
   it('starts from the name it already has', async () => {
     // Renaming is almost always a correction, not a fresh idea: an empty field
-    // makes someone retype what they can see two rows above.
+    // makes someone retype what they can see on the tab.
     const { container } = bar();
-    await open(container);
+    await openMore(container);
 
     action(container, 'rename')!.click();
     await Promise.resolve();
 
-    expect(container.querySelector<HTMLInputElement>('[data-name-field]')!.value).toBe('Apex');
+    expect(field(container)!.value).toBe('Apex');
+    // The field stands in for the rows: nothing else to click while typing.
+    expect(action(container, 'duplicate')).toBeNull();
   });
 
-  it('renames on submit, keeps the popover open for the next move, and folds the field', async () => {
-    // The new demand: rename chains into more work more often than not (fix
-    // the name, then export or duplicate it), so closing here would cost
-    // every chain a reopen for nothing.
+  it('renames on Enter and closes', async () => {
     const { container, onRename } = bar();
-    await open(container);
+    await openMore(container);
     action(container, 'rename')!.click();
     await Promise.resolve();
 
-    const field = container.querySelector<HTMLInputElement>('[data-name-field]')!;
-    field.value = '  Apex Legends  ';
-    field.form!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-    await tick();
-    await tick();
+    await submit(field(container)!, '  Apex Legends  ');
 
     expect(onRename).toHaveBeenCalledWith('Apex Legends');
-    expect(menu(container)).not.toBeNull();
-    expect(container.querySelector('[data-name-field]')).toBeNull();
-  });
-
-  it('does not lose the focus into the void a rename leaves behind', async () => {
-    // The field that held the focus folds away with `editing`, and `active`
-    // changing rebuilds every row keyed on it — nothing the focus sat on a
-    // moment ago still exists. It has to land somewhere real: the Rename row,
-    // back in its place, naming the very thing that just happened.
-    const { container } = bar();
-    await open(container);
-    action(container, 'rename')!.click();
-    await Promise.resolve();
-
-    const field = container.querySelector<HTMLInputElement>('[data-name-field]')!;
-    field.value = 'Apex Legends';
-    field.form!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-    await tick();
-    await tick();
-
-    expect(document.activeElement).toBe(action(container, 'rename'));
+    expect(menu(container)).toBeNull();
   });
 
   it('renames nothing from an empty field', async () => {
     const { container, onRename } = bar();
-    await open(container);
+    await openMore(container);
     action(container, 'rename')!.click();
     await Promise.resolve();
 
-    const field = container.querySelector<HTMLInputElement>('[data-name-field]')!;
-    field.value = '';
-    field.form!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-    await Promise.resolve();
+    await submit(field(container)!, '   ');
 
     expect(onRename).not.toHaveBeenCalled();
+    expect(field(container)).not.toBeNull();
   });
 
-  it('offers no second way to type a name while one is open', async () => {
-    // One field, one meaning. With a creation and a rename open together, the
-    // wrong submit renames the profile that is loaded instead of making a new
-    // one — and both fields look identical.
+  it('opens the field straight from a double click on the tab', async () => {
     const { container } = bar();
-    await open(container);
 
-    action(container, 'rename')!.click();
+    tab(container, 'Apex').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
     await Promise.resolve();
 
-    expect(container.querySelectorAll('[data-name-field]')).toHaveLength(1);
-    expect(action(container, 'new')).toBeNull();
-    expect(action(container, 'rename')).toBeNull();
+    expect(field(container)!.value).toBe('Apex');
   });
 
-  it('gives the field up on Escape without closing the menu', async () => {
+  it('gives up on Escape without renaming', async () => {
     const { container, onRename } = bar();
-    await open(container);
+    await openMore(container);
     action(container, 'rename')!.click();
     await Promise.resolve();
 
-    container
-      .querySelector<HTMLInputElement>('[data-name-field]')!
-      .dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     await Promise.resolve();
 
     expect(onRename).not.toHaveBeenCalled();
-    expect(action(container, 'rename')).not.toBeNull();
+    expect(menu(container)).toBeNull();
   });
 });
 
 describe('deleting a profile', () => {
   it('takes two clicks, because the first one destroys a layout', async () => {
-    // Not in the mockup, which offers no delete at all. A confirmation step in
-    // the row itself is the smallest thing that keeps a misclick from costing
-    // an evening of work.
+    // A confirmation step in the row itself is the smallest thing that keeps
+    // a misclick from costing an evening of work.
     const { container, onRemove } = bar();
-    await open(container);
+    await openMore(container);
 
     action(container, 'remove')!.click();
     await Promise.resolve();
@@ -306,42 +278,65 @@ describe('deleting a profile', () => {
 
   it('forgets the confirmation when the menu closes', async () => {
     const { container } = bar();
-    await open(container);
+    await openMore(container);
     action(container, 'remove')!.click();
     await Promise.resolve();
 
-    await open(container);
-    await open(container);
+    await openMore(container);
+    await openMore(container);
 
     expect(action(container, 'remove')!.textContent).not.toContain('Really delete');
   });
 
   it('offers nothing to delete when a single profile is left', async () => {
     const { container } = bar({ names: ['Apex'] });
-    await open(container);
+    await openMore(container);
 
     expect(action(container, 'remove')).toBeNull();
   });
 });
 
-describe('the file on disk', () => {
-  it('exports under the name of the profile', async () => {
-    const { container, onExport } = bar();
-    await open(container);
+describe('the + menu', () => {
+  it('opens under the plus, with the focus inside', async () => {
+    const { container } = bar();
+    await openAdd(container);
 
-    expect(action(container, 'export')!.textContent).toContain('Apex');
-    action(container, 'export')!.click();
-
-    expect(onExport).toHaveBeenCalledTimes(1);
+    expect(menu(container)).not.toBeNull();
+    expect(add(container).getAttribute('aria-expanded')).toBe('true');
+    expect(menu(container)!.contains(document.activeElement)).toBe(true);
   });
 
-  it('hands the chosen file over, clears the input, and keeps the popover open', async () => {
+  it('asks for a name before creating anything', async () => {
+    const { container, onCreate } = bar();
+    await openAdd(container);
+
+    action(container, 'new')!.click();
+    await Promise.resolve();
+    expect(onCreate).not.toHaveBeenCalled();
+    expect(field(container)!.value).toBe('');
+
+    await submit(field(container)!, 'Valorant');
+
+    expect(onCreate).toHaveBeenCalledWith('Valorant');
+    expect(menu(container)).toBeNull();
+  });
+
+  it('creates nothing from an empty name', async () => {
+    const { container, onCreate } = bar();
+    await openAdd(container);
+    action(container, 'new')!.click();
+    await Promise.resolve();
+
+    await submit(field(container)!, '   ');
+
+    expect(onCreate).not.toHaveBeenCalled();
+  });
+
+  it('hands the chosen file over, clears the input, and closes', async () => {
     // Left uncleared, picking the same file twice fires nothing at all — which
-    // is exactly what one does after fixing it by hand. And the popover stays
-    // put: import chains into a rename most often (fix the name the file
-    // came with), so closing here would cost that chain a reopen for nothing.
+    // is exactly what one does after fixing it by hand.
     const { container, onImport } = bar();
-    await open(container);
+    await openAdd(container);
 
     const input = container.querySelector<HTMLInputElement>('input[type="file"]')!;
     const file = new File(['{}'], 'apex.json', { type: 'application/json' });
@@ -362,15 +357,26 @@ describe('the file on disk', () => {
 
     expect(onImport).toHaveBeenCalledWith(file);
     expect(assigned).toEqual(['']);
-    expect(menu(container)).not.toBeNull();
+    expect(menu(container)).toBeNull();
   });
-});
 
-describe('the line that stays', () => {
-  it('carries the permanent status inside the menu', async () => {
-    const { container } = bar({ status: 'Apex · 4 keys · 2 skipped on the last import' });
-    await open(container);
+  it('keeps import out of the per-profile menu', async () => {
+    // `importFrom` always lands the file in a profile of its own, beside the
+    // others — never in the open one, which is what a row under the active
+    // tab would suggest.
+    const { container } = bar();
+    await openMore(container);
 
-    expect(menu(container)!.textContent).toContain('2 skipped on the last import');
+    expect(container.querySelector('input[type="file"]')).toBeNull();
+  });
+
+  it('opens one popover at a time', async () => {
+    const { container } = bar();
+    await openMore(container);
+    await openAdd(container);
+
+    expect(container.querySelectorAll('[data-menu]')).toHaveLength(1);
+    expect(add(container).getAttribute('aria-expanded')).toBe('true');
+    expect(more(container)!.getAttribute('aria-expanded')).toBe('false');
   });
 });

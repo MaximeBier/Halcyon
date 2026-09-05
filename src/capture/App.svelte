@@ -764,8 +764,7 @@
       onRetryObs={reconnect}
     />
 
-    <!-- Document-level controls, next to the only other document control on
-         this bar — the profile menu. In the header because it is the one zone
+    <!-- Document-level controls. In the header because it is the one zone
          visible in every state of the page: wizard up, folds shut, popover
          gone — and the first need for undo comes when the selection has just
          disappeared, so nothing anchored to it can carry the button. -->
@@ -788,22 +787,26 @@
         Resume setup · {stepNumber(step)}/3
       </button>
     {/if}
-
-    <ProfileBar
-      names={profileNames}
-      active={profile}
-      keyCount={(name) => profiles.keyCount(name)}
-      {status}
-      {statusWarn}
-      onSelect={switchProfile}
-      onCreate={profileActions.createProfile}
-      onDuplicate={profileActions.duplicateProfile}
-      onRename={profileActions.renameProfile}
-      onRemove={profileActions.removeProfile}
-      onExport={profileActions.downloadProfile}
-      onImport={profileActions.importProfile}
-    />
   </header>
+
+  <!-- A row of its own under the header (board 3a): every profile in view,
+       switching is one click. The open profile's count is read live — it
+       moves with every key learned — where the others' come from storage,
+       which nothing can change while they are not on screen. -->
+  <ProfileBar
+    names={profileNames}
+    active={profile}
+    keyCount={(name) => (name === profile ? config.keys.length : profiles.keyCount(name))}
+    {status}
+    {statusWarn}
+    onSelect={switchProfile}
+    onCreate={profileActions.createProfile}
+    onDuplicate={profileActions.duplicateProfile}
+    onRename={profileActions.renameProfile}
+    onRemove={profileActions.removeProfile}
+    onExport={profileActions.downloadProfile}
+    onImport={profileActions.importProfile}
+  />
 
   <!-- Above the setup card, and outside the panels: what cannot work here is
        the page, not one of its sections. It shows itself or nothing. -->

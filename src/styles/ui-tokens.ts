@@ -61,13 +61,15 @@ export const UI_TOKENS = {
   /** KeyPopover's override badge: a full pill, rounder than any panel gets. */
   radiusPill: '20px',
   headerHeight: '62px',
+  /** The profile tab row under the header (board 3a). */
+  tabRowHeight: '50px',
   panelWidth: '380px',
   /** Read by the editor too, which has to keep the popover inside the stage. */
   popoverWidth: '284px',
   /** How far the two dropdown menus (profiles, startup guide) hang below their trigger. */
   menuOffset: '30px',
-  /** ProfileBar's profile menu. */
-  menuWidth: '240px',
+  /** ProfileBar's two popovers, the active tab's and the one under `+`. */
+  menuWidth: '280px',
   /** StartupPopover's onboarding menu — wider, it carries the setup steps. */
   guideWidth: '320px',
 } as const;
