@@ -89,12 +89,16 @@ appears in the OBS source properties, so don't show that URL on stream.
 page gave you, password included. If it went black after an OBS update, see
 [deploy.md](deploy.md) — there is a documented way around it.
 
+**The overlay stops reacting.** Refresh the browser source in OBS: right-click
+it and choose **Refresh**, or open its properties and click **Refresh cache of
+current page**. The link between the page and OBS comes back on its own.
+
 **Travel stays at zero.** The keyboard is connected but sending nothing: unplug
 it and plug it back in, then allow it again if Chrome asks.
 
 **Nothing happens when you press a key.** The two indicators at the top say
-which link is broken — the keyboard, or OBS and its overlay. A red one can be
-clicked to try again.
+which link is broken — the keyboard, or OBS and its overlay. An orange one can
+be clicked to try again.
 
 ## Reporting a problem
 
