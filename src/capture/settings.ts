@@ -128,8 +128,39 @@ export function keyboardHint(status: KeyboardStatus): string {
 }
 
 /**
+ * The keyboard pill of board `3a`: the device's own name once it answers, and
+ * a short line with the gesture otherwise.
+ *
+ * The name is WebHID's `productName` — "Wooting 60HE+", not "Keyboard" — so
+ * the pill says which one, which matters the day two are plugged in. The
+ * other states are cut down to the pill's width; the full sentence, with the
+ * firmware or Wootility advice, stays on the pill's `title` and in the panel's
+ * gate (`keyboardHint`).
+ */
+export function keyboardPill(status: KeyboardStatus, device: string | null): string {
+  switch (status) {
+    case 'connected':
+      return device ?? 'Keyboard connected';
+    case 'no-permission':
+    case 'disconnected':
+      return 'No keyboard · click to choose';
+    case 'no-analog-interface':
+      return 'No analog interface · click to pick another';
+    case 'open-failed':
+      return 'Keyboard busy · click to retry';
+    case 'unsupported':
+      return 'WebHID required · use Chrome or Edge';
+  }
+}
+
+/**
  * Whether the keyboard pill is worth clicking — the device picker as its own
  * gesture (spec §11).
+ *
+ * Since board 3a the connected pill is a button too, and for the same
+ * gesture: the picker is how one swaps to the other keyboard on the desk.
+ * This predicate still answers a narrower question — is something *wrong*
+ * that a picker could fix — which is what colours the pill red.
  *
  * The panel's own button already covers three of these, for the same reason:
  * nothing chosen yet, nothing plugged in, or the wrong interface chosen out

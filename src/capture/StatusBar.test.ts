@@ -14,6 +14,7 @@ function bar(overrides: { keyboard?: KeyboardStatus; obs?: ObsStatus } = {}) {
   };
   const props = {
     keyboard: 'connected' as KeyboardStatus,
+    device: 'Wooting 60HE+',
     obs: 'identified' as ObsStatus,
     rate: 58,
     overlays: { inObs: 1, inBrowser: 0 },
@@ -64,16 +65,36 @@ describe('a pill that can fix what it reports', () => {
   });
 });
 
-describe('a pill with nothing to offer', () => {
-  it('is not a button when the keyboard works', () => {
-    // A button that does nothing is worse than plain text: it invites a click
-    // and answers with silence.
+describe('the keyboard pill', () => {
+  it('names the device that answered', () => {
+    // WebHID's product name, not "Keyboard": the day two are plugged in, the
+    // pill says which one is speaking (board 3a).
     const { container } = bar({ keyboard: 'connected' });
 
-    expect(pill(container, 'keyboard').tagName).not.toBe('BUTTON');
+    expect(pill(container, 'keyboard').textContent).toContain('Wooting 60HE+');
+  });
+
+  it('reopens the picker from the connected pill, to swap keyboards', async () => {
+    const { container, onPickDevice } = bar({ keyboard: 'connected' });
+
+    expect(pill(container, 'keyboard').tagName).toBe('BUTTON');
+    await fireEvent.click(pill(container, 'keyboard'));
+
+    expect(onPickDevice).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the full sentence within reach, on the tooltip', () => {
+    // The pill is cut down to the gesture; the firmware and Wootility advice
+    // still has to be findable from the pill itself.
+    const { container } = bar({ keyboard: 'no-analog-interface' });
+
+    expect(pill(container, 'keyboard').textContent).toContain('click');
+    expect(pill(container, 'keyboard').getAttribute('title')).toMatch(/wootility/i);
   });
 
   it('is not a button on a browser with no WebHID at all', () => {
+    // A button that does nothing is worse than plain text: it invites a click
+    // and answers with silence — and there is no picker to open here.
     const { container } = bar({ keyboard: 'unsupported' });
 
     expect(pill(container, 'keyboard').tagName).not.toBe('BUTTON');

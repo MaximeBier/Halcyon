@@ -6,6 +6,7 @@
     canRetryObs,
     captureWarning,
     keyboardHint,
+    keyboardPill,
     obsPill,
     type ConnectionSettings,
   } from './settings';
@@ -14,6 +15,7 @@
 
   let {
     keyboard,
+    device,
     obs,
     rate,
     overlays,
@@ -26,6 +28,8 @@
     onCopyUrl,
   }: {
     keyboard: KeyboardStatus;
+    /** WebHID's `productName` for the keyboard that answered, or `null`. */
+    device: string | null;
     obs: ObsStatus;
     rate: number;
     overlays: { inObs: number; inBrowser: number };
@@ -47,6 +51,9 @@
   } = $props();
 
   let rivals = $derived(captureWarning(otherCapture));
+  let keyboardLabel = $derived(keyboardPill(keyboard, device));
+  /** Red, and worth a click: something a picker could fix. */
+  let keyboardDown = $derived(canPickDevice(keyboard));
   let obsLabel = $derived(obsPill(obs, overlays, rate));
   /** The OBS pill's popover, which is the whole OBS interface since board 3a. */
   let obsOpen = $state(false);
@@ -87,17 +94,28 @@
        sentence in one target. The gesture it takes is the one someone makes
        anyway — the cursor goes to the line that says something is wrong — and
        the panel's own button stays where it is for anyone who looks there
-       instead. A `<button>` only when there is something to do, because a
-       control that answers a click with silence is worse than plain text. -->
-  {#if canPickDevice(keyboard)}
-    <button type="button" class="pill act" data-pill="keyboard" onclick={onPickDevice}>
-      <span class="dot" style:background={UI_TOKENS.danger}></span>
-      {keyboardHint(keyboard)}
+       instead. Connected, the same click reopens the picker: that is how one
+       swaps to the other keyboard on the desk (board 3a). A `<button>` in
+       every state but the one with no picker to open, because a control that
+       answers a click with silence is worse than plain text. The full
+       sentence rides on `title`: the pill says the gesture, the tooltip says
+       why (firmware, Wootility, …). -->
+  {#if keyboard !== 'unsupported'}
+    <button
+      type="button"
+      class="pill act"
+      class:down={keyboardDown}
+      data-pill="keyboard"
+      title={keyboardHint(keyboard)}
+      onclick={onPickDevice}
+    >
+      <span class="dot" style:background={dot(!keyboardDown)}></span>
+      {keyboardLabel}
     </button>
   {:else}
-    <span class="pill" data-pill="keyboard">
-      <span class="dot" style:background={dot(keyboard === 'connected')}></span>
-      {keyboardHint(keyboard)}
+    <span class="pill down" data-pill="keyboard" title={keyboardHint(keyboard)}>
+      <span class="dot" style:background={UI_TOKENS.danger}></span>
+      {keyboardLabel}
     </span>
   {/if}
 
@@ -214,12 +232,13 @@
     outline-offset: 3px;
     border-radius: 2px;
   }
-  /* Red text with the red dot for OBS down (board 3a): it is the one pill
-     that asks for a click, and a dot alone reads as one status among several. */
+  /* Red text with the red dot for a pill reporting a fault (board 3a): those
+     are the pills that ask for a click, and a dot alone reads as one status
+     among several. */
   .down {
     color: var(--he-danger);
   }
-  .down:hover {
+  .act.down:hover {
     color: var(--he-danger);
     text-decoration: underline;
   }

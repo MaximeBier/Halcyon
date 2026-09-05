@@ -64,7 +64,7 @@
 
   let settings = $state(loadSettings(storage));
   let keyboardStatus = $state<KeyboardStatus>('disconnected');
-  /** The product name of the keyboard that answered, for the wizard's first step. */
+  /** The product name of the keyboard that answered: the keyboard pill, and the wizard's first step. */
   let keyboardName = $state<string | null>(null);
   let obsStatus = $state<ObsStatus>('idle');
   let frame = $state<readonly FrameKey[]>([]);
@@ -735,6 +735,7 @@
          pack — an empty layout has no size worth giving a browser source. -->
     <StatusBar
       keyboard={keyboardStatus}
+      device={keyboardName}
       obs={obsStatus}
       {rate}
       overlays={listeners}

@@ -9,6 +9,7 @@ import {
   saveSettings,
   overlayUrl,
   keyboardHint,
+  keyboardPill,
   obsHint,
   obsProbeHint,
   createObsProbe,
@@ -176,6 +177,32 @@ describe('what a pill offers to do about itself', () => {
     // `open-failed` joining `canPickDevice`: a hint must never invite a click
     // the control refuses. Found in review on 2026-09-04.
     expect(canRetryObs('disconnected')).toBe(true);
+  });
+});
+
+describe('keyboardPill', () => {
+  it('names the device once it answers', () => {
+    expect(keyboardPill('connected', 'Wooting 60HE+')).toBe('Wooting 60HE+');
+  });
+
+  it('still says connected when the device gave no name', () => {
+    expect(keyboardPill('connected', null)).toMatch(/connected/i);
+  });
+
+  it('invites the click on every state a picker could fix, and only there', () => {
+    for (const status of [
+      'no-permission',
+      'disconnected',
+      'no-analog-interface',
+      'open-failed',
+      'unsupported',
+    ] as const) {
+      expect(/click/.test(keyboardPill(status, null))).toBe(canPickDevice(status));
+    }
+  });
+
+  it('names the browsers when there is no WebHID to click for', () => {
+    expect(keyboardPill('unsupported', null)).toMatch(/chrome|edge/i);
   });
 });
 
