@@ -1,6 +1,21 @@
 <script lang="ts">
-  let { learning = $bindable(false), onCancel }: { learning: boolean; onCancel: () => void } =
-    $props();
+  let {
+    learning = $bindable(false),
+    disabled = false,
+    reason = '',
+    onCancel,
+  }: {
+    learning: boolean;
+    /**
+     * No keyboard to learn from. Dimmed and inert rather than hidden: someone
+     * who cannot see the feature cannot plan for it, and cannot tell "not yet"
+     * from "not here" (the spec §16.8 doctrine `Gated` used to carry).
+     */
+    disabled?: boolean;
+    /** Why it is disabled, phrased as what is missing — shown on hover. */
+    reason?: string;
+    onCancel: () => void;
+  } = $props();
 </script>
 
 <!--
@@ -11,12 +26,18 @@
   One button, two states — the mockup's board `6c` turns "+ Add key" into
   "■ Stop capture" rather than adding a second control beside it. Two buttons
   would mean one of them is always the wrong one to reach for.
+
+  In the profile row since 2026-09-05, at its right end: the room was empty
+  there and worth a fold in the sidebar. The button that opens the keyboard
+  picker went with the sidebar gate — the keyboard pill is that button now.
 -->
 <button
   class="add"
   class:listening={learning}
   type="button"
   aria-pressed={learning}
+  {disabled}
+  title={disabled ? reason : undefined}
   onclick={() => (learning ? onCancel() : (learning = true))}
 >
   {learning ? '■ Stop capture · listening…' : '+ Add key · press any key'}
@@ -31,13 +52,13 @@
 <style>
   .add {
     box-sizing: border-box;
-    inline-size: 100%;
-    display: block;
-    padding: 11px 0;
+    display: inline-block;
+    padding: 7px 16px;
 
     font: var(--he-font);
-    font-size: var(--he-size-sm);
+    font-size: var(--he-size-xs);
     font-weight: 700;
+    white-space: nowrap;
     text-align: center;
     cursor: pointer;
 
@@ -50,7 +71,7 @@
     background: var(--he-accent-hover);
     border-color: var(--he-accent-hover);
   }
-  /* Listening reverses it: the accent moves to the outline, so the panel reads
+  /* Listening reverses it: the accent moves to the outline, so the row reads
      as armed rather than as offering something. */
   .add.listening {
     color: var(--he-accent);
@@ -58,6 +79,16 @@
   }
   .add.listening:hover {
     background: var(--he-surface);
+  }
+  /* The same figure the header's undo buttons dim with: one vocabulary for
+     "not available". */
+  .add:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+  .add:disabled:hover {
+    background: var(--he-accent);
+    border-color: var(--he-accent);
   }
   .add:focus-visible {
     outline: 2px solid var(--he-accent);

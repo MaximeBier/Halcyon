@@ -152,12 +152,12 @@
     {/if}
   </div>
 
-  <!-- Shown only when it is true, and then on a line of its own under the
-       pills: an overlay obeying two masters is a failure in which both pages
-       look entirely correct, so it has to be visible without being looked for —
-       and it is the one line here that asks for something to be done, which a
-       third pill in the run would not say. `role="alert"` because it appears
-       mid-session, long after anyone last read this bar. -->
+  <!-- Shown only when it is true, and then as the last pill of the run: an
+       overlay obeying two masters is a failure in which both pages look
+       entirely correct, so it has to be visible without being looked for. Red
+       text, not just a red dot, because it is the one pill here that asks for
+       something to be done. `role="alert"` because it appears mid-session,
+       long after anyone last read this bar. -->
   {#if rivals}
     <span class="pill rival" role="alert">
       <span class="dot" style:background={UI_TOKENS.danger}></span>
@@ -242,18 +242,13 @@
     color: var(--he-danger);
     text-decoration: underline;
   }
-  /* The only other pill that colours its text: it reports a fault, and asks
-     for two actions — a whole line of its own, because a sentence like that
-     cannot wrap through a run of pills and still read as one instruction. */
+  /* The other pill that colours its text: it reports a fault, and asks for
+     two actions. It used to take a line of its own, which pushed the whole
+     header onto a second row (2026-09-05); cut to a pill's length, it sits
+     in the run like the rest and never wraps inside itself. */
   .rival {
-    flex-basis: 100%;
-    align-items: flex-start;
     color: var(--he-danger);
     font-weight: 600;
-  }
-  /* On the first line of the sentence, not in the middle of the block: the text
-     wraps on a narrow window, and a centred dot would drift down with it. */
-  .rival .dot {
-    margin-top: 0.35em;
+    white-space: nowrap;
   }
 </style>

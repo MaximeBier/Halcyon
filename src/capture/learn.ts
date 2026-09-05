@@ -83,3 +83,36 @@ export function addLearnedKey(
 
   return { ...config, keys: [...config.keys, key] };
 }
+
+/** HID usage of Escape — the key that stops the capture. */
+export const ESCAPE_USAGE = 0x29;
+
+/**
+ * How long after learning a key its press may still turn out to be the one
+ * that stopped the capture. One second covers a slow, deliberate press from
+ * the depth this module learns at down to the depth the firmware fires at.
+ */
+export const STOP_PRESS_GRACE_MS = 1000;
+
+/**
+ * Whether the key just learned was the Escape that stopped the capture.
+ *
+ * Learning fires at `LEARN_TRAVEL_THRESHOLD`, below the firmware's actuation
+ * on purpose (see above) — so the *same* press of Escape is learned first, on
+ * the analog stream, and only then stops the capture, through the `keydown`
+ * the firmware sends at actuation. The key added by that press was never
+ * asked for: the hand went to Escape to stop, not to add. The caller takes it
+ * back when this answers true.
+ *
+ * Judged on the usage and the clock, not on the mode alone: an Escape learned
+ * earlier in the session — the capture then stopped from the button — was
+ * asked for, and stays.
+ */
+export function learnedByStopPress(
+  learned: { usage: number; at: number } | null,
+  now: number,
+): boolean {
+  return (
+    learned !== null && learned.usage === ESCAPE_USAGE && now - learned.at < STOP_PRESS_GRACE_MS
+  );
+}

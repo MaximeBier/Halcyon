@@ -1,7 +1,11 @@
 <script lang="ts">
+  import type { Snippet } from 'svelte';
+
   /**
    * The profile tab bar of board `3a`: one tab per profile under the header,
-   * the active one underlined and carrying its `⋯`, a `+` at the end.
+   * the active one underlined and carrying its `⋯`, a `+` at the end — and,
+   * at the far right, whatever the page hands in (`children`: the Add key
+   * button, since the room there was empty and worth a fold in the sidebar).
    *
    * Switching is one click and always in view — the dropdown this replaced
    * hid every other profile behind a trigger. The per-profile actions (rename,
@@ -23,6 +27,7 @@
     onRemove,
     onExport,
     onImport,
+    children,
   }: {
     names: readonly string[];
     active: string;
@@ -39,6 +44,8 @@
     onRemove: () => void;
     onExport: () => void;
     onImport: (file: File) => void;
+    /** The right end of the row, after the tabs. */
+    children?: Snippet;
   } = $props();
 
   /** Which popover is open: the active tab's, or the one under `+`. */
@@ -330,6 +337,12 @@
       </div>
     {/if}
   </div>
+
+  {#if children}
+    <div class="trailing">
+      {@render children()}
+    </div>
+  {/if}
 </nav>
 
 <style>
@@ -350,6 +363,13 @@
     display: flex;
     align-items: stretch;
     min-inline-size: 0;
+  }
+  .trailing {
+    margin-inline-start: auto;
+    display: flex;
+    align-items: center;
+    /* `position: relative` on the row's children would put a popover under
+       this; the button carries none, so nothing to stack. */
   }
   .tab {
     all: unset;

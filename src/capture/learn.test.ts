@@ -1,6 +1,13 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { addLearnedKey, learnKeys, LEARN_TRAVEL_THRESHOLD } from './learn';
+import {
+  addLearnedKey,
+  ESCAPE_USAGE,
+  learnedByStopPress,
+  learnKeys,
+  LEARN_TRAVEL_THRESHOLD,
+  STOP_PRESS_GRACE_MS,
+} from './learn';
 import { DEFAULT_STYLE, defaultConfig, type OverlayConfig } from '../config/schema';
 import { surfaceOf } from './layout';
 import type { AnalogEntry } from '../keyboard/decode';
@@ -181,5 +188,28 @@ describe('addLearnedKey', () => {
     addLearnedKey(before, entry(1, 0x14, 900), azerty, SURFACE);
 
     expect(before.keys).toEqual([]);
+  });
+});
+
+describe('learnedByStopPress', () => {
+  const escape = { usage: ESCAPE_USAGE, at: 1000 };
+
+  it('recognises the Escape that stopped the capture by its usage and its moment', () => {
+    // The same press is learned at 20 % of travel and stops the capture at
+    // actuation: the key it added was never asked for.
+    expect(learnedByStopPress(escape, 1000 + STOP_PRESS_GRACE_MS - 1)).toBe(true);
+  });
+
+  it('leaves an Escape learned earlier alone', () => {
+    // Stopped from the button a while after: that Escape was asked for.
+    expect(learnedByStopPress(escape, 1000 + STOP_PRESS_GRACE_MS)).toBe(false);
+  });
+
+  it('never takes back another key, however fresh', () => {
+    expect(learnedByStopPress({ usage: 0x14, at: 1000 }, 1001)).toBe(false);
+  });
+
+  it('answers no when nothing was learned', () => {
+    expect(learnedByStopPress(null, 1001)).toBe(false);
   });
 });

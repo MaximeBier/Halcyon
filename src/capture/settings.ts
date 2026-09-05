@@ -410,7 +410,9 @@ function overlayTally(counts: { inObs: number; inBrowser: number }): string {
  */
 export function captureWarning(another: boolean): string | null {
   if (!another) return null;
-  return 'Other capture pages are open. Close them, then reload this page.';
+  // One pill among the others since 2026-09-05, no longer a line of its own,
+  // so it is cut to what fits in a run: both steps, no more words than that.
+  return 'Other capture pages open · close them, then reload';
 }
 
 /**

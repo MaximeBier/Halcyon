@@ -21,7 +21,7 @@
   import { createOverlayRegistry } from './overlays';
   import { createConfigBroadcaster } from './broadcast';
   import { newPageId } from '../protocol/identity';
-  import { learnKeys } from './learn';
+  import { learnedByStopPress, learnKeys } from './learn';
   import { keysOutside, pickedFromList, removeKey, removeKeys, surfaceOf } from './layout';
   import { loadLayoutMap, resolveLayout, type LayoutMapLike } from '../keyboard/labels';
   import { detectedLabelFor, setLayoutOverride } from '../config/edit';
@@ -37,7 +37,6 @@
   import Wizard from './Wizard.svelte';
   import Diagnostics from './Diagnostics.svelte';
   import Collapsible from './Collapsible.svelte';
-  import Gated from './Gated.svelte';
   import Unsupported from './Unsupported.svelte';
   import { copyToClipboard } from './clipboard';
   import { createJournal, describeAnomaly, hexDump, type JournalEntry } from './journal';
@@ -52,6 +51,8 @@
     type WizardStatus,
   } from './wizard';
   import ProfileBar from './ProfileBar.svelte';
+  import SettingsMenu from './SettingsMenu.svelte';
+  import Sheet from './Sheet.svelte';
   import StartupPopover from './StartupPopover.svelte';
   import Toast from './Toast.svelte';
   import { deletionToast, loadToast, type Notice } from './notice';
@@ -112,6 +113,45 @@
   let learning = $state(false);
   /** The label of the last key learned, which the wizard's third step confirms. */
   let lastKey = $state<string | null>(null);
+  /**
+   * The last key learned, and when — plain data, read only when learning
+   * stops. Learning fires below the firmware's actuation on purpose
+   * (`LEARN_TRAVEL_THRESHOLD`), so the Escape pressed to stop the capture is
+   * learned by the analog stream *before* its `keydown` stops anything. That
+   * key was never asked for; the effect below takes it back.
+   */
+  let lastLearned: { id: number; usage: number; at: number } | null = null;
+
+  $effect(() => {
+    if (learning) return;
+    if (!learnedByStopPress(lastLearned, performance.now())) return;
+    takeBack(lastLearned!.id);
+    lastLearned = null;
+    lastKey = null;
+  });
+
+  /**
+   * Removes a key learned by mistake, through the undo pile rather than
+   * around it: the add is the top of the pile, so popping it leaves no
+   * add-then-remove pair for Ctrl+Z to walk back through. If something else
+   * has moved the pile since — it cannot within the grace window, but the
+   * pile is checked rather than trusted — the key is removed the ordinary
+   * way instead.
+   */
+  function takeBack(id: number) {
+    const previous = history.undo(config);
+    if (previous === null) return;
+    const onlyThatKey =
+      previous.keys.length === config.keys.length - 1 &&
+      !previous.keys.some((key) => key.id === id) &&
+      previous.keys.every((key) => config.keys.includes(key));
+    if (onlyThatKey) {
+      restore(previous);
+      return;
+    }
+    history.redo(previous);
+    updateConfig(removeKey(config, id));
+  }
 
   let selectedIds = $state<number[]>([]);
   /**
@@ -269,6 +309,8 @@
 
   let capturing = $state(false);
   let snapshot = $state<string | null>(null);
+  /** The Diagnostics sheet, opened from the ⚙ menu and nowhere else. */
+  let diagnosticsOpen = $state(false);
 
   /**
    * A probe on the report stream, never on a clock (global constraint 1).
@@ -581,23 +623,6 @@
   }
 
   /**
-   * What the gate over "Add key" offers to press.
-   *
-   * Without permission the missing thing is a *click* — WebHID has nothing to
-   * hang its prompt on until one arrives — so the gate has to offer one. This
-   * is the only place left doing so once the setup wizard is gone for good,
-   * and dropping it in the task 27 rewrite left the page with no way at all to
-   * grant access. On an unsupported browser nothing is offered: a button that
-   * cannot help is how someone presses it four times.
-   *
-   * One label for every status it is offered in, not one per status: the
-   * click always calls the same `requestPermission()`, which always opens the
-   * same HID picker — potentially empty. "Rescan devices" used to promise an
-   * automatic look the code never performs.
-   */
-  const keyboardAction = 'Choose device…';
-
-  /**
    * Whether the global style has been touched at all — §9.3's marker.
    *
    * Not applied to the port and password, which the fold above once carried:
@@ -663,7 +688,9 @@
       // Read from the result, not from the report: the label is the layout's
       // business, and the wizard's third step names the key it just saw.
       const before = config.keys.map((key) => key.id);
-      lastKey = next.keys.filter((key) => !before.includes(key.id)).at(-1)?.label ?? null;
+      const added = next.keys.filter((key) => !before.includes(key.id)).at(-1);
+      lastKey = added?.label ?? null;
+      if (added) lastLearned = { id: added.id, usage: added.usage, at: performance.now() };
       updateConfig(next);
     },
     onKeys: (k) => {
@@ -718,9 +745,10 @@
 </script>
 
 <!--
-  The three zones of mockup board `6d`: a 50 px header, the stage, and a 300 px
-  panel. Nothing here is a pile of collapsibles any more — the folds live in the
-  panel's footer, where §9.3 still governs them.
+  The four zones of board `3a`: a 54 px header, the profile tabs, the stage,
+  and a 380 px panel. The rare settings live behind the header's ⚙ rather
+  than in a footer under the panel, where §9.3 still governs what the gear
+  says about them.
 -->
 <!-- On the window, not the stage: the history covers the whole document —
      styles and imports included — so the shortcut has to work wherever the
@@ -729,6 +757,11 @@
 
 <div class="app">
   <header class="bar">
+    <!-- The mark and the name, so the window is recognisable in a taskbar
+         full of Chrome. Decorative: the page's name is in the title. -->
+    <img class="mark" src="/logo/halcyon-logo.svg" width="22" height="22" alt="" />
+    <span class="wordmark">HALCYON</span>
+
     <!-- The OBS pill is the whole OBS interface (board 3a): its popover
          carries the URL, the recommended size and the two credentials the
          sidebar fold used to. The size is only quoted once there is a key to
@@ -771,6 +804,16 @@
         Resume setup · {stepNumber(step)}/3
       </button>
     {/if}
+
+    <!-- Last, and the rarest: the layout override, the device picker, the
+         door to Diagnostics and the build (board 3a). -->
+    <SettingsMenu
+      layout={config.layoutOverride}
+      {toReport}
+      onLayout={(value) => updateConfig(setLayoutOverride(config, value, layout))}
+      onPickDevice={() => link.requestPermission()}
+      onDiagnostics={() => (diagnosticsOpen = true)}
+    />
   </header>
 
   <!-- A row of its own under the header (board 3a): every profile in view,
@@ -788,7 +831,17 @@
     onRemove={profileActions.removeProfile}
     onExport={profileActions.downloadProfile}
     onImport={profileActions.importProfile}
-  />
+  >
+    <!-- At the right end of the profile row, where the room was empty: the
+         one control someone comes to the page for. Inert without a keyboard,
+         and saying why on hover; the keyboard pill is where the picker is. -->
+    <KeyLearner
+      bind:learning
+      disabled={keyboardStatus !== 'connected'}
+      reason={keyboardHint(keyboardStatus)}
+      onCancel={() => (learning = false)}
+    />
+  </ProfileBar>
 
   <!-- Above the setup card, and outside the panels: what cannot work here is
        the page, not one of its sections. It shows itself or nothing. -->
@@ -846,17 +899,6 @@
     </main>
 
     <aside class="panel">
-      <section class="block">
-        <Gated
-          available={keyboardStatus === 'connected'}
-          reason={keyboardHint(keyboardStatus)}
-          action={keyboardStatus === 'unsupported' ? null : keyboardAction}
-          onAction={() => link.requestPermission()}
-        >
-          <KeyLearner bind:learning onCancel={() => (learning = false)} />
-        </Gated>
-      </section>
-
       <!-- Global appearance. Per-key overrides live in the popover the editor
            anchors to the selection, never here (spec §16.4). -->
       <section class="block">
@@ -960,66 +1002,37 @@
           {/if}
         </Collapsible>
       </section>
-
-      <footer class="foot">
-        <!-- Deliberately last and discreet: an edge case that matters only when
-             detection got it wrong (spec §16.4, §8.6). -->
-        <Collapsible
-          id="layout"
-          title="Keyboard layout"
-          note={config.layoutOverride === 'auto' ? 'Auto' : config.layoutOverride.toUpperCase()}
-          modified={config.layoutOverride !== 'auto'}
-          {storage}
-        >
-          <select
-            aria-label="Keyboard layout"
-            value={config.layoutOverride}
-            onchange={(event) =>
-              updateConfig(
-                setLayoutOverride(
-                  config,
-                  event.currentTarget.value as OverlayConfig['layoutOverride'],
-                  layout,
-                ),
-              )}
-          >
-            <option value="auto">Auto — detected</option>
-            <option value="azerty">AZERTY</option>
-            <option value="qwerty">QWERTY</option>
-            <option value="qwertz">QWERTZ</option>
-          </select>
-          <p class="fine">Only affects displayed labels · capture is layout-independent.</p>
-        </Collapsible>
-
-        <Collapsible
-          id="diagnostics"
-          title="Diagnostics"
-          note={toReport > 0 ? log.length + ' · ' + toReport + ' to report' : String(log.length)}
-          {storage}
-        >
-          <Diagnostics
-            entries={log}
-            logText={() => journal.asText()}
-            {readings}
-            {snapshot}
-            {capturing}
-            {probing}
-            probe={probeReading}
-            {obsProbe}
-            onCaptureRaw={() => (capturing = true)}
-            onToggleProbe={toggleProbe}
-            onTestObs={testObs}
-          />
-        </Collapsible>
-      </footer>
     </aside>
   </div>
+
+  {#if diagnosticsOpen}
+    <!-- Over the stage, from the ⚙ menu (board 3a). Mounted only while open,
+         for the reason the footer fold used `{#if}`: a shut panel has to cost
+         nothing, and `readings()` walks every key on every frame. -->
+    <Sheet title="Diagnostics" onClose={() => (diagnosticsOpen = false)}>
+      <Diagnostics
+        entries={log}
+        logText={() => journal.asText()}
+        {readings}
+        {snapshot}
+        {capturing}
+        {probing}
+        probe={probeReading}
+        {obsProbe}
+        onCaptureRaw={() => (capturing = true)}
+        onToggleProbe={toggleProbe}
+        onTestObs={testObs}
+      />
+    </Sheet>
+  {/if}
 </div>
 
 <Toast notice={toast} onDismiss={() => (toast = null)} />
 
 <style>
   .app {
+    /* The Diagnostics sheet anchors to the page, under the header's edge. */
+    position: relative;
     display: flex;
     flex-direction: column;
     block-size: 100vh;
@@ -1032,15 +1045,27 @@
     flex: none;
     display: flex;
     align-items: center;
-    gap: 22px;
+    gap: 18px;
     /* A floor, not a lock: StatusBar's rival-capture alert forces its own line
        (`.rival { flex-basis: 100% }`), and a run of pills wraps on a narrow
        window the same way. Either would have overflowed or overlapped the
        stage below under a fixed `block-size` — the one message meant to be
        seen is the one that would have been unreadable. */
     min-block-size: var(--he-header-height);
-    padding: 0 22px;
+    padding: 0 20px;
     border-block-end: 1px solid var(--he-border);
+  }
+  .mark {
+    flex: none;
+    display: block;
+  }
+  .wordmark {
+    flex: none;
+    /* Tighter to the mark than to the pills: the two are one sign. */
+    margin-inline-start: -4px;
+    font-size: var(--he-size-md);
+    font-weight: 800;
+    letter-spacing: 0.05em;
   }
   .edits {
     display: flex;
@@ -1059,7 +1084,8 @@
     cursor: pointer;
   }
   .edits button:disabled {
-    /* The same figure Gated dims with: one vocabulary for "not available". */
+    /* The same figure the Add key button dims with: one vocabulary for "not
+       available". */
     opacity: 0.4;
     cursor: default;
   }
@@ -1150,11 +1176,6 @@
     padding: 12px 16px;
     border-block-end: 1px solid var(--he-border);
   }
-  /* The one control someone comes to the panel for, framed a little wider
-     than the folds under it (board 3a). */
-  .block:first-child {
-    padding-block: 14px;
-  }
   /* The one section worth the leftover room: folding the others is what this
      is for. */
   .keys-block {
@@ -1162,15 +1183,6 @@
     min-block-size: 0;
     overflow-y: auto;
   }
-  .foot {
-    margin-block-start: auto;
-    display: flex;
-    flex-direction: column;
-    padding: 11px 18px;
-    border-block-start: 1px solid var(--he-border);
-    background: var(--he-stage);
-  }
-
   .link {
     all: unset;
     cursor: pointer;
@@ -1273,15 +1285,5 @@
   .trash:focus-visible {
     outline: 2px solid var(--he-accent);
     outline-offset: 2px;
-  }
-
-  select {
-    font: inherit;
-    font-size: var(--he-size-md);
-    color: var(--he-text);
-    background: var(--he-stage);
-    border: 1px solid var(--he-border-control);
-    border-radius: var(--he-radius);
-    padding: 4px 6px;
   }
 </style>

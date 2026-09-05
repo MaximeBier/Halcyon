@@ -435,9 +435,13 @@ describe('captureWarning', () => {
   // takes the overlay back — and is the only thing that clears the warning,
   // since it never lifts on its own.
   it('says that others are open, and the two steps out', () => {
-    expect(captureWarning(true)).toBe(
-      'Other capture pages are open. Close them, then reload this page.',
-    );
+    expect(captureWarning(true)).toBe('Other capture pages open · close them, then reload');
+  });
+
+  // It sits in the run of pills, not on a line of its own (the header wrapped
+  // onto a second row for it, which is what got it shortened).
+  it('fits a pill', () => {
+    expect(captureWarning(true)!.length).toBeLessThan(60);
   });
 
   // Quoting a number would mean knowing one, and a page draws a fresh name on

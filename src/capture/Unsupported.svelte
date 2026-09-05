@@ -4,8 +4,8 @@
   /**
    * The one failure that disguises itself as working (spec §11).
    *
-   * Without WebHID the keyboard section already says so, and `Gated` already
-   * offers no button. But that is a line inside one section, phrased as a
+   * Without WebHID the keyboard pill already says so, and the Add key button
+   * is already inert. But that is one pill and one button, phrased as a
    * keyboard problem — and it is not a section that is out, it is the page.
    * Everything else works: one can create a profile, reach OBS, lay out keys,
    * read the source size to paste into OBS, and never get a single frame.

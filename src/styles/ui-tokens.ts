@@ -65,7 +65,7 @@ export const UI_TOKENS = {
   radiusPanel: '6px',
   /** KeyPopover's override badge: a full pill, rounder than any panel gets. */
   radiusPill: '20px',
-  headerHeight: '62px',
+  headerHeight: '54px',
   /** The profile tab row under the header (board 3a). */
   tabRowHeight: '50px',
   panelWidth: '380px',
@@ -79,6 +79,8 @@ export const UI_TOKENS = {
   guideWidth: '320px',
   /** The OBS pill's popover: URL, size, port and password (board 3a). */
   statusPopoverWidth: '330px',
+  /** The Diagnostics sheet over the stage — wide enough for a log line. */
+  sheetWidth: '420px',
 } as const;
 
 const CSS_PREFIX = '--he-';
