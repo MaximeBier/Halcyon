@@ -115,6 +115,30 @@ describe('KeyboardView - what OBS sees and what the editor sees', () => {
     expect(getByText('AXIS')).toBeTruthy();
   });
 
+  it('draws the AXIS tag as board 3a specifies it', () => {
+    // 11 px mono, semi-bold, tracked, slightly translucent, tucked into the
+    // top-right corner by 5 and 7 px. Pinned here because these figures are
+    // the design's, and a drift in any of them is invisible to every other
+    // test — they all check that the tag exists, not what it looks like.
+    const { getByText } = render(KeyboardView, {
+      props: { config: axisConfig, frame: [], decorations: true },
+    });
+    const tag = getByText('AXIS');
+    const key = axisConfig.keys[0]!;
+    const right = (key.x + key.w) * axisConfig.unit - axisConfig.gap / 2;
+    const top = key.y * axisConfig.unit + axisConfig.gap / 2;
+
+    expect(tag.getAttribute('font-family')).toContain('IBM Plex Mono');
+    expect(tag.getAttribute('font-size')).toBe('11');
+    expect(tag.getAttribute('font-weight')).toBe('600');
+    expect(tag.getAttribute('letter-spacing')).toBe('0.08em');
+    expect(tag.getAttribute('opacity')).toBe('0.85');
+    expect(tag.getAttribute('text-anchor')).toBe('end');
+    expect(tag.getAttribute('dominant-baseline')).toBe('hanging');
+    expect(Number(tag.getAttribute('x'))).toBe(right - 7);
+    expect(Number(tag.getAttribute('y'))).toBe(top + 5);
+  });
+
   it('marks an axis key with the label alone, and never with a dashed border', () => {
     // The dashes went on 2026-08-23: the tag says it, and a second mark for the
     // same thing is a second mark to keep true. It also stopped meaning what it

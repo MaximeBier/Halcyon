@@ -3,10 +3,12 @@
  * `fonts-broadcast.css` for the face the two pages share and for why these are
  * self-hosted at all.
  *
- * Three faces, and no more: the handoff uses Archivo 400 for body text, 600
+ * Four faces, and no more: the handoff uses Archivo 400 for body text, 600
  * for section labels and controls, 700 for the wordmark (that last one lives
- * in `fonts-broadcast.css`), and IBM Plex Mono 400 for URLs, numbers and the
- * journal. A weight nobody asks for still costs 14 KB.
+ * in `fonts-broadcast.css`), IBM Plex Mono 400 for URLs, numbers and the
+ * journal, and IBM Plex Mono 600 for the AXIS tag the editor draws on an axis
+ * key (board 3a, KeyboardView.svelte). A weight nobody asks for still costs
+ * 14 KB.
  *
  * No italic anywhere in the mockup, so no italic face is shipped. A browser
  * asked to slant one of these will synthesise it, which is the right failure:
@@ -34,4 +36,12 @@
   font-weight: 400;
   font-display: swap;
   src: url('../assets/fonts/ibm-plex-mono-latin-400-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('../assets/fonts/ibm-plex-mono-latin-600-normal.woff2') format('woff2');
 }

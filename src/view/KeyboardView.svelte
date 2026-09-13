@@ -108,14 +108,24 @@
       </clipPath>
 
       {#if decorations && key.axis}
+        <!-- Board 3a: a mono tag pinned 5 px under the top edge and 7 px in
+             from the right, in the interface's own face rather than the
+             label's. The family is written here and not imported from
+             `ui-tokens`: this component is shared with the broadcast, and
+             the interface palette must never reach that bundle (spec §5.1).
+             The face itself comes with `fonts-ui.css`, which only the
+             editor loads — the tag is never drawn anywhere else. -->
         <text
-          x={key.x + key.w - 4}
-          y={key.y + 9}
+          x={key.x + key.w - 7}
+          y={key.y + 5}
           text-anchor="end"
+          dominant-baseline="hanging"
           fill={key.labelFill}
-          font-family={key.fontFamily}
-          font-size="8"
-          opacity="0.75"
+          font-family="'IBM Plex Mono', ui-monospace, monospace"
+          font-weight="600"
+          font-size="11"
+          letter-spacing="0.08em"
+          opacity="0.85"
         >
           AXIS
         </text>

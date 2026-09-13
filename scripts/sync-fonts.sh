@@ -52,8 +52,13 @@ for weight in "${ARCHIVO_WEIGHTS[@]}"; do
   copy "node_modules/@fontsource/archivo/files/$name" "$DEST/$name"
 done
 
-name=ibm-plex-mono-latin-400-normal.woff2
-copy "node_modules/@fontsource/ibm-plex-mono/files/$name" "$DEST/$name"
+# 400 for URLs, numbers and the journal; 600 for the AXIS tag the editor draws
+# on an axis key (board 3a) — the one place the interface asks the mono for a
+# weight.
+for weight in 400 600; do
+  name="ibm-plex-mono-latin-${weight}-normal.woff2"
+  copy "node_modules/@fontsource/ibm-plex-mono/files/$name" "$DEST/$name"
+done
 
 # Both faces are under the SIL Open Font License, which requires the licence to
 # travel with them. The build inlines the woff2 into dist/assets and leaves the
