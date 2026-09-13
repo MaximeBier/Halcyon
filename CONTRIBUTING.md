@@ -10,7 +10,7 @@ Halcyon is designed, written and maintained by a single author, who makes every
 decision about what goes in and what stays out. It is not a community project,
 and it is not looking to become one. The source is public so that you can read
 what runs on your machine and check that nothing leaves it — see
-[Does anything leave my machine?](docs/README.md#does-anything-leave-my-machine).
+[Does anything leave my machine?](README.md#does-anything-leave-my-machine).
 
 ## Issues are welcome
 

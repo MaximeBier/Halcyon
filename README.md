@@ -87,7 +87,7 @@ appears in the OBS source properties, so don't show that URL on stream.
 
 **The overlay stays black in OBS.** Check the browser source URL is the one the
 page gave you, password included. If it went black after an OBS update, see
-[deploy.md](deploy.md) — there is a documented way around it.
+[deploy.md](docs/deploy.md) — there is a documented way around it.
 
 **The overlay stops reacting.** Refresh the browser source in OBS: right-click
 it and choose **Refresh**, or open its properties and click **Refresh cache of
@@ -109,13 +109,13 @@ problem without asking you three more questions.
 ## Advanced
 
 Running your own copy, offline use, hosting it yourself: see
-[deploy.md](deploy.md) and the
+[deploy.md](docs/deploy.md) and the
 [releases page](https://github.com/MaximeBier/halcyon/releases).
 
 ## Licence
 
 Halcyon is source-available under the
-[PolyForm Shield License 1.0.0](../LICENSE.md). In plain words:
+[PolyForm Shield License 1.0.0](LICENSE.md). In plain words:
 
 - **Anyone can use it, for free.** Streaming, including monetised streaming,
   is exactly what it is for. Read the code, run your own copy, change it,
@@ -127,4 +127,4 @@ Halcyon is source-available under the
   at the top of the licence, so people know what they are running.
 
 Halcyon is written and maintained by one person; issues are welcome, pull
-requests are not. [CONTRIBUTING.md](../CONTRIBUTING.md) explains why.
+requests are not. [CONTRIBUTING.md](CONTRIBUTING.md) explains why.
