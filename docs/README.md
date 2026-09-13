@@ -111,3 +111,20 @@ problem without asking you three more questions.
 Running your own copy, offline use, hosting it yourself: see
 [deploy.md](deploy.md) and the
 [releases page](https://github.com/MaximeBier/halcyon/releases).
+
+## Licence
+
+Halcyon is source-available under the
+[PolyForm Shield License 1.0.0](../LICENSE.md). In plain words:
+
+- **Anyone can use it, for free.** Streaming, including monetised streaming,
+  is exactly what it is for. Read the code, run your own copy, change it,
+  share your changes.
+- **You may not offer a product that competes with Halcyon**, whether sold,
+  bundled into something else, or hosted for free. If you would like to do
+  that, get in touch for a commercial licence.
+- **Keep the notice.** Copies you pass on must keep the `Required Notice` line
+  at the top of the licence, so people know what they are running.
+
+Halcyon is written and maintained by one person; issues are welcome, pull
+requests are not. [CONTRIBUTING.md](../CONTRIBUTING.md) explains why.
