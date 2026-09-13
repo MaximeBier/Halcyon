@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { render, cleanup } from '@testing-library/svelte';
+import { render, cleanup, fireEvent } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import LayoutEditor from './LayoutEditor.svelte';
 import editorSource from './LayoutEditor.svelte?raw';
@@ -140,11 +140,29 @@ describe('LayoutEditor - the stage says what to do when it has nothing to show',
   // closed by default on a screen this size (constat 1).
   const EMPTY_STATE = 'No keys yet';
 
-  it('shows the message when there are no keys', () => {
+  it('shows the message when there are no keys, and offers the way out', () => {
+    // Board 3a: the copy says what to do next, and the button under it is
+    // the same "+ Add key" the header carries — the stage no longer points
+    // at a control somewhere else on the page.
+    const { container } = editor(defaultConfig());
+    const empty = container.querySelector<HTMLElement>('[data-empty]')!;
+
+    expect(empty.textContent).toContain(EMPTY_STATE);
+    expect(empty.textContent).toContain('Add one, then press it on your keyboard');
+    expect(empty.querySelector('button')!.textContent).toContain('+ Add key');
+  });
+
+  it('arms the capture from the empty stage', async () => {
+    // Observed through the stage itself: `learning` is a bound prop, and
+    // the stage swaps its copy the moment it is armed, which is exactly what
+    // the header button does to it.
     const { container } = editor(defaultConfig());
 
-    expect(container.querySelector('.stage')!.textContent).toContain(EMPTY_STATE);
-    expect(container.querySelector('.stage')!.textContent).toContain('Add key above');
+    await fireEvent.click(container.querySelector('[data-empty] button')!);
+
+    const empty = container.querySelector<HTMLElement>('[data-empty]')!;
+    expect(empty.textContent).toContain('Press any key to add it');
+    expect(empty.querySelector('button')).toBeNull();
   });
 
   it('says what to press while the capture is armed, and where it will show', () => {

@@ -641,8 +641,13 @@
             <p class="lead">Press any key to add it</p>
             <p class="hint">It shows up here and in OBS at the same time</p>
           {:else}
+            <!-- Board 3a: the stage offers the one action that gets it out of
+                 this state, rather than pointing at a button somewhere else.
+                 Same action as the header's "+ Add key" — it arms learning —
+                 so the copy can say what happens next, not where to click. -->
             <p class="lead">No keys yet</p>
-            <p class="hint">Add key above, then press one</p>
+            <p class="hint">Add one, then press it on your keyboard</p>
+            <button class="add" type="button" onclick={() => (learning = true)}>+ Add key</button>
           {/if}
         </div>
       {/if}
@@ -969,6 +974,32 @@
   .empty .hint {
     font-size: var(--he-size-xs);
     color: var(--he-text-faint);
+  }
+  /* The one thing inside `.empty` that takes the pointer back: everything
+     around it stays inert so a lasso or a clearing click still reaches the
+     canvas. The look is KeyLearner's primary button, one for one, since it
+     is the same action. */
+  .empty .add {
+    pointer-events: auto;
+    margin-block-start: 8px;
+    padding: 7px 16px;
+    font: var(--he-font);
+    font-size: var(--he-size-xs);
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    color: var(--he-bg);
+    background: var(--he-accent);
+    border: 1px solid var(--he-accent);
+    border-radius: var(--he-radius-control);
+  }
+  .empty .add:hover {
+    background: var(--he-accent-hover);
+    border-color: var(--he-accent-hover);
+  }
+  .empty .add:focus-visible {
+    outline: 2px solid var(--he-accent);
+    outline-offset: 2px;
   }
   .handle {
     position: absolute;
