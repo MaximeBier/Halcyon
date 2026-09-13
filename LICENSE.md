@@ -1,6 +1,8 @@
 Required Notice: Copyright Maxime Bier (https://halcyon.wardensquad.fr)
 Licensor Line of Business: Halcyon, analog key travel overlay for OBS (https://halcyon.wardensquad.fr)
 
+This licence covers every version of Halcyon, including releases published before it was added to the repository.
+
 # PolyForm Shield License 1.0.0
 
 <https://polyformproject.org/licenses/shield/1.0.0>
