@@ -1,6 +1,6 @@
 // `defineConfig` comes from `vitest/config`, not from `vite`: that is what
 // types the `test` key below. The Vite configuration itself is unchanged.
-import { defineConfig } from 'vitest/config';
+import { defineConfig, type Plugin } from 'vitest/config';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { svelteTesting } from '@testing-library/svelte/vite';
 import { resolve } from 'node:path';
@@ -20,8 +20,26 @@ import { resolve } from 'node:path';
 // this whole mechanism exists to prevent.
 const BUILD = process.env.VITE_BUILD || 'dev';
 
+/**
+ * The home page names the same build in its footer, and it is the one page
+ * with no script to read `__BUILD__` from. Vite lets the HTML carry a
+ * placeholder instead: `%BUILD%` is replaced here, at build time and in the
+ * dev server alike, so the footer costs the page no bundle. A tag gets its
+ * `v`; a build that is not one — `dev`, a bare sha — is shown as it is.
+ */
+const BUILD_STAMP = /^\d/.test(BUILD) ? `v${BUILD}` : BUILD;
+
+function stampHomePage(): Plugin {
+  return {
+    name: 'halcyon:build-stamp',
+    transformIndexHtml(html) {
+      return html.replaceAll('%BUILD%', BUILD_STAMP);
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [svelte(), svelteTesting()],
+  plugins: [svelte(), svelteTesting(), stampHomePage()],
   define: { __BUILD__: JSON.stringify(BUILD) },
   build: {
     rollupOptions: {
