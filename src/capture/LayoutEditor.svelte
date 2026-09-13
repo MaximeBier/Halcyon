@@ -850,7 +850,13 @@
     flex: 1;
     position: relative;
     overflow: hidden;
-    background: var(--he-stage);
+    /* The same dotted ground the overlay draws when a browser opens it
+       (BrowserChrome.svelte): one surface for the layout wherever it is
+       looked at, and a faint grid that says "work surface" without
+       competing with the keys. */
+    background-color: var(--he-stage);
+    background-image: radial-gradient(var(--he-border) 1px, transparent 1px);
+    background-size: 26px 26px;
     /* A drag across the keys used to select the SVG labels as if they were a
        paragraph, leaving a blue smear over the layout. Nothing here is text
        anyone means to copy. */

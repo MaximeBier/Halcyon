@@ -1207,7 +1207,7 @@
     background: var(--he-stage);
   }
   /* The setup alone on the page (board 4a): the card centred on the same
-     dotted ground the stage will draw once it takes over. */
+     dotted ground the stage draws once it takes over (LayoutEditor.svelte). */
   .welcome {
     flex: 1;
     min-block-size: 0;
@@ -1215,9 +1215,9 @@
     align-items: center;
     justify-content: center;
     padding: 24px;
-    background-color: var(--he-bg);
-    background-image: radial-gradient(var(--he-surface) 1px, transparent 1px);
-    background-size: 22px 22px;
+    background-color: var(--he-stage);
+    background-image: radial-gradient(var(--he-border) 1px, transparent 1px);
+    background-size: 26px 26px;
   }
 
   .panel {
