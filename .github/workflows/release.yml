@@ -39,8 +39,10 @@ jobs:
 
       # The folder goes in whole, not its contents: the README tells people to
       # unpack it and run `npx serve dist`, which needs a `dist` to serve.
+      # The licence rides along: its Notices clause requires every copy passed
+      # on to carry the terms and the Required Notice, and the archive is a copy.
       - name: Package the offline archive
-        run: zip -r halcyon-offline.zip dist
+        run: zip -r halcyon-offline.zip dist LICENSE.md
 
       # `gh` rather than a release action — it ships on the runner, it is
       # first-party, and it leaves nothing to pin in a job that can write to

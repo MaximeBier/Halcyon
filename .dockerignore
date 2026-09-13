@@ -6,3 +6,5 @@ docs
 scripts
 compose.yaml
 *.md
+# Except the licence, which the image ships under (Dockerfile copies it).
+!LICENSE.md
