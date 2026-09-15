@@ -22,6 +22,8 @@ function bar(overrides: { keyboard?: KeyboardStatus; obs?: ObsStatus } = {}) {
     url: 'http://localhost:5173/overlay.html?port=4455',
     size: { width: 216, height: 216 },
     settings: { port: 4455, password: 'secret' },
+    sources: 1,
+    onReloadSources: vi.fn(() => Promise.resolve(1)),
     ...handlers,
     ...overrides,
   };

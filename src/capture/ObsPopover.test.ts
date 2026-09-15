@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, cleanup, fireEvent } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import ObsPopover from './ObsPopover.svelte';
 import type { ObsStatus } from '../transport/obs';
 
@@ -11,6 +12,8 @@ function popover(
     overlays?: { inObs: number; inBrowser: number };
     size?: { width: number; height: number } | null;
     copies?: boolean;
+    sources?: number | null;
+    reloads?: number;
   } = {},
 ) {
   const settings = { port: 4455, password: 'secret' };
@@ -18,6 +21,7 @@ function popover(
     onReconnect: vi.fn(),
     onCopy: vi.fn(() => Promise.resolve(overrides.copies ?? true)),
     onClose: vi.fn(),
+    onReload: vi.fn(() => Promise.resolve(overrides.reloads ?? 2)),
   };
   const props = {
     obs: overrides.obs ?? ('identified' as ObsStatus),
@@ -25,6 +29,7 @@ function popover(
     url: 'http://localhost:5173/overlay.html?port=4455#password=secret',
     size: overrides.size === undefined ? { width: 216, height: 216 } : overrides.size,
     settings,
+    sources: overrides.sources === undefined ? 2 : overrides.sources,
     ...handlers,
   };
   return { ...render(ObsPopover, { props }), ...handlers, settings };
@@ -164,5 +169,37 @@ describe('closing', () => {
     document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
     await Promise.resolve();
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('the sources row', () => {
+  it('counts our sources and offers to reload them', async () => {
+    const { container, onReload } = popover({ sources: 2 });
+    expect(q(container, '[data-sources-count]').textContent).toBe('2');
+    q<HTMLButtonElement>(container, '[data-reload]').click();
+    expect(onReload).toHaveBeenCalledTimes(1);
+    await tick();
+    await tick();
+    expect(q(container, '[data-reloaded]').textContent).toContain('Reloaded 2');
+  });
+
+  it('does not dress a reload that pressed nothing as a success', async () => {
+    // "✓ Reloaded 0" in green says the job is done; nothing was pressed.
+    const { container } = popover({ sources: 2, reloads: 0 });
+    q<HTMLButtonElement>(container, '[data-reload]').click();
+    await tick();
+    await tick();
+    expect(q(container, '[data-reloaded]').dataset.none).toBe('true');
+  });
+
+  it('flags zero as the first thing to look at', () => {
+    const { container } = popover({ sources: 0 });
+    expect(q(container, '[data-sources-count]').dataset.none).toBe('true');
+  });
+
+  it('shows a dash and no reload while nobody has looked', () => {
+    const { container } = popover({ obs: 'disconnected', sources: null });
+    expect(q(container, '[data-sources-count]').textContent).toBe('—');
+    expect(q<HTMLButtonElement>(container, '[data-reload]').disabled).toBe(true);
   });
 });

@@ -17,8 +17,10 @@
     url,
     size,
     settings,
+    sources,
     onReconnect,
     onCopy,
+    onReload,
     onClose,
   }: {
     obs: ObsStatus;
@@ -28,9 +30,13 @@
     size: { width: number; height: number } | null;
     /** The live settings object: the same two fields the wizard writes to. */
     settings: ConnectionSettings;
+    /** Our browser sources found in OBS, or null while nobody has looked (not connected). */
+    sources: number | null;
     onReconnect: () => void;
     /** Copies the URL and says whether it actually happened (see `clipboard.ts`). */
     onCopy: () => Promise<boolean>;
+    /** Presses Refresh on each; resolves with how many took. */
+    onReload: () => Promise<number>;
     onClose: () => void;
   } = $props();
 
@@ -38,9 +44,16 @@
   let revealed = $state(false);
   let copied = $state<'idle' | 'done' | 'failed'>('idle');
   let root = $state<HTMLElement | null>(null);
+  /** Set once a reload resolves; the `data-reloaded` line rides it until the
+   * CSS animation ends (constraint 1 forbids a timer here, as in Toast). */
+  let reloaded = $state<number | null>(null);
 
   async function copy() {
     copied = (await onCopy()) ? 'done' : 'failed';
+  }
+
+  async function reload() {
+    reloaded = await onReload();
   }
 
   // `role="dialog"` promises the platform that opening it moves the focus in.
@@ -129,6 +142,37 @@
   <p class="fine">
     Stored in this browser and carried in the URL above. Anyone with access to this machine can read
     it.
+  </p>
+
+  <hr />
+
+  <!-- The count is read from OBS itself, not from who answers on the bus: a
+       source that is there and silent is exactly the case this row is for.
+       Zero, connected, is the first place to look when the overlay is black. -->
+  <p class="row" data-sources-row>
+    <span>Halcyon sources in OBS</span>
+    <span class="sources">
+      <span class="value" data-sources-count data-none={sources === 0}>{sources ?? '—'}</span>
+      {#if reloaded !== null}
+        {#key reloaded}
+          <!-- Three seconds by animation, never by timer (constraint 1). -->
+          <!-- Amber on zero: a green tick over "Reloaded 0" reads as a job
+               done, when nothing was pressed and the overlay is still stale. -->
+          <span
+            class="done"
+            data-reloaded
+            data-none={reloaded === 0}
+            onanimationend={() => (reloaded = null)}
+          >
+            ✓ Reloaded {reloaded}
+          </span>
+        {/key}
+      {:else}
+        <button type="button" class="link" data-reload disabled={sources === null} onclick={reload}>
+          Reload
+        </button>
+      {/if}
+    </span>
   </p>
 </div>
 
@@ -244,5 +288,42 @@
     font-size: var(--he-size-xs);
     line-height: 1.5;
     color: var(--he-text-faint);
+  }
+
+  hr {
+    inline-size: auto;
+    block-size: 1px;
+    margin: 0;
+    border: none;
+    background: var(--he-border-control);
+  }
+  .sources {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .value[data-none='true'] {
+    color: var(--he-override);
+  }
+  .done {
+    font-size: var(--he-size-xs);
+    color: var(--he-ok);
+    animation: shown 3s forwards;
+  }
+  .done[data-none='true'] {
+    color: var(--he-override);
+  }
+  .link:disabled {
+    color: var(--he-text-faint);
+    cursor: default;
+  }
+  @keyframes shown {
+    0%,
+    90% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
   }
 </style>

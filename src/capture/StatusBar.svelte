@@ -23,9 +23,11 @@
     url,
     size,
     settings,
+    sources,
     onPickDevice,
     onRetryObs,
     onCopyUrl,
+    onReloadSources,
   }: {
     keyboard: KeyboardStatus;
     /** WebHID's `productName` for the keyboard that answered, or `null`. */
@@ -39,6 +41,8 @@
     url: string;
     size: { width: number; height: number } | null;
     settings: ConnectionSettings;
+    /** Our browser sources found in OBS, or null while nobody has looked. */
+    sources: number | null;
     /**
      * Opens Chrome's HID picker. Called straight from the click, never through
      * an await or a timer: WebHID grants the picker to a user gesture and to
@@ -48,6 +52,8 @@
     /** One fresh attempt at the OBS socket — also what a changed credential triggers. */
     onRetryObs: () => void;
     onCopyUrl: () => Promise<boolean>;
+    /** Presses Refresh on each of our sources in OBS; resolves with how many took. */
+    onReloadSources: () => Promise<number>;
   } = $props();
 
   let rivals = $derived(captureWarning(otherCapture));
@@ -145,8 +151,10 @@
         {url}
         {size}
         {settings}
+        {sources}
         onReconnect={onRetryObs}
         onCopy={onCopyUrl}
+        onReload={onReloadSources}
         onClose={closeObs}
       />
     {/if}
