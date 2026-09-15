@@ -19,6 +19,11 @@ Nothing to install. Open the page, add your keys, and OBS shows them.
 That is the whole installation. Your keys, colours and profiles are saved in
 your browser, on your machine.
 
+**Profiles can follow OBS scenes.** *Link OBS scenes*, in the header, lists the
+scenes OBS has; pick a profile for each one you care about. When OBS switches to
+that scene, the profile opens and the overlay follows. Scenes left on “—” change
+nothing.
+
 ## Setup
 
 The page walks you through three steps.
@@ -89,9 +94,10 @@ appears in the OBS source properties, so don't show that URL on stream.
 page gave you, password included. If it went black after an OBS update, see
 [deploy.md](docs/deploy.md) — there is a documented way around it.
 
-**The overlay stops reacting.** Refresh the browser source in OBS: right-click
-it and choose **Refresh**, or open its properties and click **Refresh cache of
-current page**. The link between the page and OBS comes back on its own.
+**The overlay stops reacting.** Open the OBS pill's popover and click **Reload**
+next to *Halcyon sources in OBS*: the page asks OBS to refresh every browser
+source pointing at it. The same button is in Diagnostics. Doing it by hand still
+works — right-click the source in OBS and choose **Refresh**.
 
 **Travel stays at zero.** The keyboard is connected but sending nothing: unplug
 it and plug it back in, then allow it again if Chrome asks.
