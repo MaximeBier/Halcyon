@@ -430,12 +430,12 @@ describe('captureWarning', () => {
   // both pages look perfectly healthy while the overlay swings between two
   // layouts, so nothing about it is discoverable by looking closer.
   //
-  // Both steps, in the order they work. Closing the other pages stops them
-  // speaking; reloading this one resends this configuration, which is what
-  // takes the overlay back — and is the only thing that clears the warning,
-  // since it never lifts on its own.
-  it('says that others are open, and the two steps out', () => {
-    expect(captureWarning(true)).toBe('Other capture pages open · close them, then reload');
+  // One step, since 2026-09-15. It used to read "close them, then reload":
+  // reloading resent this configuration, which is what takes the overlay
+  // back. Now the page hears the last rival leave, resends by itself, and the
+  // warning lifts on its own — so the only step left is the one it cannot do.
+  it('says that others are open, and the one step out', () => {
+    expect(captureWarning(true)).toBe('Other capture pages open · close them');
   });
 
   // It sits in the run of pills, not on a line of its own (the header wrapped

@@ -59,8 +59,9 @@
         obs.broadcast({ v: PROTOCOL_VERSION, t: 'hello', id, browser: decorated });
     },
     onMessage: (message) => {
-      // The overlay discards hello, beat and bye: those are its own messages
-      // (spec §6).
+      // The overlay discards hello, beat and bye, which are its own messages,
+      // and here and gone, which the capture pages exchange among themselves
+      // (spec §6). Presence is never its business.
       if (message.t === 'config') config = message.config;
       else if (message.t === 'frame') {
         frame = message.k;

@@ -167,6 +167,27 @@ describe('protocol envelope', () => {
     ).toBeNull();
   });
 
+  // The capture page's own presence, added 2026-09-15 so that a second page
+  // closing can be noticed rather than assumed forever. Signed like the other
+  // two it sends, for the same reason: a page must be able to discard its own
+  // echo and file everyone else's under their name.
+  it('carries the name of the capture page saying it is here, or gone', () => {
+    expect(
+      parseMessage({ heOverlay: { v: PROTOCOL_VERSION, t: 'here', from: 'capture-b' } }),
+    ).toEqual({ v: PROTOCOL_VERSION, t: 'here', from: 'capture-b' });
+    expect(
+      parseMessage({ heOverlay: { v: PROTOCOL_VERSION, t: 'gone', from: 'capture-b' } }),
+    ).toEqual({ v: PROTOCOL_VERSION, t: 'gone', from: 'capture-b' });
+  });
+
+  it('rejects a here or a gone that does not say who it is about', () => {
+    expect(parseMessage({ heOverlay: { v: PROTOCOL_VERSION, t: 'here' } })).toBeNull();
+    expect(parseMessage({ heOverlay: { v: PROTOCOL_VERSION, t: 'here', from: '' } })).toBeNull();
+    // A gone is the one that stops counting a page, so an unchecked name here
+    // would remove a listener keyed `undefined` — or nobody at all.
+    expect(parseMessage({ heOverlay: { v: PROTOCOL_VERSION, t: 'gone' } })).toBeNull();
+  });
+
   it('ignores a foreign payload', () => {
     expect(parseMessage({ someOtherApp: { hello: true } })).toBeNull();
     expect(parseMessage(null)).toBeNull();

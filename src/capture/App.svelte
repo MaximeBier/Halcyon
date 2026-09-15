@@ -284,8 +284,10 @@
    *
    * Tabs left open all publish onto the same bus, and the overlay obeys
    * whichever spoke last — a fault in which every page looks entirely correct.
-   * A flag rather than a count, since a page reloaded is a page renamed; once
-   * true it stays true, see `ConfigBroadcaster.hasOtherCapture`.
+   * A flag rather than a count, and one that comes back down: the other pages
+   * answer every overlay beat, so three beats of silence, or a `gone`, and
+   * they are no longer counted — see `ConfigBroadcaster.hasOtherCapture`.
+   * Written by the broadcaster's transitions, never read back from it.
    */
   let otherCapture = $state(false);
 
@@ -517,6 +519,10 @@
           // computed on read: a count left standing would never come down.
           overlays.clear();
           refreshOverlays();
+          // The other capture pages likewise. Quietly: they went nowhere, and
+          // the first beat after reconnecting hears them again.
+          broadcaster.onDisconnected();
+          otherCapture = false;
           // Same for the rate. Its window ages on keyboard reports, so with
           // nobody typing the last good figure would stay on screen — a
           // throughput advertised beside a dot saying the link is dead. No
@@ -578,14 +584,27 @@
     current: () => config,
     registry: overlays,
     from: captureId,
-    onOtherCapture: () => {
-      otherCapture = true;
+    onRivals: (present) => {
+      otherCapture = present;
       // In the journal as well as in the status bar, and worded differently on
       // purpose: the bar tells someone what to do, this line timestamps it, for
       // the report written hours later about an overlay that changed on its own.
-      note('user', 'Another capture page was heard broadcasting.');
+      // Both transitions, so the report also says when the fight ended.
+      note(
+        'user',
+        present
+          ? 'Another capture page was heard broadcasting.'
+          : 'The other capture pages are gone · configuration resent.',
+      );
     },
   });
+
+  // A reload draws a new name, so leaving in silence would have the other
+  // pages count the departed page next to the one replacing it for three more
+  // beats. `pagehide` rather than `beforeunload`, as on the overlay: it also
+  // fires when the page is frozen into the back/forward cache, and it is the
+  // event browsers actually guarantee.
+  addEventListener('pagehide', () => broadcaster.leave());
 
   /**
    * Credentials are persisted and the client rebuilt, never patched: url and

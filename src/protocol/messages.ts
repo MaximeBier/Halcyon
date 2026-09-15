@@ -16,6 +16,11 @@ import { MAX_TRAVEL } from '../keyboard/analog-report';
  * 5 since 2026-09-05: `borderColor` made the same move down to the keys, and
  * `radius` the opposite one up to the root. Same two failure modes, in both
  * directions at once.
+ *
+ * Not bumped on 2026-09-15 for `here` and `gone`: two new types, no shape
+ * changed. A v5 overlay drops a type it does not know without a word, which is
+ * the right outcome for a message it was never meant to read, and a bump
+ * would have reloaded every source in OBS for nothing.
  */
 export const PROTOCOL_VERSION = 5;
 
@@ -79,14 +84,38 @@ export type FrameMessage = {
   from: string;
   k: FrameKey[];
 };
+/**
+ * A capture page saying it is still on the bus, sent in answer to an overlay's
+ * beat. Meant for the other capture pages, never for the overlay, which drops
+ * it like it drops every message about presence.
+ *
+ * `config` and `frame` cannot stand in for it: both go out only when something
+ * moves, and a page sitting calmly on a finished layout says nothing for hours
+ * while standing ready to answer the next hello with its own configuration.
+ * Without this, a second page could be noticed but never seen to leave.
+ */
+export type HereMessage = { v: typeof PROTOCOL_VERSION; t: 'here'; from: string };
+/**
+ * Sent as the capture page goes away, so the others stop counting it at once
+ * rather than three beats later. Expiry stays as the net for the departures
+ * that give no warning — a crash, or Chrome being killed.
+ */
+export type GoneMessage = { v: typeof PROTOCOL_VERSION; t: 'gone'; from: string };
 
-export type OverlayMessage = HelloMessage | BeatMessage | ByeMessage | ConfigMessage | FrameMessage;
+export type OverlayMessage =
+  | HelloMessage
+  | BeatMessage
+  | ByeMessage
+  | ConfigMessage
+  | FrameMessage
+  | HereMessage
+  | GoneMessage;
 
-const KNOWN_TYPES = ['hello', 'beat', 'bye', 'config', 'frame'] as const;
+const KNOWN_TYPES = ['hello', 'beat', 'bye', 'config', 'frame', 'here', 'gone'] as const;
 /** The three the overlay sends about itself, all keyed by its id. */
 const PRESENCE_TYPES: readonly string[] = ['hello', 'beat', 'bye'];
-/** The two the capture page sends outwards, all signed with its own name. */
-const BROADCAST_TYPES: readonly string[] = ['config', 'frame'];
+/** The four the capture page sends outwards, all signed with its own name. */
+const BROADCAST_TYPES: readonly string[] = ['config', 'frame', 'here', 'gone'];
 
 export function envelope(message: OverlayMessage): { heOverlay: OverlayMessage } {
   return { heOverlay: message };

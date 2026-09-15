@@ -398,21 +398,23 @@ function overlayTally(counts: { inObs: number; inBrowser: number }): string {
  * What the status bar says when a second capture page is on the bus, or `null`
  * when this one is alone.
  *
- * No number in it, and none available to put there: a capture page draws a
- * fresh name on every load, so a tab reloaded three times is three names on
- * this side and one page on the other. The plural is worn by the instruction
- * instead, where it costs nothing to be right for one page or for five.
+ * No number in it. One is knowable since the pages say `gone` as they leave,
+ * but the instruction is the same for one rival and for five, and a figure
+ * would only invite someone to reconcile it against their tabs. The plural is
+ * worn by the instruction instead, where it costs nothing to be right.
  *
- * Reloading is not housekeeping. Closing the other pages stops them speaking;
- * reloading this one sends this configuration afresh, which is what takes the
- * overlay back — and it is also the only thing that clears the warning, which
- * never lifts on its own (see `ConfigBroadcaster.hasOtherCapture`).
+ * One step, since 2026-09-15. It used to end with "then reload": reloading
+ * resent this configuration, which is what takes the overlay back, and it was
+ * the only thing that cleared a warning which never lifted on its own. Now the
+ * page hears the last rival leave, resends by itself and lifts the warning
+ * (see `ConfigBroadcaster.hasOtherCapture`) — closing is the one step it
+ * cannot do for anyone.
  */
 export function captureWarning(another: boolean): string | null {
   if (!another) return null;
   // One pill among the others since 2026-09-05, no longer a line of its own,
-  // so it is cut to what fits in a run: both steps, no more words than that.
-  return 'Other capture pages open · close them, then reload';
+  // so it is cut to what fits in a run.
+  return 'Other capture pages open · close them';
 }
 
 /**
