@@ -58,6 +58,10 @@ export interface ProfileActionsDeps {
   clearHistory(): void;
   /** The DOM mechanics of a file download, kept out of this pure module. */
   download(fileName: string, content: string): void;
+  /** A rename that took. The scene table files its links by profile name. */
+  onRenamed?(from: string, to: string): void;
+  /** A profile gone from the store, Undo notwithstanding: its links go with it. */
+  onRemoved?(name: string): void;
 }
 
 export interface ProfileActions {
@@ -117,16 +121,21 @@ export function createProfileActions(deps: ProfileActionsDeps): ProfileActions {
   }
 
   function renameProfile(name: string): void {
+    // Read before the store call: `deps.current().profile` after a
+    // successful rename would already report `name`, leaving nothing to
+    // tell `onRenamed` the profile moved *from*.
+    const from = deps.current().profile;
     // Nothing is loaded or broadcast: the configuration did not change, only
     // the name it is filed under. Reopening it here would push an identical
     // profile back at OBS for no reason.
-    if (!deps.store.rename(deps.current().profile, name)) {
+    if (!deps.store.rename(from, name)) {
       deps.setToast({ tone: 'error', message: `A profile named “${name}” already exists` });
       return;
     }
 
     deps.setProfile(name);
     deps.setProfileNames(deps.store.list());
+    deps.onRenamed?.(from, name);
     deps.setToast({ tone: 'success', message: `Renamed to “${name}”` });
   }
 
@@ -138,6 +147,7 @@ export function createProfileActions(deps: ProfileActionsDeps): ProfileActions {
     // left.
     const { profile: gone, config: deletedConfig } = deps.current();
     deps.store.remove(gone);
+    deps.onRemoved?.(gone);
     openProfile(deps.store.active());
     deps.setToast(
       profileDeletedToast(gone, () => {

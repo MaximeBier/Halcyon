@@ -27,6 +27,8 @@ function setup(
     };
     renames?: boolean;
     replaces?: boolean;
+    onRenamed?: (from: string, to: string) => void;
+    onRemoved?: (name: string) => void;
   } = {},
 ) {
   const calls: string[] = [];
@@ -111,6 +113,8 @@ function setup(
       calls.push(`download(${fileName})`);
       downloads.push({ fileName, content });
     },
+    onRenamed: options.onRenamed,
+    onRemoved: options.onRemoved,
   });
 
   /** The exact door sequence a plain `openProfile(name)` walks. */
@@ -363,6 +367,29 @@ describe('createProfileActions', () => {
 
       // Nothing to reconcile the import into: no reopening.
       expect(calls).toEqual(['store.replaceFrom(Apex,Apex 2)']);
+    });
+  });
+
+  describe('what the scene table is told', () => {
+    it('reports a rename that took, with both names', () => {
+      const onRenamed = vi.fn();
+      const { actions } = setup({ profile: 'Apex', onRenamed });
+      actions.renameProfile('Apex ranked');
+      expect(onRenamed).toHaveBeenCalledWith('Apex', 'Apex ranked');
+    });
+
+    it('says nothing about a rename the store refused', () => {
+      const onRenamed = vi.fn();
+      const { actions } = setup({ profile: 'Apex', renames: false, onRenamed });
+      actions.renameProfile('Valorant');
+      expect(onRenamed).not.toHaveBeenCalled();
+    });
+
+    it('reports a removal by the name that left', () => {
+      const onRemoved = vi.fn();
+      const { actions } = setup({ profile: 'Apex', onRemoved });
+      actions.removeProfile();
+      expect(onRemoved).toHaveBeenCalledWith('Apex');
     });
   });
 });
