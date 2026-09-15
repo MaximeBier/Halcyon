@@ -1,7 +1,14 @@
 // @vitest-environment node
 import { PROTOCOL_VERSION } from '../protocol/messages';
 import { describe, it, expect, vi } from 'vitest';
-import { createObsClient, RETRY_MAX_MS, type ObsStatus } from './obs';
+import {
+  createObsClient,
+  EVENT_GENERAL,
+  EVENT_SCENES,
+  EVENT_TRANSITIONS,
+  RETRY_MAX_MS,
+  type ObsStatus,
+} from './obs';
 import { computeAuth } from './auth';
 import type { OverlayMessage } from '../protocol/messages';
 import { FakeSocket, HELLO_AUTH, HELLO_NO_AUTH } from '../test/fixtures';
@@ -487,5 +494,149 @@ describe('close() is not a silent operation', () => {
     client.close();
 
     expect(statuses).toEqual([]);
+  });
+});
+
+describe('createObsClient - requests and events', () => {
+  /** A client past its handshake, its Identify already cleared from `sent`. */
+  function identified(options: { onEvent?: (t: string, d: Record<string, unknown>) => void } = {}) {
+    const sockets: FakeSocket[] = [];
+    const client = createObsClient({
+      url: 'ws://localhost:4455',
+      password: '',
+      onStatus: () => {},
+      onMessage: () => {},
+      socketFactory: () => {
+        const socket = new FakeSocket();
+        sockets.push(socket);
+        return socket;
+      },
+      ...options,
+    });
+    client.connect();
+    const socket = sockets[0]!;
+    socket.receive(HELLO_NO_AUTH);
+    socket.receive({ op: 2, d: { negotiatedRpcVersion: 1 } });
+    socket.sent.length = 0;
+    return { client, socket };
+  }
+
+  it('subscribes to the mask it is given', () => {
+    const sockets: FakeSocket[] = [];
+    const client = createObsClient({
+      url: 'ws://localhost:4455',
+      password: '',
+      onStatus: () => {},
+      onMessage: () => {},
+      eventSubscriptions: EVENT_GENERAL | EVENT_SCENES | EVENT_TRANSITIONS,
+      socketFactory: () => {
+        const s = new FakeSocket();
+        sockets.push(s);
+        return s;
+      },
+    });
+    client.connect();
+    sockets[0]!.receive(HELLO_NO_AUTH);
+    expect(sockets[0]!.parsed()[0].d.eventSubscriptions).toBe(21);
+  });
+
+  it('answers a request with the response that carries its id', async () => {
+    const { client, socket } = identified();
+    const answer = client.request('GetSceneList');
+    const sent = socket.parsed()[0];
+    expect(sent.op).toBe(6);
+    expect(sent.d.requestType).toBe('GetSceneList');
+
+    socket.receive({
+      op: 7,
+      d: {
+        requestType: 'GetSceneList',
+        requestId: sent.d.requestId,
+        requestStatus: { result: true, code: 100 },
+        responseData: { scenes: [] },
+      },
+    });
+    await expect(answer).resolves.toEqual({ ok: true, code: 100, data: { scenes: [] } });
+  });
+
+  it('keeps two requests in flight apart', async () => {
+    const { client, socket } = identified();
+    const first = client.request('GetSceneList');
+    const second = client.request('GetInputList', { inputKind: 'browser_source' });
+    const [a, b] = socket.parsed();
+    expect(a.d.requestId).not.toBe(b.d.requestId);
+    expect(b.d.requestData).toEqual({ inputKind: 'browser_source' });
+
+    // Answered out of order, on purpose.
+    socket.receive({
+      op: 7,
+      d: {
+        requestId: b.d.requestId,
+        requestStatus: { result: true, code: 100 },
+        responseData: { inputs: [] },
+      },
+    });
+    socket.receive({
+      op: 7,
+      d: {
+        requestId: a.d.requestId,
+        requestStatus: { result: true, code: 100 },
+        responseData: { scenes: [] },
+      },
+    });
+    await expect(first).resolves.toMatchObject({ data: { scenes: [] } });
+    await expect(second).resolves.toMatchObject({ data: { inputs: [] } });
+  });
+
+  it('reports a refusal with its code, and never throws', async () => {
+    const { client, socket } = identified();
+    const answer = client.request('PressInputPropertiesButton', {
+      inputName: 'gone',
+      propertyName: 'refreshnocache',
+    });
+    const { requestId } = socket.parsed()[0].d;
+    socket.receive({
+      op: 7,
+      d: { requestId, requestStatus: { result: false, code: 600, comment: 'No source was found' } },
+    });
+    await expect(answer).resolves.toEqual({ ok: false, code: 600, data: {} });
+  });
+
+  it('answers at once, negatively, when it is not identified', async () => {
+    const { client, socket } = setup();
+    client.connect();
+    await expect(client.request('GetSceneList')).resolves.toEqual({ ok: false, code: 0, data: {} });
+    expect(socket().sent).toHaveLength(0);
+  });
+
+  it('settles what was still waiting when the socket goes away', async () => {
+    const { client, socket } = identified();
+    const answer = client.request('GetSceneList');
+    socket.onclose?.({ code: 1006 });
+    await expect(answer).resolves.toEqual({ ok: false, code: 0, data: {} });
+  });
+
+  it('hands every event that is not ours to onEvent, and keeps CustomEvent for onMessage', () => {
+    const events: [string, Record<string, unknown>][] = [];
+    const { socket } = identified({ onEvent: (t, d) => events.push([t, d]) });
+    socket.receive({
+      op: 5,
+      d: {
+        eventType: 'CurrentProgramSceneChanged',
+        eventIntent: 4,
+        eventData: { sceneName: 'Gameplay', sceneUuid: 'u-1' },
+      },
+    });
+    socket.receive({
+      op: 5,
+      d: {
+        eventType: 'CustomEvent',
+        eventIntent: 1,
+        eventData: { heOverlay: { v: 1, t: 'nonsense' } },
+      },
+    });
+    expect(events).toEqual([
+      ['CurrentProgramSceneChanged', { sceneName: 'Gameplay', sceneUuid: 'u-1' }],
+    ]);
   });
 });

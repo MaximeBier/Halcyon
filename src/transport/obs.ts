@@ -27,8 +27,27 @@ export const RETRY_MAX_MS = 5000;
 
 /** obs-websocket 5.x close code for a refused authentication. */
 const AUTH_FAILED_CODE = 4009;
+
 /** EventSubscription.General: contains CustomEvent. */
-const GENERAL_EVENTS = 1;
+export const EVENT_GENERAL = 1;
+/** EventSubscription.Scenes: CurrentProgramSceneChanged, which the capture page follows. */
+export const EVENT_SCENES = 1 << 2;
+/**
+ * EventSubscription.Transitions: SceneTransitionStarted, which fires on the
+ * first frame of a scene change where CurrentProgramSceneChanged waits for the
+ * last one. The capture page follows the early signal (spec §4).
+ */
+export const EVENT_TRANSITIONS = 1 << 4;
+
+export interface ObsResponse {
+  ok: boolean;
+  /** obs-websocket RequestStatus code — 100 on success, 0 when no answer ever came. */
+  code: number;
+  data: Record<string, unknown>;
+}
+
+/** What a request gets when nobody can answer it: not identified, or the socket went. */
+const NO_ANSWER: ObsResponse = { ok: false, code: 0, data: {} };
 
 /** Falls back to the default rather than build a URL the constructor rejects. */
 export function normalizePort(value: unknown): number {
@@ -58,6 +77,18 @@ export interface ObsClientOptions {
    * left open across a deployment. Diagnosis only; nothing is processed.
    */
   onForeignVersion?(version: number): void;
+  /**
+   * The EventSubscription mask sent at Identify. General alone by default: the
+   * overlay pages need nothing but CustomEvent, and every extra bit is traffic
+   * OBS pushes to every one of them for nothing. The capture page adds Scenes.
+   */
+  eventSubscriptions?: number;
+  /**
+   * Every event that is not a CustomEvent, raw. Scene changes arrive here.
+   * The transport does not interpret them: what a scene change *means* is the
+   * capture page's business, and the overlay never asks for any.
+   */
+  onEvent?(eventType: string, eventData: Record<string, unknown>): void;
   socketFactory?(url: string): SocketLike;
 }
 
@@ -80,6 +111,12 @@ export interface ObsClient {
    * never received.
    */
   broadcast(message: OverlayMessage): boolean;
+  /**
+   * Sends a request and resolves with its answer. Never rejects: not
+   * identified, or a socket that closes first, both resolve `ok: false` with
+   * code 0. Callers have one failure to handle, not two shapes of it.
+   */
+  request(requestType: string, requestData?: Record<string, unknown>): Promise<ObsResponse>;
   close(): void;
   readonly status: ObsStatus;
 }
@@ -108,6 +145,19 @@ export function createObsClient(options: ObsClientOptions): ObsClient {
   /** Failed attempts in a row. Sets the backoff, cleared by any success. */
   let attempts = 0;
   let lastAttemptAt = Number.NEGATIVE_INFINITY;
+
+  let nextRequestId = 1;
+  const pending = new Map<string, (response: ObsResponse) => void>();
+
+  /**
+   * Answers everything still waiting, negatively. Called wherever the socket
+   * is given up: a promise left hanging would hold its caller — the sources
+   * scan, say — for the rest of the session.
+   */
+  function settlePending() {
+    for (const resolve of pending.values()) resolve(NO_ANSWER);
+    pending.clear();
+  }
 
   function retryDelay() {
     if (attempts === 0) return 0;
@@ -153,7 +203,7 @@ export function createObsClient(options: ObsClientOptions): ObsClient {
   ) {
     const data: Record<string, unknown> = {
       rpcVersion: 1,
-      eventSubscriptions: GENERAL_EVENTS,
+      eventSubscriptions: options.eventSubscriptions ?? EVENT_GENERAL,
     };
     if (hello.authentication) {
       data.authentication = await computeAuth(
@@ -191,6 +241,29 @@ export function createObsClient(options: ObsClientOptions): ObsClient {
       setStatus('identified');
       return;
     }
+    if (payload.op === 7) {
+      const id = payload.d?.requestId;
+      if (typeof id !== 'string') return;
+      const resolve = pending.get(id);
+      if (!resolve) return;
+      pending.delete(id);
+      const result = (payload.d?.requestStatus ?? {}) as { result?: boolean; code?: number };
+      resolve({
+        ok: result.result === true,
+        code: typeof result.code === 'number' ? result.code : 0,
+        data: (payload.d?.responseData as Record<string, unknown> | undefined) ?? {},
+      });
+      return;
+    }
+    if (payload.op === 5 && payload.d?.eventType !== 'CustomEvent') {
+      if (typeof payload.d?.eventType === 'string') {
+        options.onEvent?.(
+          payload.d.eventType,
+          (payload.d.eventData as Record<string, unknown> | undefined) ?? {},
+        );
+      }
+      return;
+    }
     if (payload.op === 5 && payload.d?.eventType === 'CustomEvent') {
       const message = parseMessage(payload.d.eventData);
       if (message) {
@@ -212,6 +285,7 @@ export function createObsClient(options: ObsClientOptions): ObsClient {
       socket.close();
       socket = null;
     }
+    settlePending();
     setStatus(reason);
   }
 
@@ -248,6 +322,7 @@ export function createObsClient(options: ObsClientOptions): ObsClient {
     next.onclose = (event) => {
       if (socket !== next) return;
       socket = null;
+      settlePending();
       setStatus(event?.code === AUTH_FAILED_CODE ? 'auth-failed' : lostConnection());
     };
   }
@@ -283,6 +358,15 @@ export function createObsClient(options: ObsClientOptions): ObsClient {
         },
       });
       return true;
+    },
+    request(requestType, requestData = {}) {
+      if (status !== 'identified') return Promise.resolve(NO_ANSWER);
+      // `r` + counter: never collides with the constant 'he' the broadcast uses.
+      const requestId = `r${nextRequestId++}`;
+      return new Promise((resolve) => {
+        pending.set(requestId, resolve);
+        send({ op: 6, d: { requestType, requestId, requestData } });
+      });
     },
     close() {
       fail('idle');
