@@ -4,6 +4,9 @@
   import {
     createObsClient,
     DEFAULT_OBS_PORT,
+    EVENT_GENERAL,
+    EVENT_SCENES,
+    EVENT_TRANSITIONS,
     normalizePort,
     type ObsClient,
     type ObsStatus,
@@ -61,6 +64,10 @@
   import { deletionToast, loadToast, type Notice } from './notice';
   import { createHistory } from './history';
   import { createProfileActions } from './profile-actions';
+  import SceneLinks from './SceneLinks.svelte';
+  import { sceneRows } from './scenes';
+  import { createSceneFollower, type SceneFollower, type SceneState } from './scene-follow';
+  import { reloadLog, reloadSources, scanSources, type HalcyonSource } from './sources';
   import type { DecodeAnomaly } from '../keyboard/decode';
   import type { FrameKey } from '../protocol/messages';
 
@@ -259,6 +266,13 @@
    */
   let listeners = $state({ inObs: 0, inBrowser: 0 });
 
+  /** The scene table as the follower last reported it; mirrored into a rune for the popover. */
+  let sceneState = $state<SceneState>({ scenes: null, live: null, links: [] });
+  /** Our browser sources as OBS listed them at the last scan, or null while not connected. */
+  let sources = $state<HalcyonSource[] | null>(null);
+  /** The one-shot auto-reload of spec §2.3: once per session, whatever the version heard. */
+  let reloadedForForeign = false;
+
   /**
    * This page's own name, signed onto every `config` and every `frame` it
    * sends. Drawn once, and never again: a second draw would make the page a
@@ -430,7 +444,12 @@
   function refreshOverlays() {
     const next = overlays.counts(performance.now());
     if (next.inObs !== listeners.inObs || next.inBrowser !== listeners.inBrowser) {
+      // An overlay in OBS saying hello is a source that was not there at the
+      // last scan: the bus event *is* the moment the count changed, which is
+      // how the row keeps up with OBS without a timer (constraint 1).
+      const appeared = next.inObs > listeners.inObs;
       listeners = next;
+      if (appeared) void scanObsSources();
     }
   }
 
@@ -440,17 +459,60 @@
   let port = $derived(normalizePort(settings.port));
   let url = $derived(overlayUrl(location.origin, { port, password: settings.password }));
 
+  // Declared before the client, assigned after `profileActions`: the client
+  // only reaches it from callbacks that cannot run before `connect()`.
+  let sceneFollower: SceneFollower;
+
+  /** `scanSources` on this page's origin: a dev tab never touches production sources. */
+  async function scanObsSources() {
+    // The scan is a dozen sequential requests; OBS can go away, or the client
+    // be rebuilt on a new password, before the last one answers. A result
+    // from a connection that no longer exists must not land in the row that
+    // says what OBS has *now*.
+    const client = obs;
+    const found = await scanSources((type, data) => client.request(type, data), location.origin);
+    if (client !== obs || client.status !== 'identified') return;
+    sources = found;
+  }
+
+  /** Shared by the OBS popover, Diagnostics, and the foreign-protocol path. */
+  async function reloadObsSources(): Promise<number> {
+    // Always look again first. A click on Reload is also a "look again", and
+    // the wizard connects OBS *before* the source exists, so a count frozen
+    // at identify would read 0 for the whole first session. It also covers
+    // the foreign-protocol path firing before the first scan answered: press
+    // nothing then and the session never retries.
+    await scanObsSources();
+    const found = sources ?? [];
+    const reloaded = await reloadSources(
+      (type, data) => obs.request(type, data),
+      found.map((s) => s.name),
+    );
+    note('user', reloadLog(reloaded, found.length));
+    return reloaded;
+  }
+
   function createClient(): ObsClient {
     return createObsClient({
       url: `ws://localhost:${untrack(() => port)}`,
       password: untrack(() => settings.password),
+      // Scenes for the late signal, Transitions for the early one: the profile
+      // has to change with the first frame of the fade, not the last (spec §4).
+      eventSubscriptions: EVENT_GENERAL | EVENT_SCENES | EVENT_TRANSITIONS,
+      onEvent: (type, data) => sceneFollower.onEvent(type, data),
       onStatus: (s) => {
         obsStatus = s;
         note('user', `OBS: ${s}.`);
         // Nothing left while the socket was down, and an overlay on the other
         // side may have been waiting the whole time.
-        if (s === 'identified') broadcaster.onIdentified();
+        if (s === 'identified') {
+          broadcaster.onIdentified();
+          void sceneFollower.refresh();
+          void scanObsSources();
+        }
         if (s !== 'identified') {
+          sceneFollower.disconnected();
+          sources = null;
           // Nobody is reachable through a dead socket, and expiry is only
           // computed on read: a count left standing would never come down.
           overlays.clear();
@@ -463,10 +525,23 @@
         }
       },
       onForeignVersion: (version) => {
-        // Almost always an overlay left open across a deployment. It goes
-        // quiet with nothing to say why, which is the whole reason this line
-        // exists (spec §11).
-        note('user', `An overlay is running protocol v${version}; reload it.`);
+        // Almost always an overlay left open across a deployment. Since
+        // 2026-09-15 the page reloads the sources itself, once: OBS can be
+        // told to, and asking someone to do it by hand was the one step of
+        // the diagnosis the page could not do for them (spec §2.3).
+        if (reloadedForForeign) {
+          note('user', `An overlay is running protocol v${version}; reload it.`);
+          return;
+        }
+        reloadedForForeign = true;
+        void reloadObsSources().then((reloaded) => {
+          note(
+            'user',
+            reloaded > 0
+              ? `An overlay ran protocol v${version} · sources reloaded`
+              : `An overlay is running protocol v${version}; reload it.`,
+          );
+        });
       },
       onMessage: (message) => {
         // Presence and configuration are both driven by these three messages,
@@ -639,6 +714,28 @@
       link.click();
       URL.revokeObjectURL(href);
     },
+    // Closures, evaluated at the click: `sceneFollower` is assigned just below.
+    onRenamed: (from, to) => sceneFollower.profileRenamed(from, to),
+    onRemoved: (name) => sceneFollower.profileRemoved(name),
+  });
+
+  // `openProfile` may post a `loadToast`, which `setToast` then replaces with
+  // the scene toast: wanted, the second is the more useful of the two.
+  sceneFollower = createSceneFollower({
+    request: (type, data) => obs.request(type, data),
+    storage,
+    profiles: () => profileNames,
+    currentProfile: () => profile,
+    openProfile: (name) => {
+      const notice = profileActions.openProfile(name);
+      toast = notice;
+      // The scene toast replaces this one on screen a moment later; a profile
+      // that failed to load has to survive that, so the journal keeps it.
+      if (notice) note('user', notice.message);
+    },
+    setToast: (notice) => (toast = notice),
+    note: (message) => note('user', message),
+    onChange: (state) => (sceneState = state),
   });
 
   /**
@@ -848,9 +945,11 @@
         {url}
         size={config.keys.length > 0 ? size : null}
         {settings}
+        sources={sources === null ? null : sources.length}
         onPickDevice={() => link.requestPermission()}
         onRetryObs={reconnect}
         onCopyUrl={copyUrl}
+        onReloadSources={reloadObsSources}
       />
 
       <!-- Document-level controls. In the header because it is the one zone
@@ -865,6 +964,17 @@
         <!-- The spoken half of the two buttons: it follows, it never interrupts. -->
         <p class="sr" role="status">{announced}</p>
       </div>
+
+      <!-- Left of the startup guide (board 5e): the one setting someone comes
+         back to after adding a scene in OBS, findable without the gear. -->
+      <SceneLinks
+        obs={obsStatus}
+        rows={sceneRows(sceneState.scenes, sceneState.links, sceneState.live)}
+        profiles={profileNames}
+        onOpen={() => void sceneFollower.refresh()}
+        onLink={(uuid, name) => sceneFollower.link(uuid, name)}
+        onUnlink={(uuid) => sceneFollower.unlink(uuid)}
+      />
 
       <!-- In the header for the same reason undo is: the guide must be findable
          from every state of the page, and it anchors to nothing on the stage. -->
@@ -1074,9 +1184,11 @@
         {probing}
         probe={probeReading}
         {obsProbe}
+        {sources}
         onCaptureRaw={() => (capturing = true)}
         onToggleProbe={toggleProbe}
         onTestObs={testObs}
+        onReloadSources={reloadObsSources}
       />
     </Sheet>
   {/if}
