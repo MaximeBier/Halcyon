@@ -3,6 +3,7 @@
   import type { StreamReading } from './probe';
   import { copyToClipboard } from './clipboard';
   import { obsProbeHint, type ObsProbeStatus } from './settings';
+  import type { HalcyonSource } from './sources';
 
   /**
    * The panel a bug report is written from (spec §11, §12.3).
@@ -24,9 +25,11 @@
     probing,
     probe,
     obsProbe,
+    sources,
     onCaptureRaw,
     onToggleProbe,
     onTestObs,
+    onReloadSources,
   }: {
     entries: readonly JournalEntry[];
     /**
@@ -47,9 +50,12 @@
     probe: StreamReading | null;
     /** What a throwaway connection to OBS answered, or null if never asked. */
     obsProbe: ObsProbeStatus | null;
+    /** Our sources as OBS lists them, or null while nobody has looked. */
+    sources: HalcyonSource[] | null;
     onCaptureRaw: () => void;
     onToggleProbe: () => void;
     onTestObs: () => void;
+    onReloadSources: () => Promise<number>;
   } = $props();
 
   /**
@@ -164,6 +170,32 @@
 
   <section>
     <h3>OBS connection</h3>
+    {#if sources !== null}
+      <p class="sources" data-sources>
+        {#if sources.length === 0}
+          <span>No Halcyon source in OBS.</span>
+        {:else}
+          <span>
+            Halcyon sources in OBS:
+            {#each sources as source, i (source.name)}
+              <span data-source
+                ><span class="name">{source.name}</span>{#if source.scenes.length > 0}<span
+                    class="hosts">{` (${source.scenes.join(', ')})`}</span
+                  >{/if}</span
+              >{i < sources.length - 1 ? ', ' : ''}
+            {/each}
+          </span>
+        {/if}
+        <button
+          class="link"
+          data-reload-sources
+          type="button"
+          onclick={() => void onReloadSources()}
+        >
+          Reload
+        </button>
+      </p>
+    {/if}
     <button data-action="test-obs" type="button" onclick={onTestObs}>Test OBS connection</button>
     <p class="hint">
       Opens a second, temporary connection with the port and password as typed. OBS will show two
@@ -280,6 +312,32 @@
     font-size: var(--he-size-xs);
     line-height: 1.45;
     color: var(--he-text-faint);
+  }
+
+  .sources {
+    margin: 0;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    font-size: var(--he-size-xs);
+    line-height: 1.5;
+  }
+  .sources .name {
+    color: var(--he-text);
+  }
+  .sources .hosts {
+    color: var(--he-text-muted);
+  }
+
+  .link {
+    all: unset;
+    cursor: pointer;
+    color: var(--he-accent);
+    white-space: nowrap;
+  }
+  .link:focus-visible {
+    outline: 2px solid var(--he-accent);
+    outline-offset: 2px;
   }
 
   button {

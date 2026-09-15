@@ -4,6 +4,7 @@ import { tick } from 'svelte';
 import Diagnostics from './Diagnostics.svelte';
 import type { JournalEntry } from './journal';
 import type { ObsProbeStatus } from './settings';
+import type { HalcyonSource } from './sources';
 
 afterEach(cleanup);
 
@@ -13,7 +14,12 @@ const ENTRIES: JournalEntry[] = [
 ];
 
 function panel(overrides: Record<string, unknown> = {}) {
-  const handlers = { onCaptureRaw: vi.fn(), onToggleProbe: vi.fn(), onTestObs: vi.fn() };
+  const handlers = {
+    onCaptureRaw: vi.fn(),
+    onToggleProbe: vi.fn(),
+    onTestObs: vi.fn(),
+    onReloadSources: vi.fn(() => Promise.resolve(0)),
+  };
   const props = {
     entries: ENTRIES,
     logText: () => '+1.0s\tuser\tOBS unreachable',
@@ -23,6 +29,7 @@ function panel(overrides: Record<string, unknown> = {}) {
     probing: false,
     probe: null,
     obsProbe: null,
+    sources: null as HalcyonSource[] | null,
     ...handlers,
     ...overrides,
   };
@@ -213,6 +220,57 @@ describe('the OBS probe', () => {
     // \s+, not a space: prettier wraps the sentence and `textContent` keeps
     // the newline. An assertion that breaks on reflow tests the formatter.
     expect(panel().container.textContent).toMatch(/two\s+clients/i);
+  });
+});
+
+describe('the sources in OBS', () => {
+  it('names each source with the scenes that host it', () => {
+    const { container } = panel({
+      sources: [
+        { name: 'Keys overlay', scenes: ['Gameplay', 'Racing cam'] },
+        { name: 'Keys overlay 2', scenes: [] },
+      ],
+    });
+    const items = [...container.querySelectorAll('[data-source]')].map((li) =>
+      li.textContent?.replace(/\s+/g, ' ').trim(),
+    );
+    expect(items).toEqual(['Keys overlay (Gameplay, Racing cam)', 'Keys overlay 2']);
+  });
+
+  it('leaves no stray space where a middle entry has no host scene', () => {
+    // A whitespace-only text node sitting between the name span and the `{#if}`
+    // survives Svelte's collapsing because it is not at the start or end of the
+    // child list — it rendered even with the `{#if}` false, producing
+    // "Keys overlay 2 , Keys overlay" (extra space before the comma).
+    const { container } = panel({
+      sources: [
+        { name: 'Keys overlay 2', scenes: [] },
+        { name: 'Keys overlay', scenes: ['Gameplay'] },
+      ],
+    });
+    const text = container.querySelector('[data-sources]')!.textContent!.replace(/\s+/g, ' ');
+
+    expect(text).toContain('Keys overlay 2, Keys overlay (Gameplay)');
+    expect(text).not.toContain(' ,');
+  });
+
+  it('reloads from here too', () => {
+    const onReloadSources = vi.fn(() => Promise.resolve(1));
+    const { container } = panel({
+      sources: [{ name: 'Keys overlay', scenes: [] }],
+      onReloadSources,
+    });
+    container.querySelector<HTMLButtonElement>('[data-reload-sources]')!.click();
+    expect(onReloadSources).toHaveBeenCalledTimes(1);
+  });
+
+  it('says when OBS lists none, and nothing at all before OBS was asked', () => {
+    const none = panel({ sources: [] });
+    expect(none.container.querySelector('[data-sources]')!.textContent).toContain(
+      'No Halcyon source in OBS',
+    );
+    cleanup();
+    expect(panel({ sources: null }).container.querySelector('[data-sources]')).toBeNull();
   });
 });
 
