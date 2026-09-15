@@ -3,6 +3,7 @@
 import { defineConfig, type Plugin } from 'vitest/config';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { svelteTesting } from '@testing-library/svelte/vite';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 /**
@@ -29,11 +30,27 @@ const BUILD = process.env.VITE_BUILD || 'dev';
  */
 const BUILD_STAMP = /^\d/.test(BUILD) ? `v${BUILD}` : BUILD;
 
+/**
+ * The home page's stylesheet, inlined into each language version of the page.
+ *
+ * Inline rather than linked, as it has been since the page was transcribed
+ * from the canvas: the first paint waits for no second request. One file
+ * rather than a copy per language, since the French page arrived on
+ * 2026-09-16 and eight hundred lines of CSS maintained twice would drift by
+ * the second edit. `%HOME_STYLE%` marks where each page wants it.
+ */
+const HOME_STYLE = resolve(import.meta.dirname, 'src/styles/home.css');
+
 function stampHomePage(): Plugin {
   return {
     name: 'halcyon:build-stamp',
     transformIndexHtml(html) {
-      return html.replaceAll('%BUILD%', BUILD_STAMP);
+      // Read on every transform, so the dev server picks up an edit to the
+      // stylesheet on the next reload of the page. A function, not a string,
+      // as the replacement: `$` sequences in CSS would otherwise be read as
+      // replacement patterns.
+      const style = () => `<style>\n${readFileSync(HOME_STYLE, 'utf8')}    </style>`;
+      return html.replaceAll('%BUILD%', BUILD_STAMP).replaceAll('%HOME_STYLE%', style);
     },
   };
 }
@@ -45,9 +62,11 @@ export default defineConfig({
     rollupOptions: {
       // Two application entries, compiled separately: the editor code never
       // reaches the bundle OBS keeps loaded (spec §5.1). `home` joins them as a
-      // scriptless static page — it produces no bundle and weighs on neither.
+      // scriptless static page — it produces no bundle and weighs on neither —
+      // and `homeFr` is the same page in French, served under `/fr/`.
       input: {
         home: resolve(import.meta.dirname, 'index.html'),
+        homeFr: resolve(import.meta.dirname, 'fr/index.html'),
         capture: resolve(import.meta.dirname, 'capture.html'),
         overlay: resolve(import.meta.dirname, 'overlay.html'),
       },

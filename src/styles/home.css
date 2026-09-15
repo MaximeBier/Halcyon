@@ -1,0 +1,825 @@
+/*
+ * The palette is `UI_TOKENS` (src/styles/ui-tokens.ts), copied rather
+ * than imported: importing it would mean a script, and a script would
+ * mean a bundle on the one page that has neither. The values are the
+ * same, and a drift between them shows up the moment the two pages sit
+ * side by side in a browser.
+ *
+ * Dark only, and `color-scheme: dark` says so. The application has no
+ * light theme; a light home page in front of a dark application would be
+ * the single inconsistency on the site.
+ */
+:root {
+  color-scheme: dark;
+
+  --bg: #0e1015;
+  --stage: #0b0d11;
+  --surface: #141722;
+  --line: #1b1e27;
+  --line-strong: #232838;
+  --line-control: #262b3a;
+  /* The step numbers' ring: a blue-leaning hairline the canvas uses once. */
+  --line-step: #26304a;
+  --line-hover: #3a4054;
+
+  --accent: #7c9eff;
+  --accent-hover: #a5bcff;
+  /* The accent, held back. Illustration only — no text sits on it. */
+  --accent-dim: #3d4a78;
+  --ok: #4caf7d;
+
+  --text: #dde1e9;
+  --text-muted: #8b90a0;
+  --text-faint: #5a5f70;
+
+  --sans: 'Archivo', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --shell: 1120px;
+  --gutter: 40px;
+  /* Between two sections. Halved on narrow screens, at the bottom. */
+  --rhythm: 96px;
+  /* Before the closing card and the footer: the canvas tightens there. */
+  --rhythm-close: 76px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 400 16px/1.6 var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  text-wrap: balance;
+}
+
+p {
+  margin: 0;
+  text-wrap: pretty;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--accent-hover);
+}
+
+/*
+ * Every band is the same width and the same gutter. `shell` is the only
+ * thing that centres anything on this page.
+ */
+.shell {
+  max-width: var(--shell);
+  width: 100%;
+  margin: 0 auto;
+  padding-left: var(--gutter);
+  padding-right: var(--gutter);
+}
+
+/* --- Header ------------------------------------------------------- */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  height: 64px;
+  border-bottom: 1px solid var(--line);
+  /* Translucent, so the hero slides under it rather than behind a lid. */
+  background: rgba(14, 16, 21, 0.92);
+  backdrop-filter: blur(8px);
+}
+
+.topbar > .shell {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.wordmark {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: inherit;
+}
+
+.wordmark:hover {
+  color: inherit;
+}
+
+.wordmark img {
+  display: block;
+  width: 26px;
+  height: 26px;
+}
+
+.wordmark b {
+  font-weight: 800;
+  font-size: 17px;
+  letter-spacing: 0.05em;
+}
+
+.wordmark span {
+  font-size: 12.5px;
+  letter-spacing: 0.03em;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.topnav {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  font-size: 15px;
+}
+
+/*
+ * `:not(.btn)`, because the call to action sits in this nav too and a
+ * bare `.topnav a` outranks `.btn--primary` — one class and one element
+ * against one class. Without the exclusion the button is muted grey on
+ * the accent, which is unreadable rather than merely wrong.
+ */
+.topnav a:not(.btn) {
+  color: var(--text-muted);
+}
+
+.topnav a:not(.btn):hover {
+  color: var(--text);
+}
+
+/*
+ * The other language, as a two-letter code: the one nav item that reads the
+ * same whichever language the reader has, and short enough to survive the
+ * narrow header where the anchors do not (see the 760px rule below).
+ */
+.topnav .lang {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+/* --- Buttons ------------------------------------------------------ */
+
+.btn {
+  display: inline-block;
+  border-radius: 5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.btn--primary {
+  background: var(--accent);
+  color: var(--bg);
+  padding: 14px 28px;
+  font-size: 17px;
+}
+
+.btn--primary:hover {
+  background: var(--accent-hover);
+  color: var(--bg);
+}
+
+/* The header's copy of the primary button, one size down. */
+.btn--compact {
+  padding: 9px 18px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* --- Hero --------------------------------------------------------- */
+
+.hero {
+  padding-top: 76px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 26px;
+  text-align: center;
+}
+
+.hero h1 {
+  font-size: clamp(2.1rem, 5.6vw, 58px);
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+}
+
+.hero p {
+  max-width: 680px;
+  font-size: 19px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px;
+}
+
+.showcase {
+  padding-top: 52px;
+}
+
+.showcase-frame {
+  position: relative;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--stage);
+}
+
+/*
+ * The pill the canvas puts over the hero clip. It is decoration, not
+ * status: nothing on this page is connected to anything.
+ */
+.live-pill {
+  position: absolute;
+  left: 18px;
+  bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 15px;
+  border: 1px solid var(--line-strong);
+  border-radius: 20px;
+  background: rgba(14, 16, 21, 0.85);
+  font: 400 13px var(--mono);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ok);
+  flex: none;
+}
+
+/* --- Media placeholders ------------------------------------------- */
+
+/*
+ * What stands in for a clip that has not been filmed. It holds the exact
+ * height the video will take, so the page does not reflow the day the
+ * files land — and it says what it is, rather than pretending to be a
+ * broken player.
+ */
+.media {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  background: var(--stage);
+  color: var(--text-faint);
+}
+
+.media--hero {
+  aspect-ratio: 16 / 7.5;
+}
+
+.media--demo {
+  aspect-ratio: 16 / 9;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.media-glyph {
+  font-size: 26px;
+  line-height: 1;
+  color: var(--line-hover);
+}
+
+.media-label {
+  font: 400 13px var(--mono);
+  letter-spacing: 0.04em;
+}
+
+/* --- Sections ----------------------------------------------------- */
+
+section {
+  padding-top: var(--rhythm);
+}
+
+/*
+ * The prerequisites sit closer to the showcase than any other band: they
+ * are the small print under the picture, not a chapter of their own.
+ */
+.needs {
+  padding-top: 56px;
+}
+
+.needs h2 {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin-bottom: 22px;
+}
+
+.need {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 20px 22px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.need-check {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  margin-top: 1px;
+  border-radius: 50%;
+  background: rgba(76, 175, 125, 0.14);
+  color: var(--ok);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.need-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.need-text h3 {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.need-text p {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.section-head {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 36px;
+}
+
+.section-head--narrow {
+  max-width: 640px;
+}
+
+.section-head h2 {
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.section-head p {
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.grid {
+  display: grid;
+  gap: 18px;
+}
+
+.grid--pairs {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.grid--thirds {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.grid--needs {
+  gap: 14px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 26px 28px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.card h3 {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.card p {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+/*
+ * Four small drawings, one per card, built out of boxes rather than
+ * images: they are the same three shapes the interface itself uses, and
+ * a `png` of them would age the moment a token moves.
+ */
+.glyph {
+  display: flex;
+  height: 34px;
+  gap: 6px;
+}
+
+.glyph--bars {
+  align-items: flex-end;
+}
+
+.glyph--bars i {
+  width: 22px;
+  border-radius: 2px;
+  background: var(--accent-dim);
+}
+
+.glyph--bars i:nth-child(1) {
+  height: 10px;
+}
+
+.glyph--bars i:nth-child(2) {
+  height: 20px;
+}
+
+.glyph--bars i:nth-child(3) {
+  height: 34px;
+  background: var(--accent);
+}
+
+.glyph--mono {
+  align-items: center;
+  font: 400 13px var(--mono);
+  color: var(--ok);
+}
+
+.glyph--keys {
+  align-items: center;
+  gap: 7px;
+}
+
+/*
+ * A key caught mid-press: filled to 46 %, the shaded travel below it,
+ * the unlit remainder below that. One per accent the style panel offers.
+ */
+.glyph--keys i {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--line-control);
+  border-radius: 4px;
+}
+
+.glyph--keys i:nth-child(1) {
+  background: linear-gradient(180deg, #7c9eff 0 46%, #3d4a78 46% 76%, #151823 76% 100%);
+}
+
+.glyph--keys i:nth-child(2) {
+  background: linear-gradient(180deg, #5ed49e 0 46%, #2e5d48 46% 76%, #121815 76% 100%);
+}
+
+.glyph--keys i:nth-child(3) {
+  background: linear-gradient(180deg, #f2755f 0 46%, #6b3229 46% 76%, #1a1312 76% 100%);
+}
+
+/*
+ * The fourth drawing: your PC, a wire, your OBS — and nothing between
+ * them. The dashed chip says "local" the way a diagram would.
+ */
+.glyph--local {
+  align-items: center;
+  gap: 10px;
+}
+
+.glyph--local .chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border: 1px dashed var(--accent-dim);
+  border-radius: 5px;
+  font: 400 12px var(--mono);
+  color: var(--text);
+}
+
+.glyph--local .pc {
+  width: 14px;
+  height: 10px;
+  border: 1.5px solid var(--accent);
+  border-radius: 2px;
+}
+
+.glyph--local .wire {
+  width: 22px;
+  height: 1px;
+  background: var(--accent);
+}
+
+/* --- Demos -------------------------------------------------------- */
+
+.demo {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.demo-text {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 0 6px 6px;
+}
+
+.demo-text h3 {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.demo-text p {
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+/* --- Steps -------------------------------------------------------- */
+
+.card--step {
+  gap: 12px;
+}
+
+.step-number {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line-step);
+  border-radius: 50%;
+  font: 400 15px var(--mono);
+  color: var(--accent);
+}
+
+/* --- FAQ ---------------------------------------------------------- */
+
+.faq {
+  display: grid;
+  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+  gap: 48px;
+  align-items: start;
+}
+
+.faq .section-head {
+  margin-bottom: 0;
+}
+
+.faq-list {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--line);
+}
+
+.faq-list details {
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+/*
+ * The browser's own disclosure triangle goes; the `+` at the right end
+ * of the line is the affordance, and it turns into a × once the answer
+ * is open. `list-style: none` is the standard way, `::-webkit-details-marker`
+ * the one older Chromium still needs — and Chromium is where this page
+ * is read, since it is where the application runs.
+ */
+.faq-list summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  list-style: none;
+  cursor: pointer;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.faq-list summary::-webkit-details-marker {
+  display: none;
+}
+
+.faq-mark {
+  flex: none;
+  color: var(--text-faint);
+  font-weight: 400;
+  transition: transform 150ms ease;
+}
+
+.faq-list details[open] .faq-mark {
+  transform: rotate(45deg);
+}
+
+.faq-list p {
+  margin-top: 10px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+/* --- Closing ------------------------------------------------------ */
+
+.closing {
+  padding-top: var(--rhythm-close);
+}
+
+.closing-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 56px 40px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  text-align: center;
+}
+
+.closing-panel h2 {
+  max-width: 560px;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.closing-panel p {
+  font-size: 17px;
+  color: var(--text-muted);
+}
+
+/* --- Footer ------------------------------------------------------- */
+
+.sitefoot {
+  margin-top: var(--rhythm-close);
+  border-top: 1px solid var(--line);
+}
+
+/*
+ * Two rows, two columns: the name and its version, then the licence;
+ * the author on the right, then the three links. Baseline-aligned, so
+ * the mono version sits on the wordmark's line rather than floating.
+ */
+.sitefoot > .shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  row-gap: 8px;
+  column-gap: 24px;
+  align-items: baseline;
+  padding-top: 26px;
+  padding-bottom: 30px;
+  font-size: 13.5px;
+  color: var(--text-faint);
+}
+
+.sitefoot .name {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.sitefoot b {
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.sitefoot .build {
+  font: 400 12.5px var(--mono);
+  color: var(--text-faint);
+}
+
+.sitefoot .right {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.sitefoot .links {
+  display: flex;
+  justify-content: flex-end;
+  gap: 22px;
+  white-space: nowrap;
+}
+
+.sitefoot a {
+  color: var(--text-muted);
+}
+
+.sitefoot a:hover {
+  color: var(--text);
+}
+
+/* --- Narrow screens ------------------------------------------------
+ *
+ * The canvas is drawn at one width and says nothing about any other, so
+ * these two steps are ours. The first collapses the grids, which is
+ * where the layout actually breaks; the second gives back the gutters
+ * and drops the anchors from the header, keeping the one link that
+ * leads anywhere.
+ */
+@media (max-width: 900px) {
+  :root {
+    --rhythm: 64px;
+  }
+
+  /* The tagline is the first thing the header can spare. */
+  .wordmark span {
+    display: none;
+  }
+
+  .grid--pairs,
+  .grid--thirds,
+  .faq {
+    grid-template-columns: 1fr;
+  }
+
+  .faq {
+    gap: 28px;
+  }
+
+  .hero {
+    padding-top: 56px;
+  }
+
+  .section-head h2 {
+    font-size: 30px;
+  }
+
+  .closing-panel {
+    padding: 40px 24px;
+  }
+}
+
+/* Then the anchors, keeping the two links that lead anywhere. */
+@media (max-width: 760px) {
+  .topnav a:not(.btn):not(.lang) {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  :root {
+    --gutter: 20px;
+  }
+
+  .hero p {
+    font-size: 17px;
+  }
+
+  .sitefoot > .shell {
+    grid-template-columns: 1fr;
+    row-gap: 10px;
+  }
+
+  .sitefoot .right,
+  .sitefoot .links {
+    text-align: left;
+    justify-content: flex-start;
+  }
+}
+
+/*
+ * The sticky header would otherwise land on top of the heading it just
+ * scrolled to, and the blur makes that half-readable rather than plainly
+ * broken, which is worse.
+ */
+:target {
+  scroll-margin-top: 84px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}

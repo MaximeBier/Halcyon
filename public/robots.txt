@@ -1,9 +1,8 @@
-# The home page is the only page meant for a search result. The other two are
-# the application: the capture editor, which is empty without a keyboard and
-# OBS on the same machine, and the overlay, whose URL carries a password in
-# its fragment. Neither answers a query anyone types into a search engine.
+# Nothing is disallowed on purpose. The two application pages, capture.html
+# and overlay.html, carry a `noindex` meta instead: a crawler forbidden to
+# fetch a page never reads that instruction, and lists the bare URL anyway
+# when a link points at it — and the README links to the capture page.
 User-agent: *
-Disallow: /capture.html
-Disallow: /overlay.html
+Allow: /
 
 Sitemap: https://halcyon.wardensquad.fr/sitemap.xml

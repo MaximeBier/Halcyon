@@ -1,0 +1,532 @@
+<!doctype html>
+<!--
+  The home page in French, served under /fr/. A translation of ../index.html
+  and nothing else: same sections in the same order, same ids for the anchors,
+  same classes for the style, which is inlined from the one shared file at
+  build time (the HOME_STYLE placeholder, vite.config.ts). Anything that is
+  not words —
+  a layout change, a new section, a clip in place of a placeholder — is made
+  in the English page first and carried over here.
+
+  Paths to sources are one level deeper than in the English page (`../src/`),
+  paths to public files are absolute and unchanged.
+-->
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Halcyon — Overlay clavier analogique Wooting pour OBS</title>
+    <meta
+      name="description"
+      content="Affichez en direct dans OBS la course analogique des touches de votre clavier Wooting. Les touches se remplissent à mesure que vous appuyez. Gratuit, local, rien à installer."
+    />
+    <link rel="alternate" hreflang="en" href="https://halcyon.wardensquad.fr/" />
+    <link rel="alternate" hreflang="fr" href="https://halcyon.wardensquad.fr/fr/" />
+    <link rel="alternate" hreflang="x-default" href="https://halcyon.wardensquad.fr/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Halcyon" />
+    <meta property="og:locale" content="fr_FR" />
+    <meta property="og:locale:alternate" content="en_US" />
+    <meta property="og:title" content="Halcyon — Overlay clavier analogique Wooting pour OBS" />
+    <meta
+      property="og:description"
+      content="Affichez en direct dans OBS la course analogique des touches de votre clavier Wooting. Les touches se remplissent à mesure que vous appuyez. Gratuit, local, rien à installer."
+    />
+    <meta property="og:url" content="https://halcyon.wardensquad.fr/fr/" />
+    <meta property="og:image" content="https://halcyon.wardensquad.fr/og.png" />
+    <meta property="og:image:width" content="2400" />
+    <meta property="og:image:height" content="1260" />
+    <meta
+      property="og:image:alt"
+      content="Halcyon : des touches analogiques qui se remplissent en temps réel, prêtes pour OBS"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Halcyon — Overlay clavier analogique Wooting pour OBS" />
+    <meta
+      name="twitter:description"
+      content="Affichez en direct dans OBS la course analogique des touches de votre clavier Wooting. Gratuit, local, rien à installer."
+    />
+    <meta name="twitter:image" content="https://halcyon.wardensquad.fr/og.png" />
+    <link rel="canonical" href="https://halcyon.wardensquad.fr/fr/" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      crossorigin
+      href="../src/assets/fonts/archivo-latin-800-normal.woff2"
+    />
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      crossorigin
+      href="../src/assets/fonts/archivo-latin-400-normal.woff2"
+    />
+    <link rel="stylesheet" href="../src/styles/fonts-home.css" />
+    %HOME_STYLE%
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "SoftwareApplication",
+            "@id": "https://halcyon.wardensquad.fr/#app",
+            "name": "Halcyon",
+            "url": "https://halcyon.wardensquad.fr/fr/",
+            "description": "Affichez en direct dans OBS la course analogique des touches de votre clavier Wooting. Les touches se remplissent à mesure que vous appuyez. Gratuit, local, rien à installer.",
+            "applicationCategory": "MultimediaApplication",
+            "applicationSubCategory": "Overlay clavier pour le streaming en direct",
+            "operatingSystem": "Windows, macOS, Linux",
+            "browserRequirements": "Chrome ou Edge sur ordinateur (WebHID), OBS Studio 30 ou plus récent",
+            "softwareVersion": "%BUILD%",
+            "inLanguage": "fr",
+            "isAccessibleForFree": true,
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+            "license": "https://github.com/MaximeBier/Halcyon/blob/main/LICENSE.md",
+            "image": "https://halcyon.wardensquad.fr/og.png",
+            "sameAs": ["https://github.com/MaximeBier/Halcyon"],
+            "author": {
+              "@type": "Person",
+              "name": "Maxime Bier",
+              "url": "https://github.com/MaximeBier"
+            }
+          },
+          {
+            "@type": "FAQPage",
+            "@id": "https://halcyon.wardensquad.fr/fr/#faq",
+            "inLanguage": "fr",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "Quelque chose quitte-t-il mon PC ?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Non. Vos frappes, vos dispositions et votre mot de passe OBS restent dans votre navigateur et ne voyagent que vers votre propre OBS, sur votre réseau local. Pas de compte, pas de stockage côté serveur, pas de statistiques. Deux personnes qui utilisent le site en même temps ne voient pas les touches l'une de l'autre."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Quels claviers sont pris en charge ?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Tous les claviers Wooting à interrupteurs analogiques à effet Hall (60HE, 80HE, Two HE et leurs variantes). Les autres marques analogiques (Razer, SteelSeries, Keychron, DrunkDeer…) utilisent leurs propres protocoles et ne sont pas encore prises en charge. Vous voulez le vôtre ensuite ? Ouvrez un ticket sur GitHub."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Pourquoi seulement Chrome ou Edge ?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Lire la course des touches demande WebHID, que seuls les navigateurs Chromium implémentent. Tout navigateur basé sur Chromium fonctionne ; Firefox et Safari non. L'overlay lui-même tourne dans le navigateur intégré d'OBS, cela ne concerne donc que la page de configuration."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Mon mot de passe OBS est-il en sécurité dans l'URL ?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Il ne quitte jamais votre machine, mais il est visible dans les propriétés de la source navigateur. Gardez la fenêtre des propriétés d'OBS et la page de capture hors antenne, comme n'importe quel écran de réglages."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Est-ce que ça me coûtera des images par seconde en jeu ?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "L'overlay est un SVG dans une source navigateur, redessiné seulement quand une touche bouge. C'est du même ordre qu'un widget de chat. La page de capture peut rester réduite une fois vos touches placées."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Est-ce compatible avec Streamlabs ou d'autres logiciels ?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "OBS Studio 30 et plus seulement, pour l'instant : Halcyon parle à OBS par son serveur WebSocket intégré. La page de l'overlay peut aussi s'ouvrir dans n'importe quelle fenêtre de navigateur si vous voulez l'enregistrer autrement."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Est-ce vraiment gratuit ?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Oui. Pas d'offre premium, pas de filigrane. Le code source est public sur GitHub sous licence PolyForm Shield : vous pouvez le lire, le modifier et héberger votre propre copie, tant que vous ne l'utilisez pas pour bâtir un produit concurrent."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+  </head>
+
+  <body>
+    <header class="topbar">
+      <div class="shell">
+        <a class="wordmark" href="/fr/">
+          <img src="/logo/halcyon-logo.svg" alt="" width="26" height="26" />
+          <b>HALCYON</b>
+          <span>Overlay clavier analogique</span>
+        </a>
+        <nav class="topnav">
+          <a href="#why">Pourquoi</a>
+          <a href="#demos">Démos</a>
+          <a href="#setup">Installation</a>
+          <a href="#faq">FAQ</a>
+          <a class="lang" href="/" lang="en" hreflang="en" title="English version">EN</a>
+          <a class="btn btn--primary btn--compact" href="/capture.html">Ouvrir Halcyon</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <div class="hero shell">
+        <h1>Affichez en direct dans OBS la course analogique des touches de votre clavier Wooting.</h1>
+        <p>
+          Rien à installer. Tout tourne en local sur votre PC, et peut démarrer avec Windows.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn--primary" href="/capture.html">Ouvrir Halcyon</a>
+        </div>
+      </div>
+
+      <div class="showcase shell">
+        <div class="showcase-frame">
+          <div class="media media--hero" role="img" aria-label="Clip de présentation, bientôt disponible">
+            <span class="media-glyph" aria-hidden="true">▶</span>
+            <span class="media-label">Vidéo bientôt disponible</span>
+          </div>
+          <span class="live-pill">
+            <span class="dot"></span>
+            EN DIRECT · overlay connecté à OBS
+          </span>
+        </div>
+      </div>
+
+      <section id="requirements" class="needs shell">
+        <h2>Ce qu'il vous faut</h2>
+        <div class="grid grid--thirds grid--needs">
+          <article class="need">
+            <span class="need-check" aria-hidden="true">✓</span>
+            <div class="need-text">
+              <h3>Un clavier Wooting</h3>
+              <p>N'importe quel modèle Wooting HE. Les autres marques analogiques ne sont pas encore prises en charge.</p>
+            </div>
+          </article>
+
+          <article class="need">
+            <span class="need-check" aria-hidden="true">✓</span>
+            <div class="need-text">
+              <h3>Chrome ou Edge</h3>
+              <p>Sur ordinateur. Le clavier est lu par WebHID, que Firefox et Safari n'offrent pas.</p>
+            </div>
+          </article>
+
+          <article class="need">
+            <span class="need-check" aria-hidden="true">✓</span>
+            <div class="need-text">
+              <h3>OBS Studio 30+</h3>
+              <p>Avec son serveur WebSocket activé (Outils → Paramètres du serveur WebSocket).</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="why" class="shell">
+        <div class="section-head">
+          <h2>Pourquoi un overlay analogique ?</h2>
+          <p>
+            Les overlays de touches classiques montrent une touche enfoncée ou relâchée ; votre
+            clavier à effet Hall est analogique, montrez ce qu'il sait vraiment faire.<br />
+            Halcyon est la façon la plus simple et la plus complète de le faire : entièrement
+            personnalisable, rien à installer.
+          </p>
+        </div>
+        <div class="grid grid--pairs">
+          <article class="card">
+            <span class="glyph glyph--bars" aria-hidden="true">
+              <i></i><i></i><i></i>
+            </span>
+            <h3>La pression, pas seulement le clic</h3>
+            <p>
+              Chaque touche se remplit selon la profondeur d'appui et change de couleur à
+              l'actionnement. Le stream montre les demi-pressions, les effleurements, les
+              relâchements Rapid Trigger : tout ce qu'un visualiseur de clavier tout-ou-rien laisse
+              passer.
+            </p>
+          </article>
+
+          <article class="card">
+            <span class="glyph glyph--mono" aria-hidden="true">
+              <span class="dot"></span>
+              OBS · connecté
+            </span>
+            <h3>Prêt en 3 étapes</h3>
+            <p>
+              Un assistant vous guide : le clavier est détecté tout seul, OBS se connecte avec une
+              URL à copier-coller, et vous ajoutez des touches simplement en appuyant dessus. Aucun
+              fichier à modifier.
+            </p>
+          </article>
+
+          <article class="card">
+            <span class="glyph glyph--keys" aria-hidden="true">
+              <i></i><i></i><i></i>
+            </span>
+            <h3>Votre style, jusqu'à la touche</h3>
+            <p>
+              Couleurs, taille, sens de remplissage, arrondi des angles, opacité : tout se règle,
+              globalement ou touche par touche. Disposez les touches librement sur le canevas et
+              n'affichez que celles qui comptent.
+            </p>
+          </article>
+
+          <article class="card">
+            <span class="glyph glyph--local" aria-hidden="true">
+              <span class="chip">
+                <span class="pc"></span>PC
+                <span class="wire"></span>
+                <span class="dot"></span>OBS
+              </span>
+            </span>
+            <h3>Local, privé, zéro latence</h3>
+            <p>
+              Tout se passe entre votre navigateur et votre propre OBS : frappes, dispositions et
+              paramètres de connexion à OBS ne quittent jamais votre PC. Aucun serveur entre les
+              deux, aucun délai.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section id="demos" class="shell">
+        <div class="section-head">
+          <h2>Voyez-le en action</h2>
+          <p>
+            Des situations où l'analogique change vraiment ce que vos spectateurs Twitch ou YouTube
+            comprennent.
+          </p>
+        </div>
+        <div class="grid grid--pairs">
+          <article class="demo">
+            <div class="media media--demo" role="img" aria-label="Clip FPS, bientôt disponible">
+              <span class="media-glyph" aria-hidden="true">▶</span>
+              <span class="media-label">Vidéo bientôt disponible</span>
+            </div>
+            <div class="demo-text">
+              <h3>Le counter-strafe, enfin visible</h3>
+              <p>
+                FPS compétitif : filmez un duel où vous vous arrêtez net d'une pression opposée.
+                L'overlay montre A qui se relâche pendant que D monte : le geste que le chat demande
+                toujours.
+              </p>
+            </div>
+          </article>
+
+          <article class="demo">
+            <div class="media media--demo" role="img" aria-label="Clip de course, bientôt disponible">
+              <span class="media-glyph" aria-hidden="true">▶</span>
+              <span class="media-label">Vidéo bientôt disponible</span>
+            </div>
+            <div class="demo-text">
+              <h3>Le contrôle d'une manette, sur des touches</h3>
+              <p>
+                Jeu de course ou Rocket League en mode axe : un virage serré avec l'accélérateur tenu
+                à 60 %. Une jauge qui flotte à mi-course prouve que le clavier est vraiment
+                analogique. La réponse parfaite à « c'est impossible au clavier ».
+              </p>
+            </div>
+          </article>
+
+          <article class="demo">
+            <div class="media media--demo" role="img" aria-label="Clip avant / après, bientôt disponible">
+              <span class="media-glyph" aria-hidden="true">▶</span>
+              <span class="media-label">Vidéo bientôt disponible</span>
+            </div>
+            <div class="demo-text">
+              <h3>Avant / après</h3>
+              <p>
+                La même partie en écran partagé : overlay tout-ou-rien d'un côté, Halcyon de l'autre.
+                Dix secondes suffisent pour que la différence saute aux yeux. Parfait en short pour
+                les réseaux ou en clip Twitch.
+              </p>
+            </div>
+          </article>
+
+          <article class="demo">
+            <div class="media media--demo" role="img" aria-label="Timelapse d'installation, bientôt disponible">
+              <span class="media-glyph" aria-hidden="true">▶</span>
+              <span class="media-label">Vidéo bientôt disponible</span>
+            </div>
+            <div class="demo-text">
+              <h3>Du lancement au direct en 90 secondes</h3>
+              <p>
+                Timelapse d'une vraie installation : clavier détecté, OBS connecté, touches ajoutées
+                en appuyant dessus. La meilleure preuve que « prêt en 3 étapes » n'est pas un slogan.
+              </p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="setup" class="shell">
+        <div class="section-head section-head--narrow">
+          <h2>Prêt en trois étapes</h2>
+          <p>L'assistant fait le travail ; chaque étape se valide d'elle-même.</p>
+        </div>
+        <div class="grid grid--thirds">
+          <article class="card card--step">
+            <span class="step-number" aria-hidden="true">1</span>
+            <h3>Branchez votre clavier</h3>
+            <p>L'application détecte votre clavier analogique automatiquement. Rien à configurer.</p>
+          </article>
+
+          <article class="card card--step">
+            <span class="step-number" aria-hidden="true">2</span>
+            <h3>Connectez OBS</h3>
+            <p>
+              Collez l'URL fournie dans une source navigateur. Vos paramètres de connexion à OBS
+              restent sur votre machine.
+            </p>
+          </article>
+
+          <article class="card card--step">
+            <span class="step-number" aria-hidden="true">3</span>
+            <h3>Appuyez sur vos touches</h3>
+            <p>
+              Chaque touche pressée rejoint l'overlay, déjà en place. Réorganisez, recolorez et
+              redimensionnez à votre guise.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section id="faq" class="faq shell">
+        <div class="section-head">
+          <h2>Questions</h2>
+          <p>
+            Les réponses courtes. Le
+            <a href="https://github.com/MaximeBier/Halcyon#readme" hreflang="en">guide complet</a>
+            (en anglais) a les longues.
+          </p>
+        </div>
+        <div class="faq-list">
+          <details>
+            <summary>
+              Quelque chose quitte-t-il mon PC ?<span class="faq-mark" aria-hidden="true">+</span>
+            </summary>
+            <p>
+              Non. Vos frappes, vos dispositions et votre mot de passe OBS restent dans votre
+              navigateur et ne voyagent que vers votre propre OBS, sur votre réseau local. Pas de
+              compte, pas de stockage côté serveur, pas de statistiques. Deux personnes qui utilisent
+              le site en même temps ne voient pas les touches l'une de l'autre.
+            </p>
+          </details>
+          <details>
+            <summary>
+              Quels claviers sont pris en charge ?<span class="faq-mark" aria-hidden="true">+</span>
+            </summary>
+            <p>
+              Tous les claviers Wooting à interrupteurs analogiques à effet Hall (60HE, 80HE, Two HE
+              et leurs variantes). Les autres marques analogiques (Razer, SteelSeries, Keychron,
+              DrunkDeer…) utilisent leurs propres protocoles et ne sont pas encore prises en charge.
+              Vous voulez le vôtre ensuite ?
+              <a href="https://github.com/MaximeBier/Halcyon/issues">Ouvrez un ticket sur GitHub</a>.
+            </p>
+          </details>
+          <details>
+            <summary>
+              Pourquoi seulement Chrome ou Edge ?<span class="faq-mark" aria-hidden="true">+</span>
+            </summary>
+            <p>
+              Lire la course des touches demande WebHID, que seuls les navigateurs Chromium
+              implémentent. Tout navigateur basé sur Chromium fonctionne ; Firefox et Safari non.
+              L'overlay lui-même tourne dans le navigateur intégré d'OBS, cela ne concerne donc que la
+              page de configuration.
+            </p>
+          </details>
+          <details>
+            <summary>
+              Mon mot de passe OBS est-il en sécurité dans l'URL ?<span
+                class="faq-mark"
+                aria-hidden="true"
+                >+</span
+              >
+            </summary>
+            <p>
+              Il ne quitte jamais votre machine, mais il est visible dans les propriétés de la source
+              navigateur. Gardez la fenêtre des propriétés d'OBS et la page de capture hors antenne,
+              comme n'importe quel écran de réglages.
+            </p>
+          </details>
+          <details>
+            <summary>
+              Est-ce que ça me coûtera des images par seconde en jeu ?<span
+                class="faq-mark"
+                aria-hidden="true"
+                >+</span
+              >
+            </summary>
+            <p>
+              L'overlay est un SVG dans une source navigateur, redessiné seulement quand une touche
+              bouge. C'est du même ordre qu'un widget de chat. La page de capture peut rester réduite
+              une fois vos touches placées.
+            </p>
+          </details>
+          <details>
+            <summary>
+              Est-ce compatible avec Streamlabs ou d'autres logiciels ?<span
+                class="faq-mark"
+                aria-hidden="true"
+                >+</span
+              >
+            </summary>
+            <p>
+              OBS Studio 30 et plus seulement, pour l'instant : Halcyon parle à OBS par son serveur
+              WebSocket intégré. La page de l'overlay peut aussi s'ouvrir dans n'importe quelle
+              fenêtre de navigateur si vous voulez l'enregistrer autrement.
+            </p>
+          </details>
+          <details>
+            <summary>Est-ce vraiment gratuit ?<span class="faq-mark" aria-hidden="true">+</span></summary>
+            <p>
+              Oui. Pas d'offre premium, pas de filigrane. Le code source est public sur GitHub sous
+              licence PolyForm Shield : vous pouvez le lire, le modifier et héberger votre propre
+              copie, tant que vous ne l'utilisez pas pour bâtir un produit concurrent.
+            </p>
+          </details>
+        </div>
+      </section>
+
+      <div class="closing shell">
+        <div class="closing-panel">
+          <h2>Votre clavier en dit plus que ce que vous montrez.</h2>
+          <p>Gratuit, local, prêt en trois étapes.</p>
+          <a class="btn btn--primary" href="/capture.html">Configurer votre overlay</a>
+        </div>
+      </div>
+    </main>
+
+    <!-- No link to overlay.html here either: see the English page for why. -->
+    <footer class="sitefoot">
+      <div class="shell">
+        <span class="name">
+          <b>HALCYON</b>
+          <span class="build">%BUILD%</span>
+        </span>
+        <span class="right">
+          Créé par <a href="https://discord.com/users/140557011694780416">Maxime Bier (@zfaw)</a>
+        </span>
+        <span>
+          Code source disponible sous
+          <a href="https://github.com/MaximeBier/Halcyon/blob/main/LICENSE.md">licence PolyForm Shield</a>
+        </span>
+        <span class="links">
+          <a href="https://github.com/MaximeBier/Halcyon">GitHub</a>
+          <a href="https://github.com/MaximeBier/Halcyon#readme">Guide</a>
+          <a href="https://github.com/MaximeBier/Halcyon/issues">Signaler un problème</a>
+        </span>
+      </div>
+    </footer>
+  </body>
+</html>

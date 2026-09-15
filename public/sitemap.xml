@@ -1,7 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- One page, on purpose: robots.txt says why the other two stay out. -->
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<!-- The home page in its two languages, each naming the other, so that a
+     search engine shows the French reader the French one. The application
+     pages stay out: robots.txt says why. -->
+<urlset
+  xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+  xmlns:xhtml="http://www.w3.org/1999/xhtml"
+>
   <url>
     <loc>https://halcyon.wardensquad.fr/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://halcyon.wardensquad.fr/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://halcyon.wardensquad.fr/fr/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://halcyon.wardensquad.fr/" />
+  </url>
+  <url>
+    <loc>https://halcyon.wardensquad.fr/fr/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://halcyon.wardensquad.fr/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://halcyon.wardensquad.fr/fr/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://halcyon.wardensquad.fr/" />
   </url>
 </urlset>
