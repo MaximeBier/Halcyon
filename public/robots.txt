@@ -1,0 +1,9 @@
+# The home page is the only page meant for a search result. The other two are
+# the application: the capture editor, which is empty without a keyboard and
+# OBS on the same machine, and the overlay, whose URL carries a password in
+# its fragment. Neither answers a query anyone types into a search engine.
+User-agent: *
+Disallow: /capture.html
+Disallow: /overlay.html
+
+Sitemap: https://halcyon.wardensquad.fr/sitemap.xml
