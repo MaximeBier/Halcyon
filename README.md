@@ -67,6 +67,11 @@ Under **Global style → Behavior → Keys at rest** you choose how much of the
 keyboard shows while your hands are still: the whole thing, the outlines alone,
 or nothing at all until a key goes down.
 
+Under **Global style → Label** you pick the typeface of the key labels — Archivo,
+Fredoka, Chakra Petch, or a font installed on your PC — and the size and outline
+of the text. An installed font has to be installed on the PC running OBS too;
+if it is missing there, the overlay draws Archivo and **Diagnostics** says so.
+
 ## Start it automatically
 
 Optional. Put a shortcut in your Windows Startup folder — press `Win`+`R` and
