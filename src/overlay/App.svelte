@@ -7,6 +7,7 @@
   import { newPageId } from '../protocol/identity';
   import KeyboardView from '../view/KeyboardView.svelte';
   import BrowserChrome from './BrowserChrome.svelte';
+  import { canvasMeasure, missingFont } from './font-check';
   import type { FrameKey } from '../protocol/messages';
   import type { ResolvedConfig } from '../config/schema';
 
@@ -27,6 +28,13 @@
    * because something re-evaluated.
    */
   let { decorated }: { decorated: boolean } = $props();
+
+  /**
+   * The family this overlay was asked for and cannot draw. Plain, not a rune:
+   * it is only ever read into the next presence message.
+   */
+  let missing: string | null = null;
+  const measure = canvasMeasure();
 
   let connected = $state(false);
   let rate = $state(0);
@@ -56,14 +64,29 @@
       // OBS has been restarted under it.
       connected = status === 'identified';
       if (status === 'identified')
-        obs.broadcast({ v: PROTOCOL_VERSION, t: 'hello', id, browser: decorated });
+        obs.broadcast({
+          v: PROTOCOL_VERSION,
+          t: 'hello',
+          id,
+          browser: decorated,
+          missingFont: missing,
+        });
     },
     onMessage: (message) => {
       // The overlay discards hello, beat and bye, which are its own messages,
       // and here and gone, which the capture pages exchange among themselves
       // (spec §6). Presence is never its business.
-      if (message.t === 'config') config = message.config;
-      else if (message.t === 'frame') {
+      if (message.t === 'config') {
+        config = message.config;
+        // Measured on every configuration, and reported at once when the
+        // answer changes rather than at the next beat: whoever just picked
+        // the font is looking at the panel now, not in two seconds.
+        const verdict = measure ? missingFont(config.fontFamily, config.fontWeight, measure) : null;
+        if (verdict !== missing) {
+          missing = verdict;
+          beat();
+        }
+      } else if (message.t === 'frame') {
         frame = message.k;
         // Counted and read on the frame itself: no interval decides how fresh
         // the figure is, which is what "instantly" means here.
@@ -75,6 +98,10 @@
     },
   });
 
+  function beat() {
+    obs.broadcast({ v: PROTOCOL_VERSION, t: 'beat', id, browser: decorated, missingFont: missing });
+  }
+
   obs.connect();
 
   // A timer is allowed here: OBS renders the overlay continuously (spec §2.2).
@@ -84,7 +111,7 @@
     // Same clock as the WebHID report timestamps the capture page feeds in:
     // both are measured from `performance.timeOrigin`.
     obs.ensureConnected(performance.now());
-    obs.broadcast({ v: PROTOCOL_VERSION, t: 'beat', id, browser: decorated });
+    beat();
     // The beat no longer measures anything — it only lets the figure fall.
     // Without this re-read the count would freeze at its last value the moment
     // frames stopped, printing 58/s beside a link that had gone quiet.

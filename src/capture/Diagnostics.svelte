@@ -26,6 +26,7 @@
     probe,
     obsProbe,
     sources,
+    missingFonts,
     onCaptureRaw,
     onToggleProbe,
     onTestObs,
@@ -52,6 +53,11 @@
     obsProbe: ObsProbeStatus | null;
     /** Our sources as OBS lists them, or null while nobody has looked. */
     sources: HalcyonSource[] | null;
+    /**
+     * Families an overlay was asked for and could not draw: installed here,
+     * where the profile was made, and not on the PC running OBS.
+     */
+    missingFonts: readonly string[];
     onCaptureRaw: () => void;
     onToggleProbe: () => void;
     onTestObs: () => void;
@@ -170,6 +176,13 @@
 
   <section>
     <h3>OBS connection</h3>
+    <!-- Ours to report and not an error: the overlay goes on drawing, in the
+         face it brings itself, which is why the line says what is drawn. -->
+    {#each missingFonts as family (family)}
+      <p class="missing" data-missing-font>
+        {family} is not installed on the PC running OBS · drawn in Archivo
+      </p>
+    {/each}
     {#if sources !== null}
       <p class="sources" data-sources>
         {#if sources.length === 0}
@@ -263,6 +276,11 @@
   }
   .at {
     color: var(--he-border-hover);
+  }
+  .missing {
+    margin: 0;
+    font-size: var(--he-size-xs);
+    color: var(--he-override);
   }
   .agent {
     /* A user agent is one long unbreakable token; without this it widens the

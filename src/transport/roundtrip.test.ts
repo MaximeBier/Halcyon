@@ -105,8 +105,20 @@ describe('capture to overlay round trip', () => {
 
     await vi.waitFor(() => expect(second.status).toBe('identified'));
 
-    first.broadcast({ v: PROTOCOL_VERSION, t: 'hello', id: 'first', browser: false });
-    second.broadcast({ v: PROTOCOL_VERSION, t: 'beat', id: 'second', browser: false });
+    first.broadcast({
+      v: PROTOCOL_VERSION,
+      t: 'hello',
+      id: 'first',
+      browser: false,
+      missingFont: null,
+    });
+    second.broadcast({
+      v: PROTOCOL_VERSION,
+      t: 'beat',
+      id: 'second',
+      browser: false,
+      missingFont: null,
+    });
     capture.broadcast({ v: PROTOCOL_VERSION, t: 'frame', from: 'capture-a', k: [] });
 
     expect(registry.counts(1000).inObs).toBe(2);
@@ -130,10 +142,22 @@ describe('capture to overlay round trip', () => {
     await vi.waitFor(() => expect(overlay.status).toBe('identified'));
 
     for (let reload = 0; reload < 10; reload++) {
-      overlay.broadcast({ v: PROTOCOL_VERSION, t: 'hello', id: `run-${reload}`, browser: false });
+      overlay.broadcast({
+        v: PROTOCOL_VERSION,
+        t: 'hello',
+        id: `run-${reload}`,
+        browser: false,
+        missingFont: null,
+      });
       overlay.broadcast({ v: PROTOCOL_VERSION, t: 'bye', id: `run-${reload}` });
     }
-    overlay.broadcast({ v: PROTOCOL_VERSION, t: 'hello', id: 'run-final', browser: false });
+    overlay.broadcast({
+      v: PROTOCOL_VERSION,
+      t: 'hello',
+      id: 'run-final',
+      browser: false,
+      missingFont: null,
+    });
 
     expect(registry.counts(1000).inObs).toBe(1);
   });
@@ -228,7 +252,13 @@ describe('capture to overlay round trip - staying fresh', () => {
     await vi.waitFor(() => expect(overlay.status).toBe('identified'));
 
     session.handleReport(report(entry(174, 0x50, 700, 0x01)), 0);
-    overlay.broadcast({ v: PROTOCOL_VERSION, t: 'beat', id: 'ov', browser: false });
+    overlay.broadcast({
+      v: PROTOCOL_VERSION,
+      t: 'beat',
+      id: 'ov',
+      browser: false,
+      missingFont: null,
+    });
 
     expect(received.filter((m) => m.t === 'frame')).toEqual([
       { v: PROTOCOL_VERSION, t: 'frame', from: 'capture-a', k: [[174, 700, 1]] },

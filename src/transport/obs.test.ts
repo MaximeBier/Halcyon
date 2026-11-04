@@ -114,9 +114,15 @@ describe('createObsClient', () => {
     const { client, socket } = setup();
     client.connect();
 
-    expect(client.broadcast({ v: PROTOCOL_VERSION, t: 'hello', id: 'test', browser: false })).toBe(
-      false,
-    );
+    expect(
+      client.broadcast({
+        v: PROTOCOL_VERSION,
+        t: 'hello',
+        id: 'test',
+        browser: false,
+        missingFont: null,
+      }),
+    ).toBe(false);
     expect(socket().sent).toHaveLength(0);
   });
 
@@ -141,13 +147,23 @@ describe('createObsClient', () => {
       op: 5,
       d: {
         eventType: 'CustomEvent',
-        eventData: { heOverlay: { v: PROTOCOL_VERSION, t: 'hello', id: 'test', browser: false } },
+        eventData: {
+          heOverlay: {
+            v: PROTOCOL_VERSION,
+            t: 'hello',
+            id: 'test',
+            browser: false,
+            missingFont: null,
+          },
+        },
       },
     });
     socket().receive({ op: 5, d: { eventType: 'CustomEvent', eventData: { other: true } } });
     socket().receive({ op: 5, d: { eventType: 'CurrentSceneChanged', eventData: {} } });
 
-    expect(messages).toEqual([{ v: PROTOCOL_VERSION, t: 'hello', id: 'test', browser: false }]);
+    expect(messages).toEqual([
+      { v: PROTOCOL_VERSION, t: 'hello', id: 'test', browser: false, missingFont: null },
+    ]);
   });
 
   it('ensureConnected does not reopen an already identified socket', () => {
@@ -237,7 +253,13 @@ describe('createObsClient', () => {
     expect(client.status).toBe('identified');
     expect(sockets).toHaveLength(2);
 
-    client.broadcast({ v: PROTOCOL_VERSION, t: 'hello', id: 'test', browser: false });
+    client.broadcast({
+      v: PROTOCOL_VERSION,
+      t: 'hello',
+      id: 'test',
+      browser: false,
+      missingFont: null,
+    });
     expect(socket().sent.length).toBeGreaterThan(0);
   });
 
@@ -441,7 +463,9 @@ describe('an overlay speaking a protocol we cannot read', () => {
     // wondering why their overlay went blank after a deploy (spec §11).
     const { socket, versions, messages } = setupWithVersions();
 
-    socket().receive(event({ heOverlay: { v: 7, t: 'hello', id: 'a', browser: false } }));
+    socket().receive(
+      event({ heOverlay: { v: 7, t: 'hello', id: 'a', browser: false, missingFont: null } }),
+    );
 
     expect(versions).toEqual([7]);
     expect(messages).toEqual([]);
@@ -451,7 +475,9 @@ describe('an overlay speaking a protocol we cannot read', () => {
     const { socket, versions, messages } = setupWithVersions();
 
     socket().receive(
-      event({ heOverlay: { v: PROTOCOL_VERSION, t: 'hello', id: 'a', browser: false } }),
+      event({
+        heOverlay: { v: PROTOCOL_VERSION, t: 'hello', id: 'a', browser: false, missingFont: null },
+      }),
     );
 
     expect(versions).toEqual([]);

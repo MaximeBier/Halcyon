@@ -13,7 +13,7 @@ export interface OverlayRegistry {
    * here: only the page itself can tell, and it decides once before its first
    * paint.
    */
-  seen(id: string, now: number, browser: boolean): void;
+  seen(id: string, now: number, browser: boolean, missingFont?: string | null): void;
   /**
    * Drops an overlay that announced it was leaving, rather than waiting out
    * its timeout. A reload draws a new id, so an overlay that leaves silently
@@ -37,6 +37,11 @@ export interface OverlayRegistry {
    * among them. **A diagnostic that its own use invalidates is not one.**
    */
   counts(now: number): OverlayCounts;
+  /**
+   * The families live overlays say they cannot draw, each named once: two
+   * scenes on the PC running OBS miss the same font for the same reason.
+   */
+  missingFonts(now: number): string[];
 }
 
 /**
@@ -47,13 +52,13 @@ export interface OverlayRegistry {
  * the only thing that tells them apart (spec §11).
  */
 export function createOverlayRegistry(timeoutMs: number = OVERLAY_TIMEOUT_MS): OverlayRegistry {
-  const lastSeen = new Map<string, { at: number; browser: boolean }>();
+  const lastSeen = new Map<string, { at: number; browser: boolean; missingFont: string | null }>();
 
   return {
-    seen(id, now, browser) {
+    seen(id, now, browser, missingFont = null) {
       // Keyed by id, so a page that somehow reported a different host replaces
       // its own entry rather than adding a second listener.
-      lastSeen.set(id, { at: now, browser });
+      lastSeen.set(id, { at: now, browser, missingFont });
     },
     forget(id) {
       lastSeen.delete(id);
@@ -69,6 +74,14 @@ export function createOverlayRegistry(timeoutMs: number = OVERLAY_TIMEOUT_MS): O
         else live.inObs++;
       }
       return live;
+    },
+    missingFonts(now) {
+      const missing = new Set<string>();
+      for (const entry of lastSeen.values()) {
+        if (now - entry.at <= timeoutMs && entry.missingFont !== null)
+          missing.add(entry.missingFont);
+      }
+      return [...missing];
     },
   };
 }

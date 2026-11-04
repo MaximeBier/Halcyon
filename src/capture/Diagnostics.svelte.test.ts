@@ -30,6 +30,7 @@ function panel(overrides: Record<string, unknown> = {}) {
     probe: null,
     obsProbe: null,
     sources: null as HalcyonSource[] | null,
+    missingFonts: [] as string[],
     ...handlers,
     ...overrides,
   };
@@ -305,5 +306,21 @@ describe('a copy button that cannot lie', () => {
 
     expect(button(container, 'copy').textContent).toMatch(/copy log/i);
     vi.unstubAllGlobals();
+  });
+});
+
+describe('Diagnostics - a font the overlay cannot draw', () => {
+  it('says which, where, and what is drawn instead', () => {
+    const { container } = panel({ missingFonts: ['Bahnschrift'] });
+    const line = container.querySelector('[data-missing-font]');
+
+    expect(line?.textContent).toContain('Bahnschrift is not installed on the PC running OBS');
+    expect(line?.textContent).toContain('drawn in Archivo');
+  });
+
+  it('says nothing while every overlay draws its font', () => {
+    const { container } = panel();
+
+    expect(container.querySelector('[data-missing-font]')).toBeNull();
   });
 });

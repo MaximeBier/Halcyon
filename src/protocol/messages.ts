@@ -1,4 +1,4 @@
-import { isResolvedConfig } from '../config/validate';
+import { isResolvedConfig, isStyleValue } from '../config/validate';
 import type { ResolvedConfig } from '../config/schema';
 import { MAX_TRAVEL } from '../keyboard/analog-report';
 
@@ -23,7 +23,8 @@ import { MAX_TRAVEL } from '../keyboard/analog-report';
  * would have reloaded every source in OBS for nothing.
  *
  * 6 since 2026-11-04: `fontFamily` and `fontWeight` left `keys[].style` for
- * the root, beside two new root fields, `labelSize` and `labelOutline`.
+ * the root, beside two new root fields, `labelSize` and `labelOutline` — and
+ * `hello` and `beat` gained `missingFont` the same day, under the same number.
  */
 export const PROTOCOL_VERSION = 6;
 
@@ -49,12 +50,24 @@ export type HelloMessage = {
    * OBS was among them. **The diagnostic tool broke the diagnostic.**
    */
   browser: boolean;
+  /**
+   * The family the configuration asks for and this overlay cannot draw, or
+   * null. Measured where it is drawn: the font has to be installed on the PC
+   * running OBS, which may not be the one the profile was made on.
+   */
+  missingFont: string | null;
 };
 export type BeatMessage = {
   v: typeof PROTOCOL_VERSION;
   t: 'beat';
   id: string;
   browser: boolean;
+  /**
+   * Carried on every beat, not only on hello: hello leaves before the first
+   * configuration arrives, so it can never know, and a beat sent the moment
+   * the answer changes is what reports it.
+   */
+  missingFont: string | null;
 };
 /**
  * Sent as the overlay page goes away. Expiry alone cannot replace it: a reload
@@ -204,6 +217,10 @@ export function parseMessage(payload: unknown): OverlayMessage | null {
     // report an overlay inside OBS that nobody there can see. `bye` is exempt —
     // it says who is leaving, and where it was makes no difference to that.
     if (typeof browser !== 'boolean') return null;
+    const { missingFont } = inner as { missingFont?: unknown };
+    // Shown as it arrives in Diagnostics, so it is held to what a profile may
+    // name; absent is refused like `browser`, and `null` is the ordinary case.
+    if (missingFont !== null && !isStyleValue('fontFamily', missingFont)) return null;
   }
 
   return inner as OverlayMessage;

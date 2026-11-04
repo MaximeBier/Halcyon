@@ -10,8 +10,10 @@ const aConfig = resolve(defaultConfig());
 
 describe('protocol envelope', () => {
   it('wraps a message under the heOverlay key', () => {
-    expect(envelope({ v: PROTOCOL_VERSION, t: 'hello', id: 'test', browser: false })).toEqual({
-      heOverlay: { v: PROTOCOL_VERSION, t: 'hello', id: 'test', browser: false },
+    expect(
+      envelope({ v: PROTOCOL_VERSION, t: 'hello', id: 'test', browser: false, missingFont: null }),
+    ).toEqual({
+      heOverlay: { v: PROTOCOL_VERSION, t: 'hello', id: 'test', browser: false, missingFont: null },
     });
   });
 
@@ -30,7 +32,15 @@ describe('protocol envelope', () => {
 
   it('ignores an unknown protocol version', () => {
     expect(
-      parseMessage({ heOverlay: { v: PROTOCOL_VERSION + 1, t: 'hello', id: 'a', browser: false } }),
+      parseMessage({
+        heOverlay: {
+          v: PROTOCOL_VERSION + 1,
+          t: 'hello',
+          id: 'a',
+          browser: false,
+          missingFont: null,
+        },
+      }),
     ).toBeNull();
   });
 
@@ -45,8 +55,10 @@ describe('protocol envelope', () => {
     // OBS was in there. So presence carries where it comes from (spec §16.7).
     for (const t of ['hello', 'beat'] as const) {
       expect(
-        parseMessage({ heOverlay: { v: PROTOCOL_VERSION, t, id: 'a', browser: true } }),
-      ).toEqual({ v: PROTOCOL_VERSION, t, id: 'a', browser: true });
+        parseMessage({
+          heOverlay: { v: PROTOCOL_VERSION, t, id: 'a', browser: true, missingFont: null },
+        }),
+      ).toEqual({ v: PROTOCOL_VERSION, t, id: 'a', browser: true, missingFont: null });
     }
   });
 
@@ -57,6 +69,29 @@ describe('protocol envelope', () => {
     expect(
       parseMessage({ heOverlay: { v: PROTOCOL_VERSION, t: 'beat', id: 'a', browser: 'yes' } }),
     ).toBeNull();
+  });
+
+  it('carries, in hello and beat, the family the overlay could not draw', () => {
+    // The overlay measures it once the configuration has arrived, and only it
+    // can: the font has to be on the PC running OBS, not on this one.
+    for (const t of ['hello', 'beat'] as const) {
+      const message = {
+        v: PROTOCOL_VERSION,
+        t,
+        id: 'a',
+        browser: false,
+        missingFont: 'Bahnschrift',
+      };
+      expect(parseMessage({ heOverlay: message })).toEqual(message);
+    }
+  });
+
+  it('refuses a hello or beat that does not say whether its font is drawn', () => {
+    const presence = { v: PROTOCOL_VERSION, t: 'beat', id: 'a', browser: false };
+
+    expect(parseMessage({ heOverlay: presence })).toBeNull();
+    expect(parseMessage({ heOverlay: { ...presence, missingFont: 42 } })).toBeNull();
+    expect(parseMessage({ heOverlay: { ...presence, missingFont: '' } })).toBeNull();
   });
 
   it('asks nothing of bye but the id', () => {
@@ -75,7 +110,9 @@ describe('protocol envelope', () => {
     expect(parseMessage({ heOverlay: { v: PROTOCOL_VERSION, t: 'beat' } })).toBeNull();
     expect(parseMessage({ heOverlay: { v: PROTOCOL_VERSION, t: 'hello', id: 42 } })).toBeNull();
     expect(
-      parseMessage({ heOverlay: { v: PROTOCOL_VERSION, t: 'hello', id: '', browser: false } }),
+      parseMessage({
+        heOverlay: { v: PROTOCOL_VERSION, t: 'hello', id: '', browser: false, missingFont: null },
+      }),
     ).toBeNull();
     // A bye is the one that removes a listener, so an unchecked id here would
     // let anyone on the same obs-websocket blank the count.
@@ -267,7 +304,9 @@ describe('naming a version we cannot read', () => {
 
   it('says nothing about a message at our own version', () => {
     expect(
-      foreignVersion({ heOverlay: { v: PROTOCOL_VERSION, t: 'hello', id: 'a', browser: false } }),
+      foreignVersion({
+        heOverlay: { v: PROTOCOL_VERSION, t: 'hello', id: 'a', browser: false, missingFont: null },
+      }),
     ).toBeNull();
   });
 

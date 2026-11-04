@@ -165,3 +165,35 @@ describe('createOverlayRegistry - where each overlay is', () => {
     expect(registry.counts(5000 + OVERLAY_TIMEOUT_MS)).toEqual({ inObs: 0, inBrowser: 1 });
   });
 });
+
+describe('createOverlayRegistry - a font an overlay cannot draw', () => {
+  it('names it while the overlay that reported it is alive', () => {
+    const registry = createOverlayRegistry();
+    registry.seen('a', 1000, false, 'Bahnschrift');
+    registry.seen('b', 1000, false, null);
+
+    expect(registry.missingFonts(1000)).toEqual(['Bahnschrift']);
+  });
+
+  it('names a family once, however many overlays miss it', () => {
+    const registry = createOverlayRegistry();
+    registry.seen('a', 1000, false, 'Bahnschrift');
+    registry.seen('b', 1000, false, 'Bahnschrift');
+
+    expect(registry.missingFonts(1000)).toEqual(['Bahnschrift']);
+  });
+
+  it('forgets it when the overlay draws it after all, leaves, or goes quiet', () => {
+    const registry = createOverlayRegistry();
+    registry.seen('a', 1000, false, 'Bahnschrift');
+    registry.seen('a', 2000, false, null);
+    expect(registry.missingFonts(2000)).toEqual([]);
+
+    registry.seen('b', 2000, false, 'Bahnschrift');
+    registry.forget('b');
+    expect(registry.missingFonts(2000)).toEqual([]);
+
+    registry.seen('c', 2000, false, 'Bahnschrift');
+    expect(registry.missingFonts(2000 + OVERLAY_TIMEOUT_MS + 1)).toEqual([]);
+  });
+});

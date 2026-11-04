@@ -265,6 +265,8 @@
    * whether the one in OBS was among them (spec §16.7).
    */
   let listeners = $state({ inObs: 0, inBrowser: 0 });
+  /** Families the live overlays say they cannot draw (Diagnostics, and the ⚙ dot). */
+  let missingFonts = $state<string[]>([]);
 
   /** The scene table as the follower last reported it; mirrored into a rune for the popover. */
   let sceneState = $state<SceneState>({ scenes: null, live: null, links: [] });
@@ -299,7 +301,11 @@
   const journal = createJournal();
   let log = $state<readonly JournalEntry[]>([]);
   /** §9.3: a fold says in its header when what it hides is ours to fix. */
-  const toReport = $derived(log.filter((entry) => entry.kind === 'bug').length);
+  // A font the PC running OBS lacks counts as something to report: the overlay
+  // draws on, in Archivo, and nothing on air would ever say so.
+  const toReport = $derived(
+    log.filter((entry) => entry.kind === 'bug').length + missingFonts.length,
+  );
 
   function note(kind: 'user' | 'bug', message: string) {
     journal.add(kind, message, performance.now());
@@ -444,7 +450,11 @@
    * helper.
    */
   function refreshOverlays() {
-    const next = overlays.counts(performance.now());
+    const now = performance.now();
+    const missing = overlays.missingFonts(now);
+    // Compared as text for the reason the counts are compared by hand below.
+    if (missing.join('\n') !== missingFonts.join('\n')) missingFonts = missing;
+    const next = overlays.counts(now);
     if (next.inObs !== listeners.inObs || next.inBrowser !== listeners.inBrowser) {
       // An overlay in OBS saying hello is a source that was not there at the
       // last scan: the bus event *is* the moment the count changed, which is
@@ -1204,6 +1214,7 @@
         probe={probeReading}
         {obsProbe}
         {sources}
+        {missingFonts}
         onCaptureRaw={() => (capturing = true)}
         onToggleProbe={toggleProbe}
         onTestObs={testObs}
