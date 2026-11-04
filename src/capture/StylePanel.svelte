@@ -3,6 +3,9 @@
   import { FONT_CATALOG, fontStack } from '../config/fonts';
   import { normalizeHex } from '../config/validate';
   import { PRESETS, presetFor, withPreset } from './presets';
+  import InstalledFontsMenu from './InstalledFontsMenu.svelte';
+  import { defaultWeight, families, type InstalledFamily } from './installed-fonts';
+  import { browserLocalFonts, type FontAccess, type LocalFonts } from './local-fonts';
   /** Shared with `KeyPopover`, whose three choices are the same three since 2026-08-26. */
   import {
     BORDER_STATES,
@@ -41,9 +44,11 @@
   let {
     config,
     onChange,
+    localFonts = browserLocalFonts,
   }: {
     config: OverlayConfig;
     onChange: (next: OverlayConfig) => void;
+    localFonts?: LocalFonts;
   } = $props();
 
   type Group = 'colors' | 'shape' | 'label' | 'behavior';
@@ -63,6 +68,109 @@
   function toggle(group: Group) {
     open[group] = !open[group];
   }
+
+  /** `null` until the Label group first opens: nothing is asked of Chrome before. */
+  let access = $state<FontAccess | null>(null);
+  /** The installed families, once read — and `null` for as long as they are not. */
+  let installed = $state<InstalledFamily[] | null>(null);
+  /** What the open menu shows, or `null` while it is shut. */
+  let menu = $state<InstalledFamily[] | 'denied' | null>(null);
+  let slot = $state<HTMLElement | null>(null);
+  let asked = false;
+
+  /** Neither of the embedded faces: the family came from this machine, or another one. */
+  const installedChosen = $derived(
+    !FONT_CATALOG.some(({ family }) => family === config.style.fontFamily),
+  );
+  const entry = $derived(installed?.find(({ family }) => family === config.style.fontFamily));
+  /**
+   * A family the profile names and this machine does not have — a profile made
+   * on the other PC. The name is kept and said to be missing, never replaced:
+   * the PC running OBS may well have it.
+   */
+  const notHere = $derived(installedChosen && installed !== null && entry === undefined);
+
+  /**
+   * Asks where the permission stands when the group first opens, and reads
+   * the list straight away if it is already granted — reading needs no
+   * gesture then, and it is what lets the tile say "not installed here"
+   * before anyone clicks it.
+   */
+  $effect(() => {
+    if (!open.label || asked) return;
+    asked = true;
+    void localFonts.access().then(async (state) => {
+      access = state;
+      if (state !== 'granted') return;
+      try {
+        const faces = await localFonts.read();
+        if (faces !== 'denied') installed = families(faces);
+      } catch {
+        // Unread is a state the panel already handles: the menu reads again.
+      }
+    });
+  });
+
+  /**
+   * Called from the click and reading in the same breath: Chrome grants its
+   * permission prompt to a gesture, and an await before `read()` would spend
+   * it. Read again on every click until a list comes back, so that someone who
+   * re-allowed fonts in the site's settings only has to click the tile again.
+   */
+  function toggleInstalled() {
+    if (menu !== null) {
+      menu = null;
+      return;
+    }
+    if (installed !== null) {
+      menu = installed;
+      return;
+    }
+    localFonts
+      .read()
+      .then((faces) => {
+        if (faces === 'denied') {
+          access = 'denied';
+          menu = 'denied';
+          return;
+        }
+        access = 'granted';
+        installed = families(faces);
+        menu = installed;
+      })
+      .catch(() => {
+        menu = null;
+      });
+  }
+
+  function pick(chosen: InstalledFamily) {
+    const weight = defaultWeight(chosen.weights.map(({ weight }) => weight));
+    onChange(setFont(config, chosen.family, weight));
+    menu = null;
+  }
+
+  // The doctrine of every other popover on this page: Escape and a pointer
+  // outside close it, and the tile's own click reaches `toggleInstalled`
+  // because the tile is inside `slot`.
+  $effect(() => {
+    if (menu === null) return;
+
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      menu = null;
+      slot?.querySelector<HTMLElement>('[data-installed]')?.focus();
+    };
+    const onPointer = (event: PointerEvent) => {
+      if (!slot?.contains(event.target as Node)) menu = null;
+    };
+
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', onPointer);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', onPointer);
+    };
+  });
 
   /**
    * Keys that answer for their own resting state, and so are not covered by
@@ -397,17 +505,73 @@
               <span class="name">{family}</span>
             </button>
           {/each}
-          <button
-            type="button"
-            class="font installed"
-            data-installed
-            disabled
-            title="Not available yet"
-          >
-            <span class="sample plus" aria-hidden="true">+</span>
-            <span class="name">Installed font</span>
-          </button>
+          <div class="slot" bind:this={slot}>
+            <!--
+              The click on the empty place is the gesture Chrome wants before it
+              asks for the fonts: the list is read here, never on load.
+            -->
+            <button
+              type="button"
+              class="font installed"
+              class:on={installedChosen}
+              data-installed
+              aria-pressed={installedChosen}
+              aria-expanded={menu !== null}
+              aria-haspopup="dialog"
+              disabled={access === 'unsupported'}
+              title={access === 'unsupported'
+                ? 'This browser cannot list the fonts installed here'
+                : undefined}
+              onclick={toggleInstalled}
+            >
+              {#if installedChosen}
+                <span
+                  class="sample"
+                  style:font-family={fontStack(config.style.fontFamily)}
+                  style:font-weight={config.style.fontWeight}
+                  aria-hidden="true">Aa</span
+                >
+                <span class="names">
+                  <span class="name chosen"
+                    >{config.style.fontFamily} <span class="more" aria-hidden="true">▾</span></span
+                  >
+                  <span class="name legend">Installed font</span>
+                  <!-- Only once the list is known: before that, absent and
+                       unread look the same, and saying so would be a guess. -->
+                  {#if notHere}
+                    <span class="missing" data-not-installed>Not installed here</span>
+                  {/if}
+                </span>
+              {:else}
+                <span class="sample plus" aria-hidden="true">+</span>
+                <span class="name">Installed font</span>
+              {/if}
+            </button>
+            {#if menu !== null}
+              <InstalledFontsMenu families={menu} current={config.style.fontFamily} onPick={pick} />
+            {/if}
+          </div>
         </div>
+
+        <!-- Only for a family with a choice to make: an embedded face has one
+             weight, and so does many an installed family. Never a number to
+             type — the faces are named as the family names them. -->
+        {#if installedChosen && entry && entry.weights.length > 1}
+          <div class="row">
+            <label for="global-fontWeight">Style</label>
+            <select
+              id="global-fontWeight"
+              name="fontWeight"
+              value={String(config.style.fontWeight)}
+              onchange={(event) =>
+                onChange(setFont(config, entry.family, Number(event.currentTarget.value)))}
+            >
+              {#each entry.weights as { weight, style } (weight)}
+                <option value={String(weight)}>{style}</option>
+              {/each}
+            </select>
+          </div>
+        {/if}
 
         <!-- "Text size", never "Size": "Key size" in Shape changes the whole
              key, and this changes the letters alone. -->
@@ -851,6 +1015,28 @@
   }
   .font:disabled {
     cursor: default;
+  }
+  .slot {
+    position: relative;
+    display: grid;
+  }
+  .names {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+  }
+  .name.chosen {
+    color: var(--he-text);
+  }
+  .more,
+  .name.legend {
+    color: var(--he-text-faint);
+  }
+  .missing {
+    font-size: var(--he-size-xs);
+    color: var(--he-override);
+    white-space: nowrap;
   }
   /* A specimen, not text to read: 26 px is the size at which three faces tell
      themselves apart in a tile, and it sits outside the interface's scale on

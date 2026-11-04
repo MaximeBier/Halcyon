@@ -62,6 +62,13 @@ else
   fail "the permissions policy would close WebHID"
 fi
 
+# Without this one, the installed fonts can no longer be listed for the labels.
+if grep -qi 'permissions-policy:.*local-fonts=(self)' <<<"$headers"; then
+  ok "Local Font Access stays allowed"
+else
+  fail "the permissions policy would close Local Font Access"
+fi
+
 # The CEF inside OBS keeps a persistent disk cache: a source stuck on a stale
 # version keeps working, which makes it hard to even suspect.
 if grep -qi 'cache-control:.*no-cache' <<<"$headers"; then

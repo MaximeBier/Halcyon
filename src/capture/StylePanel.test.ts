@@ -1,8 +1,11 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, cleanup } from '@testing-library/svelte';
 import StylePanel from './StylePanel.svelte';
+import Harness from './StylePanel.harness.svelte';
 import { DEFAULT_STYLE, defaultConfig, type OverlayConfig } from '../config/schema';
 import { PRESETS } from './presets';
+import { tick } from 'svelte';
+import type { FontAccess, LocalFonts } from './local-fonts';
 
 afterEach(cleanup);
 
@@ -213,6 +216,22 @@ describe('StylePanel - the label', () => {
     });
   });
 
+  it('moves from face to face, each click taking over the mark', async () => {
+    const localFonts: LocalFonts = {
+      access: async () => 'granted',
+      read: async () => [{ family: 'Arial', style: 'Bold' }],
+    };
+    const { container } = render(Harness, { props: { initial: defaultConfig(), localFonts } });
+    head(container, 'label').click();
+    for (let i = 0; i < 6; i++) await tick();
+
+    for (const family of ['Fredoka', 'Chakra Petch', 'Archivo']) {
+      tile(container, family).click();
+      await tick();
+      expect(tile(container, family).getAttribute('aria-pressed'), family).toBe('true');
+    }
+  });
+
   it('keeps a fourth place for an installed font', async () => {
     const { container } = await panel(defaultConfig(), 'label');
 
@@ -249,6 +268,182 @@ describe('StylePanel - the label', () => {
     expect(
       container.querySelector('[data-label-outline="normal"]')!.getAttribute('aria-pressed'),
     ).toBe('true');
+  });
+});
+
+describe('StylePanel - an installed font', () => {
+  const FACES = [
+    { family: 'Bahnschrift', style: 'Regular' },
+    { family: 'Bahnschrift', style: 'SemiBold' },
+    { family: 'Bahnschrift', style: 'Bold' },
+    { family: 'Impact', style: 'Regular' },
+    { family: 'Arial', style: 'Bold' },
+  ];
+
+  function fonts(access: FontAccess, read: LocalFonts['read'] = async () => FACES): LocalFonts {
+    return { access: vi.fn(async () => access), read: vi.fn(read) };
+  }
+
+  /** Lets the promises the panel chains — access, then read — all resolve. */
+  async function settle() {
+    for (let i = 0; i < 6; i++) await tick();
+  }
+
+  /** Opens the Label group and lets the access check settle. */
+  async function labelPanel(localFonts: LocalFonts, config = defaultConfig()) {
+    const onChange = vi.fn();
+    const view = render(StylePanel, { props: { config, onChange, localFonts } });
+    head(view.container, 'label').click();
+    await settle();
+    return { ...view, onChange };
+  }
+
+  const slot = (container: Element) =>
+    container.querySelector<HTMLButtonElement>('[data-installed]')!;
+
+  async function openMenu(container: Element) {
+    slot(container).click();
+    await settle();
+    return container.querySelector<HTMLElement>('[data-installed-menu]');
+  }
+
+  it('asks Chrome on the click, and lists what it hands back', async () => {
+    const localFonts = fonts('prompt');
+    const { container } = await labelPanel(localFonts);
+
+    expect(localFonts.read).not.toHaveBeenCalled();
+    const menu = await openMenu(container);
+
+    expect(localFonts.read).toHaveBeenCalledTimes(1);
+    expect(menu?.textContent).toContain('Installed · 3');
+    const names = [...menu!.querySelectorAll('[data-family]')].map((row) =>
+      row.textContent?.trim(),
+    );
+    expect(names).toEqual(['Arial', 'Bahnschrift', 'Impact']);
+  });
+
+  it('reminds that the font has to be on the PC running OBS too', async () => {
+    const { container } = await labelPanel(fonts('prompt'));
+
+    expect((await openMenu(container))?.textContent).toMatch(/PC running OBS/);
+  });
+
+  it('filters the list as the name is typed', async () => {
+    const { container } = await labelPanel(fonts('prompt'));
+    const menu = (await openMenu(container))!;
+    const search = menu.querySelector<HTMLInputElement>('input[type="search"]')!;
+
+    search.value = 'bahn';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+    await tick();
+
+    expect(menu.querySelectorAll('[data-family]')).toHaveLength(1);
+  });
+
+  it('writes the family chosen at its bold, and closes', async () => {
+    const { container, onChange } = await labelPanel(fonts('prompt'));
+    const menu = (await openMenu(container))!;
+
+    menu.querySelector<HTMLButtonElement>('[data-family="Bahnschrift"]')!.click();
+    await tick();
+
+    expect(onChange.mock.calls[0]![0].style).toMatchObject({
+      fontFamily: 'Bahnschrift',
+      fontWeight: 700,
+    });
+    expect(container.querySelector('[data-installed-menu]')).toBeNull();
+  });
+
+  it('takes the face nearest to bold for a family without one', async () => {
+    const { container, onChange } = await labelPanel(fonts('prompt'));
+    const menu = (await openMenu(container))!;
+
+    menu.querySelector<HTMLButtonElement>('[data-family="Impact"]')!.click();
+
+    expect(onChange.mock.calls[0]![0].style.fontWeight).toBe(400);
+  });
+
+  it('says how to give access back when Chrome refuses', async () => {
+    const { container } = await labelPanel(fonts('prompt', async () => 'denied'));
+    const menu = await openMenu(container);
+
+    expect(menu?.textContent).toContain('Chrome blocked access to your fonts.');
+    expect(menu?.textContent).toMatch(/site.s settings/);
+  });
+
+  it('closes on Escape', async () => {
+    const { container } = await labelPanel(fonts('prompt'));
+    await openMenu(container);
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await tick();
+
+    expect(container.querySelector('[data-installed-menu]')).toBeNull();
+  });
+
+  it('cannot be opened in a browser that has no way to list fonts', async () => {
+    const { container } = await labelPanel(fonts('unsupported'));
+
+    expect(slot(container).disabled).toBe(true);
+  });
+
+  describe('once one is chosen', () => {
+    const chosen = (family: string, weight = 700) => {
+      const config = defaultConfig();
+      config.style.fontFamily = family;
+      config.style.fontWeight = weight;
+      return config;
+    };
+
+    it('fills the fourth place, and the place still says what it is', async () => {
+      const { container } = await labelPanel(fonts('prompt'), chosen('Bahnschrift'));
+
+      expect(slot(container).getAttribute('aria-pressed')).toBe('true');
+      expect(slot(container).textContent).toContain('Bahnschrift');
+      expect(slot(container).textContent).toContain('Installed font');
+      expect(container.querySelector('[data-font="Archivo"]')!.getAttribute('aria-pressed')).toBe(
+        'false',
+      );
+    });
+
+    it('offers its faces when the family has more than one', async () => {
+      const { container, onChange } = await labelPanel(fonts('granted'), chosen('Bahnschrift'));
+      const select = container.querySelector<HTMLSelectElement>('select[name="fontWeight"]')!;
+
+      expect([...select.options].map((option) => option.textContent)).toEqual([
+        'Regular',
+        'SemiBold',
+        'Bold',
+      ]);
+      expect(select.value).toBe('700');
+
+      change(select as unknown as HTMLInputElement, '600');
+      expect(onChange.mock.calls[0]![0].style).toMatchObject({
+        fontFamily: 'Bahnschrift',
+        fontWeight: 600,
+      });
+    });
+
+    it('offers no Style row for a family with a single face', async () => {
+      const { container } = await labelPanel(fonts('granted'), chosen('Arial'));
+
+      expect(container.querySelector('select[name="fontWeight"]')).toBeNull();
+    });
+
+    it('says when the family is not installed on this machine', async () => {
+      // A profile from another PC: the name is kept, never replaced in silence.
+      const { container } = await labelPanel(fonts('granted'), chosen('Ghost Sans'));
+
+      expect(container.querySelector('[data-not-installed]')?.textContent).toMatch(
+        /not installed here/i,
+      );
+    });
+
+    it('says nothing about it while the list is unknown', async () => {
+      const { container } = await labelPanel(fonts('prompt'), chosen('Ghost Sans'));
+
+      expect(container.querySelector('[data-not-installed]')).toBeNull();
+    });
   });
 });
 
