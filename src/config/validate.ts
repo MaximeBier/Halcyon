@@ -45,6 +45,20 @@ export const REST_VISIBILITIES: readonly string[] = ['filled', 'outline', 'hidde
  */
 export const ACTIVE_BORDERS: readonly string[] = ['fixed', 'active'];
 
+/** The steps the scene has a ratio for, and nothing else. */
+export const LABEL_SIZES: readonly string[] = ['s', 'm', 'l'];
+export const LABEL_OUTLINES: readonly string[] = ['none', 'thin', 'normal', 'thick'];
+
+/**
+ * A family name that can sit quoted inside a CSS stack.
+ *
+ * Any name a machine may have installed, but not the characters that would
+ * close the quotes or the declaration early: what followed them would become
+ * the rest of the stack. The length cap keeps a pasted paragraph out of every
+ * export of the profile.
+ */
+const FONT_FAMILY = /^[^'"\\;{}<>\p{Cc}]{1,100}$/u;
+
 /**
  * The one colour syntax accepted.
  *
@@ -97,6 +111,9 @@ export function isStyleValue(property: string, value: unknown): boolean {
   if (property === 'fillDirection') return FILL_DIRECTIONS.includes(value as string);
   if (property === 'restVisibility') return REST_VISIBILITIES.includes(value as string);
   if (property === 'activeBorder') return ACTIVE_BORDERS.includes(value as string);
+  if (property === 'labelSize') return LABEL_SIZES.includes(value as string);
+  if (property === 'labelOutline') return LABEL_OUTLINES.includes(value as string);
+  if (property === 'fontFamily') return FONT_FAMILY.test(value as string);
   if (COLOR_KEYS.includes(property)) return HEX_COLOR.test(value as string);
   // A unit of zero collapses the scene, a negative one produces an invalid SVG
   // width that browsers discard: a blank overlay, on air, in silence.
@@ -230,6 +247,13 @@ export function isResolvedConfig(value: unknown): value is ResolvedConfig {
     inBounds(config.radius as number, RADIUS_BOUNDS) &&
     isNonNegative(config.borderWidth) &&
     inBounds(config.borderWidth as number, BORDER_WIDTH_BOUNDS) &&
+    // The label settings joined the root on 2026-11-04, and go through the
+    // very rule import applies instead of a copy of it: a copy is how the two
+    // sides came to disagree about the two sizes above.
+    isStyleValue('fontFamily', config.fontFamily) &&
+    isStyleValue('fontWeight', config.fontWeight) &&
+    isStyleValue('labelSize', config.labelSize) &&
+    isStyleValue('labelOutline', config.labelOutline) &&
     Array.isArray(config.keys) &&
     config.keys.every(isResolvedKey)
   );

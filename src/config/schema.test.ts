@@ -41,8 +41,6 @@ describe('default values', () => {
         'activeColor',
         'fillColor',
         'fillDirection',
-        'fontFamily',
-        'fontWeight',
         'opacity',
         'borderColor',
         'restColor',
@@ -64,8 +62,19 @@ describe('default values', () => {
     // real case turned up — a hidden overlay with three keys kept on screen —
     // and the schema had said so in advance: global "deliberately", and adding
     // it later costs one field. It cost one field. `radius` joined them the
-    // day `borderColor` left: nobody ever rounded one key differently.
-    const globalOnly = ['unit', 'gap', 'radius', 'borderWidth'];
+    // day `borderColor` left: nobody ever rounded one key differently. The
+    // label's font, size and outline followed on 2026-11-04 — two typefaces in
+    // one overlay serve no real case, and no interface ever offered one per key.
+    const globalOnly = [
+      'unit',
+      'gap',
+      'radius',
+      'borderWidth',
+      'fontFamily',
+      'fontWeight',
+      'labelSize',
+      'labelOutline',
+    ];
     const inheritable = Object.keys(DEFAULT_STYLE).filter((key) => !globalOnly.includes(key));
 
     expect([...STYLE_KEYS].sort()).toEqual(inheritable.sort());
@@ -78,6 +87,17 @@ describe('default values', () => {
   it('carries no font size: it is computed from the key', () => {
     expect(JSON.stringify(DEFAULT_STYLE)).not.toMatch(/\d+px/);
     expect(JSON.stringify(DEFAULT_STYLE)).not.toContain('fontSize');
+  });
+
+  it('draws the label as it always was by default', () => {
+    expect(DEFAULT_STYLE.labelSize).toBe('m');
+    expect(DEFAULT_STYLE.labelOutline).toBe('normal');
+  });
+
+  it('stores a family name, never a CSS stack', () => {
+    // The fallbacks are the renderer's business: a stack stored in a profile
+    // would be exported, compared and shown in the panel as if it were a name.
+    expect(DEFAULT_STYLE.fontFamily).toBe('Archivo');
   });
 
   it('trusts the detected layout by default', () => {

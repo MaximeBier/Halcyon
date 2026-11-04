@@ -22,6 +22,10 @@ const config: ResolvedConfig = {
   gap: 10,
   radius: 4,
   borderWidth: DEFAULT_STYLE.borderWidth,
+  fontFamily: DEFAULT_STYLE.fontFamily,
+  fontWeight: DEFAULT_STYLE.fontWeight,
+  labelSize: DEFAULT_STYLE.labelSize,
+  labelOutline: DEFAULT_STYLE.labelOutline,
   keys: [
     {
       id: 174,
@@ -41,8 +45,6 @@ const config: ResolvedConfig = {
         borderColor: DEFAULT_STYLE.borderColor,
         restVisibility: 'filled',
         activeBorder: 'fixed',
-        fontFamily: DEFAULT_STYLE.fontFamily,
-        fontWeight: DEFAULT_STYLE.fontWeight,
       },
     },
   ],

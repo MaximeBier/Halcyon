@@ -21,8 +21,11 @@ import { MAX_TRAVEL } from '../keyboard/analog-report';
  * changed. A v5 overlay drops a type it does not know without a word, which is
  * the right outcome for a message it was never meant to read, and a bump
  * would have reloaded every source in OBS for nothing.
+ *
+ * 6 since 2026-11-04: `fontFamily` and `fontWeight` left `keys[].style` for
+ * the root, beside two new root fields, `labelSize` and `labelOutline`.
  */
-export const PROTOCOL_VERSION = 5;
+export const PROTOCOL_VERSION = 6;
 
 /** [matrix index, travel 0..1023, actuation]. `active` is always transmitted. */
 export type FrameKey = readonly [id: number, travel: number, active: 0 | 1];

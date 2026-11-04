@@ -419,6 +419,8 @@ describe('migrate - a key may not carry a global-only setting', () => {
             borderColor: '#ff00aa',
             borderWidth: 9,
             radius: 12,
+            fontFamily: 'Fredoka',
+            fontWeight: 400,
             restVisibility: 'outline',
             opacity: 0.5,
           },
@@ -455,6 +457,51 @@ describe('migrate - a key may not carry a global-only setting', () => {
         radius: 12,
         restVisibility: 'outline',
       });
+  });
+});
+
+describe('migrate - the label font, size and outline', () => {
+  const read = (style: Record<string, unknown>) => {
+    const result = migrate({ version: 1, layout: 'iso', keys: [], style });
+    if (!result.ok) throw new Error('refused');
+    return result.config.style;
+  };
+
+  it('gives a profile written before the two settings the label it always had', () => {
+    expect(read({})).toMatchObject({ labelSize: 'm', labelOutline: 'normal' });
+  });
+
+  it('keeps a text size and an outline it knows', () => {
+    expect(read({ labelSize: 's', labelOutline: 'thick' })).toMatchObject({
+      labelSize: 's',
+      labelOutline: 'thick',
+    });
+  });
+
+  it('puts back the default for a value outside the lists', () => {
+    expect(read({ labelSize: 'xl', labelOutline: 'bold' })).toMatchObject({
+      labelSize: DEFAULT_STYLE.labelSize,
+      labelOutline: DEFAULT_STYLE.labelOutline,
+    });
+  });
+
+  it('brings a stored CSS stack back to its first name', () => {
+    // What every profile carried before 2026-11-04: the default was the stack
+    // itself. Kept as a stack, it would read as a family nobody has installed.
+    expect(read({ fontFamily: "'Archivo', system-ui, sans-serif" }).fontFamily).toBe('Archivo');
+    expect(read({ fontFamily: ' "Chakra Petch" , serif' }).fontFamily).toBe('Chakra Petch');
+  });
+
+  it('keeps a plain family name as it is', () => {
+    expect(read({ fontFamily: 'Bahnschrift', fontWeight: 600 })).toMatchObject({
+      fontFamily: 'Bahnschrift',
+      fontWeight: 600,
+    });
+  });
+
+  it('refuses a family name that could not sit inside a stack', () => {
+    expect(read({ fontFamily: 'a;b' }).fontFamily).toBe(DEFAULT_STYLE.fontFamily);
+    expect(read({ fontFamily: 'x'.repeat(101) }).fontFamily).toBe(DEFAULT_STYLE.fontFamily);
   });
 });
 

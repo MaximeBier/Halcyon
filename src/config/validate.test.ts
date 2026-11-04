@@ -190,11 +190,37 @@ describe('isResolvedConfig - rules that must match the import side', () => {
     expect(styled({ opacity: OPACITY_BOUNDS.min - 0.1 })).toBe(false);
   });
 
-  it('refuses a font weight outside the numeric CSS scale', () => {
-    expect(styled({ fontWeight: FONT_WEIGHT_BOUNDS.min })).toBe(true);
-    expect(styled({ fontWeight: FONT_WEIGHT_BOUNDS.max })).toBe(true);
-    expect(styled({ fontWeight: FONT_WEIGHT_BOUNDS.min - 1 })).toBe(false);
-    expect(styled({ fontWeight: FONT_WEIGHT_BOUNDS.max + 9000 })).toBe(false);
+  it('refuses a font weight outside the numeric CSS scale, on the root it now sits on', () => {
+    const config = resolved();
+
+    expect(isResolvedConfig({ ...config, fontWeight: FONT_WEIGHT_BOUNDS.min })).toBe(true);
+    expect(isResolvedConfig({ ...config, fontWeight: FONT_WEIGHT_BOUNDS.max })).toBe(true);
+    expect(isResolvedConfig({ ...config, fontWeight: FONT_WEIGHT_BOUNDS.min - 1 })).toBe(false);
+    expect(isResolvedConfig({ ...config, fontWeight: FONT_WEIGHT_BOUNDS.max + 9000 })).toBe(false);
+  });
+
+  it('refuses a root without the label font, which every key is drawn in', () => {
+    const { fontFamily: _dropped, ...partial } = resolved();
+
+    expect(isResolvedConfig(partial)).toBe(false);
+  });
+
+  it('refuses a family name that would break out of the font stack', () => {
+    // The name ends up quoted inside a CSS stack: a quote or a semicolon in it
+    // closes the string early and the rest of the stack is whatever follows.
+    const config = resolved();
+
+    expect(isResolvedConfig({ ...config, fontFamily: 'Chakra Petch' })).toBe(true);
+    expect(isResolvedConfig({ ...config, fontFamily: "Evil', serif" })).toBe(false);
+    expect(isResolvedConfig({ ...config, fontFamily: 'a;b' })).toBe(false);
+    expect(isResolvedConfig({ ...config, fontFamily: '' })).toBe(false);
+  });
+
+  it('refuses a text size or an outline the scene has no ratio for', () => {
+    const config = resolved();
+
+    expect(isResolvedConfig({ ...config, labelSize: 'xl' })).toBe(false);
+    expect(isResolvedConfig({ ...config, labelOutline: 'bold' })).toBe(false);
   });
 });
 

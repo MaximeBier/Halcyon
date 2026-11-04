@@ -20,8 +20,6 @@ const style = {
   borderColor: DEFAULT_STYLE.borderColor,
   restVisibility: DEFAULT_STYLE.restVisibility,
   activeBorder: DEFAULT_STYLE.activeBorder,
-  fontFamily: DEFAULT_STYLE.fontFamily,
-  fontWeight: DEFAULT_STYLE.fontWeight,
 };
 
 const key = (over: Partial<ResolvedKey> = {}): ResolvedKey => ({
@@ -47,6 +45,10 @@ const config = (...keys: ResolvedKey[]): ResolvedConfig => ({
   gap: 10,
   radius: DEFAULT_STYLE.radius,
   borderWidth: DEFAULT_STYLE.borderWidth,
+  fontFamily: DEFAULT_STYLE.fontFamily,
+  fontWeight: DEFAULT_STYLE.fontWeight,
+  labelSize: DEFAULT_STYLE.labelSize,
+  labelOutline: DEFAULT_STYLE.labelOutline,
   keys,
 });
 
@@ -499,17 +501,7 @@ describe('buildScene - geometry that must never reach the SVG', () => {
   it('never gives a key a negative size, however wide the gap', () => {
     // A rect with a negative width is an SVG error, and the gap is the user's
     // to set.
-    const scene = buildScene(
-      {
-        version: 1,
-        unit: 20,
-        gap: 40,
-        radius: DEFAULT_STYLE.radius,
-        borderWidth: DEFAULT_STYLE.borderWidth,
-        keys: [key({ w: 0.25 })],
-      },
-      [],
-    );
+    const scene = buildScene({ ...config(key({ w: 0.25 })), unit: 20, gap: 40 }, []);
 
     expect(scene.keys[0]?.w).toBe(0);
     expect(scene.keys[0]?.h).toBe(0);

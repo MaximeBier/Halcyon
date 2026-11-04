@@ -10,6 +10,7 @@ import {
   type OverlayConfig,
 } from './schema';
 import { hasKeyShape, isStyleValue } from './validate';
+import { firstFamily } from './fonts';
 
 export type MigrationResult =
   /**
@@ -60,7 +61,20 @@ function pickStyle(raw: unknown, properties: readonly (keyof GlobalStyle)[]): Lo
 }
 
 function knownStyle(raw: unknown): Partial<GlobalStyle> {
-  return pickStyle(raw, GLOBAL_STYLE_KEYS) as Partial<GlobalStyle>;
+  return pickStyle(withFamilyName(raw), GLOBAL_STYLE_KEYS) as Partial<GlobalStyle>;
+}
+
+/**
+ * Every profile written before 2026-11-04 stored the default stack itself as
+ * its family. Brought down to its first name before the check, or the stack's
+ * quotes would have it refused and a chosen face silently reset to the default.
+ */
+function withFamilyName(raw: unknown): unknown {
+  if (typeof raw !== 'object' || raw === null) return raw;
+
+  const style = raw as Loose;
+  if (typeof style.fontFamily !== 'string') return raw;
+  return { ...style, fontFamily: firstFamily(style.fontFamily) };
 }
 
 /**

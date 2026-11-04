@@ -167,7 +167,7 @@ export function buildScene(
   frame: readonly FrameKey[],
   { pack = false, reveal = false }: SceneOptions = {},
 ): Scene {
-  const { unit, gap, radius, borderWidth } = config;
+  const { unit, gap, radius, borderWidth, fontFamily, fontWeight } = config;
   const states = new Map(frame.map(([id, travel, active]) => [id, { travel, active }]));
 
   let width = 0;
@@ -316,8 +316,8 @@ export function buildScene(
       labelFill: OVERLAY_TOKENS.keyLabel,
       labelOutline: OVERLAY_TOKENS.keyLabelOutline,
       labelOutlineWidth: h * OVERLAY_TOKENS.keyLabelRatio * LABEL_OUTLINE_RATIO,
-      fontFamily: key.style.fontFamily,
-      fontWeight: key.style.fontWeight,
+      fontFamily,
+      fontWeight,
       // Proportional: a frozen pixel size breaks on resize and becomes
       // unreadable at the real stream size (mockup 4b).
       fontSize: h * OVERLAY_TOKENS.keyLabelRatio,

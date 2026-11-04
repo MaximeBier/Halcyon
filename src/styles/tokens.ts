@@ -27,7 +27,7 @@ export const OVERLAY_TOKENS = {
   keyUnit: 72,
   keyGap: 8,
   keyOpacity: 1,
-  keyFontFamily: "'Archivo', system-ui, sans-serif",
+  keyFontFamily: 'Archivo',
   keyFontWeight: 700,
   /** Label height, as a fraction of the key height (spec §16.3). */
   keyLabelRatio: 0.4,

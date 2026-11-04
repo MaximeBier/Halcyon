@@ -196,8 +196,8 @@
    * Hands the whole selection back to the global style, in one write.
    *
    * Every override the heading counted, not only the six the section draws:
-   * an imported profile may carry an opacity or a font per key, which nothing
-   * here can set — and a button that says "reset to global" while leaving one
+   * an imported profile may carry an opacity per key, which nothing here can
+   * set — and a button that says "reset to global" while leaving one
    * behind is worse than no button.
    */
   function resetStyle() {
@@ -514,8 +514,9 @@
     <!--
       Every appearance property a key may hold, in a flat section between two
       hairlines (board 3a) — the inset card it used to sit in is gone. Seven of
-      the ten: opacity and the two font properties stay global — two typefaces
-      in one overlay serve no real case. The radius left this section on
+      the eight: opacity stays global. The label's font left the keys
+      altogether on 2026-11-04 — two typefaces in one overlay serve no real
+      case. The radius left this section on
       2026-09-05, the day the border's colour joined it: nobody ever rounded
       one key differently, and everybody wanted the coral key's outline coral.
 

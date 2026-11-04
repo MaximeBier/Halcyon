@@ -73,6 +73,16 @@ export type RestVisibility = 'filled' | 'outline' | 'hidden';
  */
 export type ActiveBorder = 'fixed' | 'active';
 
+/**
+ * How tall a label is drawn, as a step rather than a size: the size itself is
+ * computed from the key height, so a pixel value here would be wrong on every
+ * key but one.
+ */
+export type LabelSize = 's' | 'm' | 'l';
+
+/** How thick the label's outline is, as a step of its text size. */
+export type LabelOutline = 'none' | 'thin' | 'normal' | 'thick';
+
 /** Appearance properties, the only ones subject to inheritance (spec §8.2). */
 export interface KeyStyle {
   restColor: string;
@@ -132,12 +142,6 @@ export interface KeyStyle {
    * itself, that one does not.
    */
   activeBorder: ActiveBorder;
-  /**
-   * Family and weight only: the label size is computed from the key height
-   * (spec §16.3), so it is never set here.
-   */
-  fontFamily: string;
-  fontWeight: number;
 }
 
 export interface GlobalStyle extends KeyStyle {
@@ -157,6 +161,21 @@ export interface GlobalStyle extends KeyStyle {
    * thicknesses in one layout read as a mistake, two colours as a theme.
    */
   borderWidth: number;
+  /**
+   * The family the labels are drawn in: a name, never a CSS stack — the
+   * fallbacks are the renderer's to add.
+   *
+   * Global since 2026-11-04. The model, the resolution and the renderer had
+   * accepted one per key from the start without any interface offering it, so
+   * an override that arrived by import was drawn and counted among a key's
+   * overrides with no row to show it. Two typefaces in one overlay serve no
+   * real case.
+   */
+  fontFamily: string;
+  /** Chosen with the family, never typed: an embedded face has one weight. */
+  fontWeight: number;
+  labelSize: LabelSize;
+  labelOutline: LabelOutline;
   /** Pixels per key unit. */
   unit: number;
   /** Gap between keys, in pixels. */
@@ -206,6 +225,10 @@ export interface ResolvedConfig {
   gap: number;
   radius: number;
   borderWidth: number;
+  fontFamily: string;
+  fontWeight: number;
+  labelSize: LabelSize;
+  labelOutline: LabelOutline;
   keys: ResolvedKey[];
 }
 
@@ -228,8 +251,6 @@ const INHERITABLE: Record<keyof KeyStyle, true> = {
   borderColor: true,
   restVisibility: true,
   activeBorder: true,
-  fontFamily: true,
-  fontWeight: true,
 };
 
 export const STYLE_KEYS = Object.keys(INHERITABLE) as readonly (keyof KeyStyle)[];
@@ -294,6 +315,8 @@ export const DEFAULT_STYLE: GlobalStyle = {
   radius: OVERLAY_TOKENS.keyRadius,
   fontFamily: OVERLAY_TOKENS.keyFontFamily,
   fontWeight: OVERLAY_TOKENS.keyFontWeight,
+  labelSize: 'm',
+  labelOutline: 'normal',
   // Layout dimensions, and the user still sets them — but their starting
   // point comes from the mockup like every other value here.
   unit: OVERLAY_TOKENS.keyUnit,

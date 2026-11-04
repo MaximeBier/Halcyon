@@ -99,6 +99,10 @@ export function resolve(config: OverlayConfig): ResolvedConfig {
     gap: config.style.gap,
     radius: config.style.radius,
     borderWidth: config.style.borderWidth,
+    fontFamily: config.style.fontFamily,
+    fontWeight: config.style.fontWeight,
+    labelSize: config.style.labelSize,
+    labelOutline: config.style.labelOutline,
     keys: config.keys.map((key) => ({
       id: key.id,
       usage: key.usage,

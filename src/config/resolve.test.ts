@@ -47,9 +47,24 @@ describe('resolve', () => {
       borderColor: DEFAULT_STYLE.borderColor,
       restVisibility: DEFAULT_STYLE.restVisibility,
       activeBorder: DEFAULT_STYLE.activeBorder,
-      fontFamily: DEFAULT_STYLE.fontFamily,
-      fontWeight: DEFAULT_STYLE.fontWeight,
     });
+  });
+
+  it('lifts the label settings to the root, where every key reads them', () => {
+    const config = withKeys(key());
+    config.style.fontFamily = 'Fredoka';
+    config.style.labelSize = 'l';
+    config.style.labelOutline = 'none';
+
+    const resolved = resolve(config);
+
+    expect(resolved).toMatchObject({
+      fontFamily: 'Fredoka',
+      fontWeight: DEFAULT_STYLE.fontWeight,
+      labelSize: 'l',
+      labelOutline: 'none',
+    });
+    expect('fontFamily' in resolved.keys[0]!.style).toBe(false);
   });
 
   it('inherits the fill direction like any other style property', () => {
@@ -217,6 +232,8 @@ function other(property: keyof GlobalStyle): unknown {
     if (property === 'fillDirection') return 'down';
     if (property === 'restVisibility') return 'hidden';
     if (property === 'activeBorder') return 'active';
+    if (property === 'labelSize') return 'l';
+    if (property === 'labelOutline') return 'thick';
     if (COLOR_KEYS.includes(property)) return '#abcdef';
     return `${value}-changed`;
   })();
@@ -250,7 +267,7 @@ describe('whether the global style has been touched', () => {
   // `GlobalStyle`, so TypeScript refuses to compile it incomplete. This holds
   // the count as a second guard against someone replacing it with a literal.
   it('covers the whole of GlobalStyle, and is kept honest by the type', () => {
-    expect(GLOBAL_STYLE_KEYS).toHaveLength(14);
+    expect(GLOBAL_STYLE_KEYS).toHaveLength(16);
     expect(GLOBAL_STYLE_KEYS).toEqual(expect.arrayContaining([...STYLE_KEYS]));
   });
 });
