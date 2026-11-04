@@ -60,11 +60,21 @@ for weight in 400 600; do
   copy "node_modules/@fontsource/ibm-plex-mono/files/$name" "$DEST/$name"
 done
 
-# Both faces are under the SIL Open Font License, which requires the licence to
-# travel with them. The build inlines the woff2 into dist/assets and leaves the
+# The two other faces a label can be drawn in, beside Archivo: a soft one and an
+# angular one. One weight each, the weight a label is drawn at — a face offered
+# as a choice of typeface has no use for a second weight nobody can pick.
+for family in fredoka chakra-petch; do
+  name="${family}-latin-700-normal.woff2"
+  copy "node_modules/@fontsource/$family/files/$name" "$DEST/$name"
+done
+
+# Every face is under the SIL Open Font License, which requires the licence to
+# travel with it. The build inlines the woff2 into dist/assets and leaves the
 # text behind, so the repository is where it has to live.
 copy node_modules/@fontsource/archivo/LICENSE "$DEST/LICENSE-Archivo.txt"
 copy node_modules/@fontsource/ibm-plex-mono/LICENSE "$DEST/LICENSE-IBM-Plex-Mono.txt"
+copy node_modules/@fontsource/fredoka/LICENSE "$DEST/LICENSE-Fredoka.txt"
+copy node_modules/@fontsource/chakra-petch/LICENSE "$DEST/LICENSE-Chakra-Petch.txt"
 
 if $check && [ "$status" -eq 0 ]; then
   echo "Fonts match the installed packages."

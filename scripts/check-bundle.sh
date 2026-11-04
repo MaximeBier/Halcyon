@@ -64,22 +64,35 @@ grep -qF 'archivo-latin-700' "${sheets[@]}" ||
   fail "the overlay draws its labels in Archivo 700 and does not load the face"
 ok   "the on-air face is loaded"
 
-# 400 is missing on purpose: `fonts-broadcast.css` now declares it too, for
-# `BrowserChrome.svelte`'s browser-only diagnostic chrome (`.file`, `.link`),
-# which OBS never renders. A `@font-face` rule is a promise, not a download —
-# the browser only fetches a face something on the page actually asks for —
-# so that declaration costs the on-air path nothing and would be invisible to
-# a check built to catch bytes, not source lines. What this loop still has to
-# catch is a face that shouldn't be *declared* here at all: 800 is the home
-# page's, not the interface's, and 500/600/ibm-plex-mono belong to the
-# settings interface (`fonts-ui.css`) alone — a face that arrives from a
-# third entry point is no lighter than one that arrives from the second.
-for face in archivo-latin-500 archivo-latin-600 archivo-latin-800 ibm-plex-mono; do
-  if grep -qF "$face" "${sheets[@]}"; then
-    fail "the interface face $face reaches the overlay bundle"
-  fi
+# The faces the overlay may declare, and no other. A `@font-face` rule is a
+# promise, not a download — the browser only fetches a face something on the
+# page asks for — so a declaration costs the on-air path nothing; what this has
+# to catch is a face that should not be declared here at all, arriving from the
+# home page's or the interface's stylesheet.
+#
+# An admission list rather than a list of known leaks: there were four faces to
+# refuse while one went on air, and with three faces a label can be drawn in,
+# the next leak would have been a face nobody thought to name. Archivo 400 is
+# here for `BrowserChrome.svelte`'s browser-only chrome, which OBS never draws.
+allowed=(
+  archivo-latin-400-normal
+  archivo-latin-700-normal
+  fredoka-latin-700-normal
+  chakra-petch-latin-700-normal
+)
+# Vite names them `<face>-<hash>.woff2`; the hash goes, and a file that does
+# not end the way ours do keeps its whole name and fails the list.
+mapfile -t declared < <(grep -ohE '/assets/[^)"'"'"']+\.woff2' "${sheets[@]}" |
+  sed -E 's#^/assets/##; s/^(.+-normal)-[A-Za-z0-9_-]+\.woff2$/\1/' | sort -u)
+
+for face in "${declared[@]}"; do
+  [[ " ${allowed[*]} " == *" $face "* ]] || fail "the face $face reaches the overlay bundle"
 done
-ok   "the interface faces stay out of the overlay bundle"
+for face in fredoka-latin-700-normal chakra-petch-latin-700-normal; do
+  [[ " ${declared[*]} " == *" $face "* ]] ||
+    fail "the overlay offers $face for its labels and does not declare it"
+done
+ok   "the overlay declares the label faces and nothing else"
 
 echo
 echo "Overlay bundle is clean."

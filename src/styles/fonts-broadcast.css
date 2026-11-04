@@ -1,7 +1,8 @@
 /*
- * The one face that goes on air: Archivo 700, the weight the key labels use
- * (`OVERLAY_TOKENS.keyFontWeight`). Loaded by both entry points, because the
- * capture page shows the same preview OBS shows.
+ * The faces that go on air: Archivo 700, the default the key labels use
+ * (`OVERLAY_TOKENS.keyFontWeight`), and the two other faces a label can be
+ * drawn in. Loaded by both entry points, because the capture page shows the
+ * same preview OBS shows.
  *
  * Split from `fonts-ui.css` for the reason `tokens.ts` is split from
  * `ui-tokens.ts` (spec §5.1): the overlay is the bundle OBS keeps loaded for a
@@ -28,6 +29,27 @@
   font-weight: 700;
   font-display: swap;
   src: url('../assets/fonts/archivo-latin-700-normal.woff2') format('woff2');
+}
+
+/*
+ * Declared on every overlay, downloaded by the one that draws them: the
+ * browser fetches a face only when something on the page asks for it, so an
+ * overlay drawn in Archivo pays nothing for these two.
+ */
+@font-face {
+  font-family: 'Fredoka';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../assets/fonts/fredoka-latin-700-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Chakra Petch';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../assets/fonts/chakra-petch-latin-700-normal.woff2') format('woff2');
 }
 
 /*
