@@ -2,6 +2,18 @@
 const SERVED = 'Archivo';
 
 /**
+ * The faces the overlay brings with it, in the order the panel offers them: a
+ * neutral one, the default, then a soft one and an angular one. One weight
+ * each — the weight a label is drawn at — so choosing a face chooses its
+ * weight, and the panel has no weight field to get wrong.
+ */
+export const FONT_CATALOG: readonly { family: string; weight: number }[] = [
+  { family: SERVED, weight: 700 },
+  { family: 'Fredoka', weight: 700 },
+  { family: 'Chakra Petch', weight: 700 },
+];
+
+/**
  * The stack a label is drawn with: the chosen family, then Archivo, then the
  * system.
  *

@@ -6,7 +6,7 @@ import { PRESETS } from './presets';
 
 afterEach(cleanup);
 
-type Group = 'colors' | 'shape' | 'behavior';
+type Group = 'colors' | 'shape' | 'label' | 'behavior';
 
 const head = (container: Element, group: Group) =>
   container.querySelector<HTMLButtonElement>(`[data-group="${group}"]`)!;
@@ -37,7 +37,7 @@ describe('StylePanel - three groups, one open at a time', () => {
     // a column made the keys list something to scroll for.
     const { container } = await panel();
 
-    for (const group of ['colors', 'shape', 'behavior'] as Group[]) {
+    for (const group of ['colors', 'shape', 'label', 'behavior'] as Group[]) {
       expect(head(container, group).getAttribute('aria-expanded')).toBe('false');
     }
     expect(container.querySelector('input, select')).toBeNull();
@@ -170,6 +170,85 @@ describe('StylePanel', () => {
 
     expect(onChange).not.toHaveBeenCalled();
     expect(unit.value).toBe(String(defaultConfig().style.unit));
+  });
+});
+
+describe('StylePanel - the label', () => {
+  const tile = (container: Element, family: string) =>
+    container.querySelector<HTMLButtonElement>(`[data-font="${family}"]`)!;
+
+  it('sits between Shape and Behavior', async () => {
+    const { container } = await panel();
+    const groups = [...container.querySelectorAll('[data-group]')].map((head) =>
+      head.getAttribute('data-group'),
+    );
+
+    expect(groups).toEqual(['colors', 'shape', 'label', 'behavior']);
+  });
+
+  it('shows each embedded face in itself, and marks the one in force', async () => {
+    const { container } = await panel(defaultConfig(), 'label');
+
+    for (const family of ['Archivo', 'Fredoka', 'Chakra Petch']) {
+      const sample = tile(container, family).querySelector<HTMLElement>('[data-sample]')!;
+      expect(sample.style.fontFamily.startsWith(`"${family}"`)).toBe(true);
+    }
+    expect(tile(container, 'Archivo').getAttribute('aria-pressed')).toBe('true');
+    expect(tile(container, 'Fredoka').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('writes the family and its one weight from the face clicked', async () => {
+    // An embedded face has a single weight, so choosing it chooses the weight
+    // too: there is no weight field to set it with afterwards.
+    const config = defaultConfig();
+    config.style.fontWeight = 400;
+    const { container, onChange } = await panel(config, 'label');
+
+    tile(container, 'Chakra Petch').click();
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0]![0].style).toMatchObject({
+      fontFamily: 'Chakra Petch',
+      fontWeight: 700,
+    });
+  });
+
+  it('keeps a fourth place for an installed font', async () => {
+    const { container } = await panel(defaultConfig(), 'label');
+
+    expect(container.querySelector('[data-installed]')?.textContent).toContain('Installed font');
+  });
+
+  it('writes the text size, and leaves the key size alone', async () => {
+    // "Text size" and not "Size": "Key size", in Shape, resizes the whole key.
+    const { container, onChange } = await panel(defaultConfig(), 'label');
+
+    container.querySelector<HTMLButtonElement>('[data-label-size="l"]')!.click();
+
+    const next = onChange.mock.calls[0]![0] as OverlayConfig;
+    expect(next.style.labelSize).toBe('l');
+    expect(next.style.unit).toBe(DEFAULT_STYLE.unit);
+  });
+
+  it('writes the outline, none included', async () => {
+    const { container, onChange } = await panel(defaultConfig(), 'label');
+
+    container.querySelector<HTMLButtonElement>('[data-label-outline="none"]')!.click();
+
+    expect(onChange.mock.calls[0]![0].style.labelOutline).toBe('none');
+  });
+
+  it('marks the size and the outline in force, and names the letters in full', async () => {
+    const { container } = await panel(defaultConfig(), 'label');
+    const medium = container.querySelector('[data-label-size="m"]')!;
+    const small = container.querySelector('[data-label-size="s"]')!;
+
+    expect(medium.getAttribute('aria-pressed')).toBe('true');
+    expect(small.getAttribute('aria-pressed')).toBe('false');
+    expect(small.getAttribute('aria-label')).toMatch(/small/i);
+    expect(
+      container.querySelector('[data-label-outline="normal"]')!.getAttribute('aria-pressed'),
+    ).toBe('true');
   });
 });
 

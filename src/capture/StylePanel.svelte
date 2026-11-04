@@ -1,9 +1,17 @@
 <script lang="ts">
-  import { setGlobalStyle } from '../config/edit';
+  import { setFont, setGlobalStyle } from '../config/edit';
+  import { FONT_CATALOG, fontStack } from '../config/fonts';
   import { normalizeHex } from '../config/validate';
   import { PRESETS, presetFor, withPreset } from './presets';
   /** Shared with `KeyPopover`, whose three choices are the same three since 2026-08-26. */
-  import { BORDER_STATES, FILL_ARROWS, FILL_DIRECTIONS, REST_STATES } from './style-choices';
+  import {
+    BORDER_STATES,
+    FILL_ARROWS,
+    FILL_DIRECTIONS,
+    LABEL_OUTLINES,
+    LABEL_SIZES,
+    REST_STATES,
+  } from './style-choices';
   import {
     BORDER_WIDTH_BOUNDS,
     RADIUS_BOUNDS,
@@ -22,8 +30,9 @@
    * because the preview renders the resolved style either way. Splitting them
    * makes the mistake unwritable rather than merely unlikely.
    *
-   * Three groups since board 3a — Colors, Shape, Behavior — none open by
-   * default: the panel is read far more often than it is edited, and twelve
+   * Groups since board 3a — Colors, Shape, Behavior, and Label between the
+   * last two since 2026-11-04 — none open by default: the panel is read far
+   * more often than it is edited, and twelve
    * controls in a column made the keys list below them something to scroll
    * for. Each opens on its own; the accordion of the first draft shut Colors
    * the moment Shape was opened, and a border is chosen with its colour in
@@ -37,14 +46,19 @@
     onChange: (next: OverlayConfig) => void;
   } = $props();
 
-  type Group = 'colors' | 'shape' | 'behavior';
+  type Group = 'colors' | 'shape' | 'label' | 'behavior';
 
   /**
    * Which groups are open. Component state and nothing more: they start shut
    * on every load, which is what "collapsed by default" means, and a session
    * is exactly how long the memory of which ones were open is worth.
    */
-  let open = $state<Record<Group, boolean>>({ colors: false, shape: false, behavior: false });
+  let open = $state<Record<Group, boolean>>({
+    colors: false,
+    shape: false,
+    label: false,
+    behavior: false,
+  });
 
   function toggle(group: Group) {
     open[group] = !open[group];
@@ -337,6 +351,104 @@
               onchange={(event) => size('gap', event.currentTarget)}
             />
             <span class="unit">px</span>
+          </div>
+        </div>
+      </div>
+    {/if}
+  </div>
+
+  <div class="group" class:open={open.label}>
+    <button
+      type="button"
+      class="head"
+      data-group="label"
+      aria-expanded={open.label}
+      aria-controls="style-label"
+      onclick={() => toggle('label')}
+    >
+      <span class="caret" aria-hidden="true">▸</span>
+      Label
+    </button>
+    {#if open.label}
+      <div class="body" id="style-label">
+        <!--
+          Each face shown in itself rather than named: three names are three
+          words to look up, and "Aa" drawn in the face is the choice itself.
+          The fourth place is for a font installed on this machine, and keeps
+          its dashed edge whatever it holds — the place always says what it is.
+        -->
+        <div class="fonts" role="group" aria-label="Font">
+          {#each FONT_CATALOG as { family, weight } (family)}
+            <button
+              type="button"
+              class="font"
+              data-font={family}
+              class:on={config.style.fontFamily === family}
+              aria-pressed={config.style.fontFamily === family}
+              onclick={() => onChange(setFont(config, family, weight))}
+            >
+              <span
+                class="sample"
+                data-sample
+                style:font-family={fontStack(family)}
+                style:font-weight={weight}
+                aria-hidden="true">Aa</span
+              >
+              <span class="name">{family}</span>
+            </button>
+          {/each}
+          <button
+            type="button"
+            class="font installed"
+            data-installed
+            disabled
+            title="Not available yet"
+          >
+            <span class="sample plus" aria-hidden="true">+</span>
+            <span class="name">Installed font</span>
+          </button>
+        </div>
+
+        <!-- "Text size", never "Size": "Key size" in Shape changes the whole
+             key, and this changes the letters alone. -->
+        <div class="row">
+          <span class="label" id="global-labelSize-label">Text size</span>
+          <div class="segments" role="group" aria-labelledby="global-labelSize-label">
+            {#each LABEL_SIZES as [value, letter, name] (value)}
+              <button
+                type="button"
+                class="segment"
+                data-label-size={value}
+                class:on={config.style.labelSize === value}
+                aria-pressed={config.style.labelSize === value}
+                aria-label={name}
+                title={name}
+                onclick={() => onChange(setGlobalStyle(config, 'labelSize', value))}
+              >
+                {letter}
+              </button>
+            {/each}
+          </div>
+        </div>
+
+        <!-- `None` is for the overlays with nothing behind their labels — keys
+             resting as outlines or hidden, over bright video — where an
+             outline sized for a filled key only weighs on the letters. -->
+        <div class="row">
+          <span class="label" id="global-labelOutline-label">Outline</span>
+          <div class="segments" role="group" aria-labelledby="global-labelOutline-label">
+            {#each LABEL_OUTLINES as [value, label] (value)}
+              <button
+                type="button"
+                class="segment"
+                data-label-outline={value}
+                class:on={config.style.labelOutline === value}
+                aria-pressed={config.style.labelOutline === value}
+                onclick={() => onChange(setGlobalStyle(config, 'labelOutline', value))}
+              >
+                {label}
+              </button>
+            {/each}
           </div>
         </div>
       </div>
@@ -702,6 +814,59 @@
   .segment:focus-visible {
     outline: 2px solid var(--he-accent);
     outline-offset: -2px;
+  }
+
+  .fonts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .font {
+    all: unset;
+    box-sizing: border-box;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px 6px 9px;
+    background: var(--he-surface);
+    border: 1px solid var(--he-border-popover);
+    border-radius: var(--he-radius);
+  }
+  /* An outline, like the presets: the face in force is marked around the
+     tile, never by changing what the tile shows. */
+  .font.on {
+    outline: 2px solid var(--he-text);
+    outline-offset: 1px;
+  }
+  .font:focus-visible {
+    outline: 2px solid var(--he-accent);
+    outline-offset: 1px;
+  }
+  .font.installed {
+    background: none;
+    border: 1px dashed var(--he-border-hover);
+  }
+  .font:disabled {
+    cursor: default;
+  }
+  /* A specimen, not text to read: 26 px is the size at which three faces tell
+     themselves apart in a tile, and it sits outside the interface's scale on
+     purpose. */
+  .sample {
+    font-size: 26px;
+    line-height: 1;
+    color: var(--he-text);
+  }
+  .sample.plus {
+    color: var(--he-text-faint);
+  }
+  .name {
+    font-size: var(--he-size-xs);
+    color: var(--he-text-muted);
+    white-space: nowrap;
   }
 
   .opacity {

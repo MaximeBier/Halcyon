@@ -34,6 +34,15 @@ export function setGlobalStyle<K extends keyof GlobalStyle>(
   return { ...config, style: { ...config.style, [property]: value } };
 }
 
+/**
+ * The label's family and weight, in one write: they are chosen together, and
+ * two writes would be two undo entries and two broadcasts, the first of them
+ * drawing a face at a weight it does not have.
+ */
+export function setFont(config: OverlayConfig, family: string, weight: number): OverlayConfig {
+  return { ...config, style: { ...config.style, fontFamily: family, fontWeight: weight } };
+}
+
 export function setKeyStyle<K extends keyof KeyStyle>(
   config: OverlayConfig,
   ids: readonly number[],

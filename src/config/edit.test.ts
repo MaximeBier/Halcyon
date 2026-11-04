@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   clearKeyStyle,
   recomputeLabels,
+  setFont,
   setGlobalStyle,
   setKeyLabel,
   setKeyMode,
@@ -79,6 +80,14 @@ describe('style editing', () => {
     next = clearKeyStyle(next, [1], 'opacity');
 
     expect(next.keys[0]?.style).toBeUndefined();
+  });
+
+  it('writes a family and its weight together, in one write', () => {
+    const before = config();
+    const next = setFont(before, 'Fredoka', 700);
+
+    expect(next.style).toMatchObject({ fontFamily: 'Fredoka', fontWeight: 700 });
+    expect(before.style.fontFamily).toBe('Archivo');
   });
 
   it('clears a property a key never overrode without inventing one', () => {

@@ -1,4 +1,10 @@
-import type { ActiveBorder, FillDirection, RestVisibility } from '../config/schema';
+import type {
+  ActiveBorder,
+  FillDirection,
+  LabelOutline,
+  LabelSize,
+  RestVisibility,
+} from '../config/schema';
 
 /**
  * The labels the two style editors offer, and the order they offer them in.
@@ -58,4 +64,21 @@ export const REST_STATES: readonly [RestVisibility, string][] = [
 export const BORDER_STATES: readonly [ActiveBorder, string][] = [
   ['fixed', 'Always the same'],
   ['active', 'Active colour'],
+];
+
+/**
+ * A letter on the button and the word for whoever hears it: three words would
+ * not fit beside "Text size" in a 380 px panel, and S / M / L needs no reading.
+ */
+export const LABEL_SIZES: readonly [LabelSize, string, string][] = [
+  ['s', 'S', 'Small'],
+  ['m', 'M', 'Medium'],
+  ['l', 'L', 'Large'],
+];
+
+export const LABEL_OUTLINES: readonly [LabelOutline, string][] = [
+  ['none', 'None'],
+  ['thin', 'Thin'],
+  ['normal', 'Normal'],
+  ['thick', 'Thick'],
 ];
