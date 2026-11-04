@@ -77,6 +77,18 @@ describe('KeyboardView', () => {
     expect(getByText('Q')).toBeTruthy();
   });
 
+  it('draws the label in the chosen family, with its fallbacks behind it', () => {
+    const { getByText } = render(KeyboardView, {
+      props: { config: { ...config, fontFamily: 'Bahnschrift', fontWeight: 600 }, frame: [] },
+    });
+    const label = getByText('Q');
+
+    expect(label.getAttribute('font-family')).toBe(
+      "'Bahnschrift', 'Archivo', system-ui, sans-serif",
+    );
+    expect(label.getAttribute('font-weight')).toBe('600');
+  });
+
   it('never displays the raw value', () => {
     const { queryByText } = render(KeyboardView, {
       props: { config, frame: [[174, 1023, 1] as const] },

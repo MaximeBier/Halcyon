@@ -1,3 +1,20 @@
+/** The face the overlay serves itself, and so the one it can always draw. */
+const SERVED = 'Archivo';
+
+/**
+ * The stack a label is drawn with: the chosen family, then Archivo, then the
+ * system.
+ *
+ * Archivo second, never `system-ui`: a family missing on the machine running
+ * OBS — a profile shared between two PCs — has to fall back to the face the
+ * overlay brings with it, which looks like the product, rather than to
+ * whatever that system calls sans-serif.
+ */
+export function fontStack(family: string): string {
+  const head = family === SERVED ? `'${SERVED}'` : `'${family}', '${SERVED}'`;
+  return `${head}, system-ui, sans-serif`;
+}
+
 /**
  * The first family of a CSS font stack, unquoted.
  *

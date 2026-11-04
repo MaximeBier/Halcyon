@@ -1,16 +1,36 @@
 import { MAX_TRAVEL, REST_TRAVEL_FLOOR } from '../keyboard/analog-report';
 import { OVERLAY_TOKENS } from '../styles/tokens';
-import type { FillDirection, ResolvedConfig } from '../config/schema';
+import { fontStack } from '../config/fonts';
+import type { FillDirection, LabelOutline, LabelSize, ResolvedConfig } from '../config/schema';
 import type { FrameKey } from '../protocol/messages';
 
 /**
- * Outline thickness, as a fraction of the label size.
+ * Label height, as a fraction of the key height. `m` is the size every label
+ * had before it could be chosen.
  *
- * Enough to detach a light label from a light fill — the active colour against
- * the label colour is a contrast of 1.96, far under anything readable — and
- * thin enough not to thicken the glyph at stream size.
+ * Not past 45 %: the size follows the height alone, so a long label on a
+ * narrow key would spill onto its neighbour. Not under 35 % either — on a
+ * 26 px key at 1080p, that is about where a label stops surviving video
+ * compression.
  */
-const LABEL_OUTLINE_RATIO = 0.14;
+export const LABEL_SIZE_RATIOS: Record<LabelSize, number> = { s: 0.35, m: 0.4, l: 0.45 };
+
+/**
+ * Outline thickness, as a fraction of the label size. `normal` is the outline
+ * every label had before it could be chosen.
+ *
+ * `normal` is enough to detach a light label from a light fill — the active
+ * colour against the label colour is a contrast of 1.96, far under anything
+ * readable — and thin enough not to thicken the glyph at stream size. `none`
+ * exists for the keys with nothing behind them: an outline sized for a filled
+ * key weighs on a label drawn over bare, bright video.
+ */
+export const LABEL_OUTLINE_RATIOS: Record<LabelOutline, number> = {
+  none: 0,
+  thin: 0.08,
+  normal: 0.14,
+  thick: 0.2,
+};
 
 export interface SceneFill {
   x: number;
@@ -74,6 +94,7 @@ export interface SceneKey {
   labelOutline: string;
   /** Proportional to the label, like its size (spec §16.3). */
   labelOutlineWidth: number;
+  /** A full stack, ready for the attribute: the config holds the family alone. */
   fontFamily: string;
   fontWeight: number;
   /** Computed from the key height (spec 16.3). */
@@ -168,6 +189,7 @@ export function buildScene(
   { pack = false, reveal = false }: SceneOptions = {},
 ): Scene {
   const { unit, gap, radius, borderWidth, fontFamily, fontWeight } = config;
+  const stack = fontStack(fontFamily);
   const states = new Map(frame.map(([id, travel, active]) => [id, { travel, active }]));
 
   let width = 0;
@@ -215,6 +237,7 @@ export function buildScene(
     // negative width is an SVG error rather than a small key.
     const w = Math.max(0, key.w * unit - gap);
     const h = Math.max(0, key.h * unit - gap);
+    const fontSize = h * LABEL_SIZE_RATIOS[config.labelSize];
 
     // Axis mode never switches its background (spec 7.4): its active color
     // serves as the fill color, and nothing about it changes on actuation.
@@ -315,12 +338,12 @@ export function buildScene(
       fill: { ...fillRect(x, y, w, h, ratio, key.style.fillDirection), color: fillColor },
       labelFill: OVERLAY_TOKENS.keyLabel,
       labelOutline: OVERLAY_TOKENS.keyLabelOutline,
-      labelOutlineWidth: h * OVERLAY_TOKENS.keyLabelRatio * LABEL_OUTLINE_RATIO,
-      fontFamily,
+      labelOutlineWidth: fontSize * LABEL_OUTLINE_RATIOS[config.labelOutline],
+      fontFamily: stack,
       fontWeight,
       // Proportional: a frozen pixel size breaks on resize and becomes
       // unreadable at the real stream size (mockup 4b).
-      fontSize: h * OVERLAY_TOKENS.keyLabelRatio,
+      fontSize,
       opacity,
       axis: key.mode === 'axis',
     };

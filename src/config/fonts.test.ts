@@ -1,6 +1,20 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { firstFamily } from './fonts';
+import { firstFamily, fontStack } from './fonts';
+
+describe('fontStack', () => {
+  it('gives Archivo the system fallbacks alone', () => {
+    expect(fontStack('Archivo')).toBe("'Archivo', system-ui, sans-serif");
+  });
+
+  it('puts Archivo right behind any other family', () => {
+    expect(fontStack('Chakra Petch')).toBe("'Chakra Petch', 'Archivo', system-ui, sans-serif");
+  });
+
+  it('reads back to the family it was built from', () => {
+    expect(firstFamily(fontStack('Segoe UI'))).toBe('Segoe UI');
+  });
+});
 
 describe('firstFamily', () => {
   it('keeps the first name of a stack, without its quotes', () => {

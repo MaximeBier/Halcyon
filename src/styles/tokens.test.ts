@@ -38,13 +38,6 @@ describe('tokens', () => {
     expect(OVERLAY_TOKENS.keyFill).not.toBe(OVERLAY_TOKENS.keyActive);
   });
 
-  it('gives the label a usable height at stream size', () => {
-    // 40% of a 26 px key at 1080p is ~10 px: below that, the label does not
-    // survive video compression (handoff, key cap 29 px on a 72 px tile).
-    expect(OVERLAY_TOKENS.keyLabelRatio).toBeGreaterThanOrEqual(0.35);
-    expect(OVERLAY_TOKENS.keyLabelRatio).toBeLessThanOrEqual(0.5);
-  });
-
   it('exposes the interface tokens as prefixed CSS variables', () => {
     const variables = cssVariables();
 

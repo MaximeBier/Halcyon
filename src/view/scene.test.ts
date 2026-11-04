@@ -1,10 +1,12 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { buildScene, recommendedSize } from './scene';
+import { buildScene, recommendedSize, LABEL_SIZE_RATIOS } from './scene';
 import { OVERLAY_TOKENS } from '../styles/tokens';
 import { MAX_TRAVEL, REST_TRAVEL_FLOOR } from '../keyboard/analog-report';
 import {
   DEFAULT_STYLE,
+  type LabelOutline,
+  type LabelSize,
   type ResolvedConfig,
   type ResolvedKey,
   type RestVisibility,
@@ -185,6 +187,35 @@ describe('buildScene', () => {
 
     expect(small.keys[0]?.fontSize).toBeCloseTo(90 * 0.4, 5);
     expect(tall.keys[0]?.fontSize).toBeCloseTo(190 * 0.4, 5);
+  });
+
+  it('draws a small and a large text either side of the medium one', () => {
+    const at = (labelSize: LabelSize) =>
+      buildScene({ ...config(key()), labelSize }, []).keys[0]!.fontSize;
+
+    expect(at('s')).toBeCloseTo(90 * 0.35, 5);
+    expect(at('m')).toBeCloseTo(90 * 0.4, 5);
+    expect(at('l')).toBeCloseTo(90 * 0.45, 5);
+  });
+
+  it('keeps every text size readable on a stream, and inside its key', () => {
+    // Below ~35 % of a 26 px key at 1080p the label does not survive video
+    // compression. Above 45 %, a long label on a narrow key spills onto its
+    // neighbour, since the size follows the height alone.
+    const ratios = Object.values(LABEL_SIZE_RATIOS);
+
+    expect(Math.min(...ratios)).toBeGreaterThanOrEqual(0.35);
+    expect(Math.max(...ratios)).toBeLessThanOrEqual(0.45);
+  });
+
+  it('adds the fallbacks to the family, Archivo first after it', () => {
+    // A face missing on the machine running OBS falls back to the one the
+    // overlay serves itself, never to whatever the system calls sans-serif.
+    const archivo = buildScene(config(key()), []).keys[0]!;
+    const installed = buildScene({ ...config(key()), fontFamily: 'Bahnschrift' }, []).keys[0]!;
+
+    expect(archivo.fontFamily).toBe("'Archivo', system-ui, sans-serif");
+    expect(installed.fontFamily).toBe("'Bahnschrift', 'Archivo', system-ui, sans-serif");
   });
 
   it('flags axis mode without decorating it: the renderer decides', () => {
@@ -538,6 +569,24 @@ describe('the label keeps one colour, whatever moves behind it', () => {
       small.keys[0]!.labelOutlineWidth * (190 / 90),
       5,
     );
+  });
+
+  it('draws the outline in four steps of the text size, the third being the old one', () => {
+    const at = (labelOutline: LabelOutline) =>
+      buildScene({ ...config(key()), labelOutline }, []).keys[0]!.labelOutlineWidth;
+    const text = 90 * 0.4;
+
+    expect(at('none')).toBe(0);
+    expect(at('thin')).toBeCloseTo(text * 0.08, 5);
+    expect(at('normal')).toBeCloseTo(text * 0.14, 5);
+    expect(at('thick')).toBeCloseTo(text * 0.2, 5);
+  });
+
+  it('measures the outline against the text, not the key', () => {
+    const outline = (labelSize: LabelSize) =>
+      buildScene({ ...config(key()), labelSize }, []).keys[0]!.labelOutlineWidth;
+
+    expect(outline('l')).toBeCloseTo(90 * 0.45 * 0.14, 5);
   });
 });
 
