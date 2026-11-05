@@ -167,33 +167,38 @@ describe('createOverlayRegistry - where each overlay is', () => {
 });
 
 describe('createOverlayRegistry - a font an overlay cannot draw', () => {
+  const bahn = (keys: number, total = 10) => ({ family: 'Bahnschrift', keys, total });
+
   it('names it while the overlay that reported it is alive', () => {
     const registry = createOverlayRegistry();
-    registry.seen('a', 1000, false, 'Bahnschrift');
-    registry.seen('b', 1000, false, null);
+    registry.seen('a', 1000, false, [bahn(4)]);
+    registry.seen('b', 1000, false, []);
 
-    expect(registry.missingFonts(1000)).toEqual(['Bahnschrift']);
+    expect(registry.missingFonts(1000)).toEqual([bahn(4)]);
   });
 
-  it('names a family once, however many overlays miss it', () => {
+  it('names a family once, with the largest count any overlay reported', () => {
     const registry = createOverlayRegistry();
-    registry.seen('a', 1000, false, 'Bahnschrift');
-    registry.seen('b', 1000, false, 'Bahnschrift');
+    registry.seen('a', 1000, false, [bahn(2)]);
+    registry.seen('b', 1000, false, [bahn(6), { family: 'Impact', keys: 1, total: 10 }]);
 
-    expect(registry.missingFonts(1000)).toEqual(['Bahnschrift']);
+    expect(registry.missingFonts(1000)).toEqual([
+      bahn(6),
+      { family: 'Impact', keys: 1, total: 10 },
+    ]);
   });
 
   it('forgets it when the overlay draws it after all, leaves, or goes quiet', () => {
     const registry = createOverlayRegistry();
-    registry.seen('a', 1000, false, 'Bahnschrift');
-    registry.seen('a', 2000, false, null);
+    registry.seen('a', 1000, false, [bahn(4)]);
+    registry.seen('a', 2000, false, []);
     expect(registry.missingFonts(2000)).toEqual([]);
 
-    registry.seen('b', 2000, false, 'Bahnschrift');
+    registry.seen('b', 2000, false, [bahn(4)]);
     registry.forget('b');
     expect(registry.missingFonts(2000)).toEqual([]);
 
-    registry.seen('c', 2000, false, 'Bahnschrift');
+    registry.seen('c', 2000, false, [bahn(4)]);
     expect(registry.missingFonts(2000 + OVERLAY_TIMEOUT_MS + 1)).toEqual([]);
   });
 });

@@ -1,4 +1,5 @@
 import { FONT_CATALOG } from '../config/fonts';
+import type { MissingFont } from '../protocol/messages';
 
 /** Wide and narrow letters both, so that two faces rarely measure alike. */
 const SAMPLE = 'mmmmmmmmmmlli10WQ@#';
@@ -31,6 +32,30 @@ export function missingFont(
       measure(`${weight} 72px '${family}', ${fallback}`) !== measure(`${weight} 72px ${fallback}`),
   );
   return drawn ? null : family;
+}
+
+/**
+ * Every family this overlay's keys ask for and cannot draw, with how many keys
+ * ask for it out of how many there are.
+ *
+ * Counted here, where the keys are drawn, and not by the capture page from
+ * its own profile: with scenes linked to profiles, the source in OBS may be
+ * drawing another one. Each family and weight is measured once, however many
+ * keys share it.
+ */
+export function missingFonts(
+  styles: readonly { fontFamily: string; fontWeight: number }[],
+  measure: (font: string) => number,
+): MissingFont[] {
+  const verdicts = new Map<string, string | null>();
+  const counts = new Map<string, number>();
+  for (const { fontFamily, fontWeight } of styles) {
+    const face = `${fontWeight} ${fontFamily}`;
+    if (!verdicts.has(face)) verdicts.set(face, missingFont(fontFamily, fontWeight, measure));
+    const missing = verdicts.get(face);
+    if (missing) counts.set(missing, (counts.get(missing) ?? 0) + 1);
+  }
+  return [...counts].map(([family, keys]) => ({ family, keys, total: styles.length }));
 }
 
 /**

@@ -70,7 +70,7 @@
   import { createSceneFollower, type SceneFollower, type SceneState } from './scene-follow';
   import { reloadLog, reloadSources, scanSources, type HalcyonSource } from './sources';
   import type { DecodeAnomaly } from '../keyboard/decode';
-  import type { FrameKey } from '../protocol/messages';
+  import type { FrameKey, MissingFont } from '../protocol/messages';
 
   const storage = browserStorage();
 
@@ -267,7 +267,7 @@
    */
   let listeners = $state({ inObs: 0, inBrowser: 0 });
   /** Families the live overlays say they cannot draw (Diagnostics, and the ⚙ dot). */
-  let missingFonts = $state<string[]>([]);
+  let missingFonts = $state<MissingFont[]>([]);
 
   // One reading of the fonts installed here, for the global panel and the key
   // popover alike: a permission granted in one is granted in the other.
@@ -458,7 +458,7 @@
     const now = performance.now();
     const missing = overlays.missingFonts(now);
     // Compared as text for the reason the counts are compared by hand below.
-    if (missing.join('\n') !== missingFonts.join('\n')) missingFonts = missing;
+    if (JSON.stringify(missing) !== JSON.stringify(missingFonts)) missingFonts = missing;
     const next = overlays.counts(now);
     if (next.inObs !== listeners.inObs || next.inBrowser !== listeners.inBrowser) {
       // An overlay in OBS saying hello is a source that was not there at the

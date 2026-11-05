@@ -120,7 +120,7 @@ describe('createObsClient', () => {
         t: 'hello',
         id: 'test',
         browser: false,
-        missingFont: null,
+        missingFonts: [],
       }),
     ).toBe(false);
     expect(socket().sent).toHaveLength(0);
@@ -153,7 +153,7 @@ describe('createObsClient', () => {
             t: 'hello',
             id: 'test',
             browser: false,
-            missingFont: null,
+            missingFonts: [],
           },
         },
       },
@@ -162,7 +162,7 @@ describe('createObsClient', () => {
     socket().receive({ op: 5, d: { eventType: 'CurrentSceneChanged', eventData: {} } });
 
     expect(messages).toEqual([
-      { v: PROTOCOL_VERSION, t: 'hello', id: 'test', browser: false, missingFont: null },
+      { v: PROTOCOL_VERSION, t: 'hello', id: 'test', browser: false, missingFonts: [] },
     ]);
   });
 
@@ -258,7 +258,7 @@ describe('createObsClient', () => {
       t: 'hello',
       id: 'test',
       browser: false,
-      missingFont: null,
+      missingFonts: [],
     });
     expect(socket().sent.length).toBeGreaterThan(0);
   });
@@ -464,7 +464,7 @@ describe('an overlay speaking a protocol we cannot read', () => {
     const { socket, versions, messages } = setupWithVersions();
 
     socket().receive(
-      event({ heOverlay: { v: 6, t: 'hello', id: 'a', browser: false, missingFont: null } }),
+      event({ heOverlay: { v: 6, t: 'hello', id: 'a', browser: false, missingFonts: [] } }),
     );
 
     expect(versions).toEqual([6]);
@@ -476,7 +476,7 @@ describe('an overlay speaking a protocol we cannot read', () => {
 
     socket().receive(
       event({
-        heOverlay: { v: PROTOCOL_VERSION, t: 'hello', id: 'a', browser: false, missingFont: null },
+        heOverlay: { v: PROTOCOL_VERSION, t: 'hello', id: 'a', browser: false, missingFonts: [] },
       }),
     );
 

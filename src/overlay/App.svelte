@@ -7,8 +7,8 @@
   import { newPageId } from '../protocol/identity';
   import KeyboardView from '../view/KeyboardView.svelte';
   import BrowserChrome from './BrowserChrome.svelte';
-  import { canvasMeasure, missingFont } from './font-check';
-  import type { FrameKey } from '../protocol/messages';
+  import { canvasMeasure, missingFonts } from './font-check';
+  import type { FrameKey, MissingFont } from '../protocol/messages';
   import type { ResolvedConfig } from '../config/schema';
 
   // The hash matters: the password is read from the fragment only, so that it
@@ -30,10 +30,10 @@
   let { decorated }: { decorated: boolean } = $props();
 
   /**
-   * The family this overlay was asked for and cannot draw. Plain, not a rune:
+   * The families this overlay was asked for and cannot draw. Plain, not a rune:
    * it is only ever read into the next presence message.
    */
-  let missing: string | null = null;
+  let missing: MissingFont[] = [];
   const measure = canvasMeasure();
 
   let connected = $state(false);
@@ -69,7 +69,7 @@
           t: 'hello',
           id,
           browser: decorated,
-          missingFont: missing,
+          missingFonts: missing,
         });
     },
     onMessage: (message) => {
@@ -82,11 +82,12 @@
         // answer changes rather than at the next beat: whoever just picked
         // the font is looking at the panel now, not in two seconds.
         const verdict = measure
-          ? (config.keys
-              .map(({ style }) => missingFont(style.fontFamily, style.fontWeight, measure))
-              .find((family) => family !== null) ?? null)
-          : null;
-        if (verdict !== missing) {
+          ? missingFonts(
+              config.keys.map(({ style }) => style),
+              measure,
+            )
+          : [];
+        if (JSON.stringify(verdict) !== JSON.stringify(missing)) {
           missing = verdict;
           beat();
         }
@@ -103,7 +104,13 @@
   });
 
   function beat() {
-    obs.broadcast({ v: PROTOCOL_VERSION, t: 'beat', id, browser: decorated, missingFont: missing });
+    obs.broadcast({
+      v: PROTOCOL_VERSION,
+      t: 'beat',
+      id,
+      browser: decorated,
+      missingFonts: missing,
+    });
   }
 
   obs.connect();

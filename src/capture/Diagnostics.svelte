@@ -4,6 +4,7 @@
   import { copyToClipboard } from './clipboard';
   import { obsProbeHint, type ObsProbeStatus } from './settings';
   import type { HalcyonSource } from './sources';
+  import type { MissingFont } from '../protocol/messages';
 
   /**
    * The panel a bug report is written from (spec §11, §12.3).
@@ -57,7 +58,7 @@
      * Families an overlay was asked for and could not draw: installed here,
      * where the profile was made, and not on the PC running OBS.
      */
-    missingFonts: readonly string[];
+    missingFonts: readonly MissingFont[];
     onCaptureRaw: () => void;
     onToggleProbe: () => void;
     onTestObs: () => void;
@@ -178,9 +179,13 @@
     <h3>OBS connection</h3>
     <!-- Ours to report and not an error: the overlay goes on drawing, in the
          face it brings itself, which is why the line says what is drawn. -->
-    {#each missingFonts as family (family)}
+    {#each missingFonts as { family, keys, total } (family)}
       <p class="missing" data-missing-font>
-        {family} is not installed on the PC running OBS · drawn in Archivo
+        {family} is not installed on the PC running OBS · {keys === total
+          ? 'all keys'
+          : keys === 1
+            ? '1 key'
+            : `${keys} keys`} drawn in Archivo
       </p>
     {/each}
     {#if sources !== null}

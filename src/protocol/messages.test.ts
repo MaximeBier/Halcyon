@@ -11,9 +11,9 @@ const aConfig = resolve(defaultConfig());
 describe('protocol envelope', () => {
   it('wraps a message under the heOverlay key', () => {
     expect(
-      envelope({ v: PROTOCOL_VERSION, t: 'hello', id: 'test', browser: false, missingFont: null }),
+      envelope({ v: PROTOCOL_VERSION, t: 'hello', id: 'test', browser: false, missingFonts: [] }),
     ).toEqual({
-      heOverlay: { v: PROTOCOL_VERSION, t: 'hello', id: 'test', browser: false, missingFont: null },
+      heOverlay: { v: PROTOCOL_VERSION, t: 'hello', id: 'test', browser: false, missingFonts: [] },
     });
   });
 
@@ -38,7 +38,7 @@ describe('protocol envelope', () => {
           t: 'hello',
           id: 'a',
           browser: false,
-          missingFont: null,
+          missingFonts: [],
         },
       }),
     ).toBeNull();
@@ -56,9 +56,9 @@ describe('protocol envelope', () => {
     for (const t of ['hello', 'beat'] as const) {
       expect(
         parseMessage({
-          heOverlay: { v: PROTOCOL_VERSION, t, id: 'a', browser: true, missingFont: null },
+          heOverlay: { v: PROTOCOL_VERSION, t, id: 'a', browser: true, missingFonts: [] },
         }),
-      ).toEqual({ v: PROTOCOL_VERSION, t, id: 'a', browser: true, missingFont: null });
+      ).toEqual({ v: PROTOCOL_VERSION, t, id: 'a', browser: true, missingFonts: [] });
     }
   });
 
@@ -71,7 +71,7 @@ describe('protocol envelope', () => {
     ).toBeNull();
   });
 
-  it('carries, in hello and beat, the family the overlay could not draw', () => {
+  it('carries, in hello and beat, the families the overlay could not draw', () => {
     // The overlay measures it once the configuration has arrived, and only it
     // can: the font has to be on the PC running OBS, not on this one.
     for (const t of ['hello', 'beat'] as const) {
@@ -80,7 +80,7 @@ describe('protocol envelope', () => {
         t,
         id: 'a',
         browser: false,
-        missingFont: 'Bahnschrift',
+        missingFonts: [{ family: 'Bahnschrift', keys: 4, total: 30 }],
       };
       expect(parseMessage({ heOverlay: message })).toEqual(message);
     }
@@ -90,8 +90,17 @@ describe('protocol envelope', () => {
     const presence = { v: PROTOCOL_VERSION, t: 'beat', id: 'a', browser: false };
 
     expect(parseMessage({ heOverlay: presence })).toBeNull();
-    expect(parseMessage({ heOverlay: { ...presence, missingFont: 42 } })).toBeNull();
-    expect(parseMessage({ heOverlay: { ...presence, missingFont: '' } })).toBeNull();
+    const font = { family: 'Bahnschrift', keys: 4, total: 30 };
+    const withFonts = (missingFonts: unknown) => ({ heOverlay: { ...presence, missingFonts } });
+
+    expect(parseMessage(withFonts(null))).toBeNull();
+    expect(parseMessage(withFonts('Bahnschrift'))).toBeNull();
+    expect(parseMessage(withFonts([{ ...font, family: '' }]))).toBeNull();
+    expect(parseMessage(withFonts([{ ...font, keys: 0 }]))).toBeNull();
+    expect(parseMessage(withFonts([{ ...font, keys: 31 }]))).toBeNull();
+    expect(parseMessage(withFonts([{ ...font, keys: 1.5 }]))).toBeNull();
+    expect(parseMessage(withFonts(Array.from({ length: 257 }, () => font)))).toBeNull();
+    expect(parseMessage(withFonts([font]))).not.toBeNull();
   });
 
   it('asks nothing of bye but the id', () => {
@@ -111,7 +120,7 @@ describe('protocol envelope', () => {
     expect(parseMessage({ heOverlay: { v: PROTOCOL_VERSION, t: 'hello', id: 42 } })).toBeNull();
     expect(
       parseMessage({
-        heOverlay: { v: PROTOCOL_VERSION, t: 'hello', id: '', browser: false, missingFont: null },
+        heOverlay: { v: PROTOCOL_VERSION, t: 'hello', id: '', browser: false, missingFonts: [] },
       }),
     ).toBeNull();
     // A bye is the one that removes a listener, so an unchecked id here would
@@ -305,7 +314,7 @@ describe('naming a version we cannot read', () => {
   it('says nothing about a message at our own version', () => {
     expect(
       foreignVersion({
-        heOverlay: { v: PROTOCOL_VERSION, t: 'hello', id: 'a', browser: false, missingFont: null },
+        heOverlay: { v: PROTOCOL_VERSION, t: 'hello', id: 'a', browser: false, missingFonts: [] },
       }),
     ).toBeNull();
   });

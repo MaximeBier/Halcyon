@@ -26,7 +26,7 @@ describe('createConfigBroadcaster', () => {
     const { broadcaster, broadcast } = setup();
 
     broadcaster.onOverlayMessage(
-      { v: PROTOCOL_VERSION, t: 'hello', id: 'a', browser: false, missingFont: null },
+      { v: PROTOCOL_VERSION, t: 'hello', id: 'a', browser: false, missingFonts: [] },
       1000,
     );
 
@@ -55,7 +55,7 @@ describe('createConfigBroadcaster', () => {
     set(config);
 
     broadcaster.onOverlayMessage(
-      { v: PROTOCOL_VERSION, t: 'hello', id: 'a', browser: false, missingFont: null },
+      { v: PROTOCOL_VERSION, t: 'hello', id: 'a', browser: false, missingFonts: [] },
       1000,
     );
 
@@ -69,7 +69,7 @@ describe('createConfigBroadcaster', () => {
     const { broadcaster, registry } = setup();
 
     broadcaster.onOverlayMessage(
-      { v: PROTOCOL_VERSION, t: 'beat', id: 'a', browser: false, missingFont: null },
+      { v: PROTOCOL_VERSION, t: 'beat', id: 'a', browser: false, missingFonts: [] },
       1000,
     );
 
@@ -80,7 +80,7 @@ describe('createConfigBroadcaster', () => {
     const { broadcaster, broadcast } = setup();
 
     broadcaster.onOverlayMessage(
-      { v: PROTOCOL_VERSION, t: 'beat', id: 'a', browser: false, missingFont: null },
+      { v: PROTOCOL_VERSION, t: 'beat', id: 'a', browser: false, missingFonts: [] },
       1000,
     );
 
@@ -120,7 +120,7 @@ describe('createConfigBroadcaster - an overlay that leaves', () => {
   it('stops counting an overlay that said goodbye', () => {
     const { broadcaster, registry } = setup();
     broadcaster.onOverlayMessage(
-      { v: PROTOCOL_VERSION, t: 'hello', id: 'a', browser: false, missingFont: null },
+      { v: PROTOCOL_VERSION, t: 'hello', id: 'a', browser: false, missingFonts: [] },
       1000,
     );
 
@@ -132,7 +132,7 @@ describe('createConfigBroadcaster - an overlay that leaves', () => {
   it('sends nothing on a goodbye: there is nobody left to send it to', () => {
     const { broadcaster, broadcast } = setup();
     broadcaster.onOverlayMessage(
-      { v: PROTOCOL_VERSION, t: 'hello', id: 'a', browser: false, missingFont: null },
+      { v: PROTOCOL_VERSION, t: 'hello', id: 'a', browser: false, missingFonts: [] },
       1000,
     );
     broadcast.mockClear();
@@ -147,14 +147,14 @@ describe('createConfigBroadcaster - an overlay that leaves', () => {
     // nothing, so it needs the configuration resent, not deduplicated away.
     const { broadcaster, broadcast } = setup();
     broadcaster.onOverlayMessage(
-      { v: PROTOCOL_VERSION, t: 'hello', id: 'first', browser: false, missingFont: null },
+      { v: PROTOCOL_VERSION, t: 'hello', id: 'first', browser: false, missingFonts: [] },
       1000,
     );
     broadcaster.onOverlayMessage({ v: PROTOCOL_VERSION, t: 'bye', id: 'first' }, 1100);
     broadcast.mockClear();
 
     broadcaster.onOverlayMessage(
-      { v: PROTOCOL_VERSION, t: 'hello', id: 'second', browser: false, missingFont: null },
+      { v: PROTOCOL_VERSION, t: 'hello', id: 'second', browser: false, missingFonts: [] },
       1200,
     );
 
@@ -164,7 +164,7 @@ describe('createConfigBroadcaster - an overlay that leaves', () => {
 
 describe('createConfigBroadcaster - a second capture page', () => {
   const beat = (id = 'an-overlay') =>
-    ({ v: PROTOCOL_VERSION, t: 'beat', id, browser: false, missingFont: null }) as const;
+    ({ v: PROTOCOL_VERSION, t: 'beat', id, browser: false, missingFonts: [] }) as const;
   const here = (from: string) => ({ v: PROTOCOL_VERSION, t: 'here', from }) as const;
   const gone = (from: string) => ({ v: PROTOCOL_VERSION, t: 'gone', from }) as const;
   const configsSent = (broadcast: ReturnType<typeof setup>['broadcast']) =>

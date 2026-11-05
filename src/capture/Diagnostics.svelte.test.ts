@@ -5,6 +5,7 @@ import Diagnostics from './Diagnostics.svelte';
 import type { JournalEntry } from './journal';
 import type { ObsProbeStatus } from './settings';
 import type { HalcyonSource } from './sources';
+import type { MissingFont } from '../protocol/messages';
 
 afterEach(cleanup);
 
@@ -30,7 +31,7 @@ function panel(overrides: Record<string, unknown> = {}) {
     probe: null,
     obsProbe: null,
     sources: null as HalcyonSource[] | null,
-    missingFonts: [] as string[],
+    missingFonts: [] as MissingFont[],
     ...handlers,
     ...overrides,
   };
@@ -310,12 +311,22 @@ describe('a copy button that cannot lie', () => {
 });
 
 describe('Diagnostics - a font the overlay cannot draw', () => {
-  it('says which, where, and what is drawn instead', () => {
-    const { container } = panel({ missingFonts: ['Bahnschrift'] });
-    const line = container.querySelector('[data-missing-font]');
+  const lineFor = (keys: number, total = 30) =>
+    panel({ missingFonts: [{ family: 'Bahnschrift', keys, total }] })
+      .container.querySelector('[data-missing-font]')
+      ?.textContent?.replace(/\s+/g, ' ');
 
-    expect(line?.textContent).toContain('Bahnschrift is not installed on the PC running OBS');
-    expect(line?.textContent).toContain('drawn in Archivo');
+  it('says which, where, how many keys, and what is drawn instead', () => {
+    const line = lineFor(4);
+
+    expect(line).toContain('Bahnschrift is not installed on the PC running OBS');
+    expect(line).toContain('4 keys drawn in Archivo');
+  });
+
+  it('says one key in the singular, and all keys when every key depends on it', () => {
+    expect(lineFor(1)).toContain('· 1 key drawn in Archivo');
+    cleanup();
+    expect(lineFor(30)).toContain('· all keys drawn in Archivo');
   });
 
   it('says nothing while every overlay draws its font', () => {

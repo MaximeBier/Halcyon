@@ -133,7 +133,7 @@ export function createConfigBroadcaster(options: {
         return;
       }
 
-      options.registry.seen(message.id, now, message.browser, message.missingFont);
+      options.registry.seen(message.id, now, message.browser, message.missingFonts);
       // An OBS started after Chrome must not wait for the next setting change.
       // A reloaded overlay arrives under a new id and holds nothing, so this
       // fires again for it — deduplicating here would leave it blank.

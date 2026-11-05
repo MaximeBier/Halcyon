@@ -1,3 +1,5 @@
+import type { MissingFont } from '../protocol/messages';
+
 /** Three missed beats: the overlay beats every 2 s. */
 export const OVERLAY_TIMEOUT_MS = 6000;
 
@@ -13,7 +15,7 @@ export interface OverlayRegistry {
    * here: only the page itself can tell, and it decides once before its first
    * paint.
    */
-  seen(id: string, now: number, browser: boolean, missingFont?: string | null): void;
+  seen(id: string, now: number, browser: boolean, missingFonts?: readonly MissingFont[]): void;
   /**
    * Drops an overlay that announced it was leaving, rather than waiting out
    * its timeout. A reload draws a new id, so an overlay that leaves silently
@@ -39,9 +41,11 @@ export interface OverlayRegistry {
   counts(now: number): OverlayCounts;
   /**
    * The families live overlays say they cannot draw, each named once: two
-   * scenes on the PC running OBS miss the same font for the same reason.
+   * scenes on the PC running OBS miss the same font for the same reason. Each
+   * keeps the largest count any of them reported — the source drawing the
+   * most keys in it is the one worth describing.
    */
-  missingFonts(now: number): string[];
+  missingFonts(now: number): MissingFont[];
 }
 
 /**
@@ -52,13 +56,16 @@ export interface OverlayRegistry {
  * the only thing that tells them apart (spec §11).
  */
 export function createOverlayRegistry(timeoutMs: number = OVERLAY_TIMEOUT_MS): OverlayRegistry {
-  const lastSeen = new Map<string, { at: number; browser: boolean; missingFont: string | null }>();
+  const lastSeen = new Map<
+    string,
+    { at: number; browser: boolean; missingFonts: readonly MissingFont[] }
+  >();
 
   return {
-    seen(id, now, browser, missingFont = null) {
+    seen(id, now, browser, missingFonts = []) {
       // Keyed by id, so a page that somehow reported a different host replaces
       // its own entry rather than adding a second listener.
-      lastSeen.set(id, { at: now, browser, missingFont });
+      lastSeen.set(id, { at: now, browser, missingFonts });
     },
     forget(id) {
       lastSeen.delete(id);
@@ -76,12 +83,15 @@ export function createOverlayRegistry(timeoutMs: number = OVERLAY_TIMEOUT_MS): O
       return live;
     },
     missingFonts(now) {
-      const missing = new Set<string>();
+      const missing = new Map<string, MissingFont>();
       for (const entry of lastSeen.values()) {
-        if (now - entry.at <= timeoutMs && entry.missingFont !== null)
-          missing.add(entry.missingFont);
+        if (now - entry.at > timeoutMs) continue;
+        for (const font of entry.missingFonts) {
+          const known = missing.get(font.family);
+          if (!known || font.keys > known.keys) missing.set(font.family, font);
+        }
       }
-      return [...missing];
+      return [...missing.values()];
     },
   };
 }

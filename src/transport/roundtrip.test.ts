@@ -110,14 +110,14 @@ describe('capture to overlay round trip', () => {
       t: 'hello',
       id: 'first',
       browser: false,
-      missingFont: null,
+      missingFonts: [],
     });
     second.broadcast({
       v: PROTOCOL_VERSION,
       t: 'beat',
       id: 'second',
       browser: false,
-      missingFont: null,
+      missingFonts: [],
     });
     capture.broadcast({ v: PROTOCOL_VERSION, t: 'frame', from: 'capture-a', k: [] });
 
@@ -147,7 +147,7 @@ describe('capture to overlay round trip', () => {
         t: 'hello',
         id: `run-${reload}`,
         browser: false,
-        missingFont: null,
+        missingFonts: [],
       });
       overlay.broadcast({ v: PROTOCOL_VERSION, t: 'bye', id: `run-${reload}` });
     }
@@ -156,7 +156,7 @@ describe('capture to overlay round trip', () => {
       t: 'hello',
       id: 'run-final',
       browser: false,
-      missingFont: null,
+      missingFonts: [],
     });
 
     expect(registry.counts(1000).inObs).toBe(1);
@@ -257,7 +257,7 @@ describe('capture to overlay round trip - staying fresh', () => {
       t: 'beat',
       id: 'ov',
       browser: false,
-      missingFont: null,
+      missingFonts: [],
     });
 
     expect(received.filter((m) => m.t === 'frame')).toEqual([
