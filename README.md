@@ -69,8 +69,10 @@ or nothing at all until a key goes down.
 
 Under **Global style → Label** you pick the typeface of the key labels — Archivo,
 Fredoka, Chakra Petch, or a font installed on your PC — and the size and outline
-of the text. An installed font has to be installed on the PC running OBS too;
-if it is missing there, the overlay draws Archivo and **Diagnostics** says so.
+of the text. A key can keep a font of its own — the arrows, say — from the
+**Font** row of its popover. An installed font has to be installed on the PC
+running OBS too; if it is missing there, the overlay draws Archivo and
+**Diagnostics** says so, with the number of keys concerned.
 
 ## Start it automatically
 
