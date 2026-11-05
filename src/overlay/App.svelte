@@ -81,7 +81,11 @@
         // Measured on every configuration, and reported at once when the
         // answer changes rather than at the next beat: whoever just picked
         // the font is looking at the panel now, not in two seconds.
-        const verdict = measure ? missingFont(config.fontFamily, config.fontWeight, measure) : null;
+        const verdict = measure
+          ? (config.keys
+              .map(({ style }) => missingFont(style.fontFamily, style.fontWeight, measure))
+              .find((family) => family !== null) ?? null)
+          : null;
         if (verdict !== missing) {
           missing = verdict;
           beat();

@@ -435,10 +435,23 @@ describe('migrate - a key may not carry a global-only setting', () => {
     if (result.ok) {
       expect(result.config.keys[0]?.style).toEqual({
         borderColor: '#ff00aa',
+        fontFamily: 'Fredoka',
+        fontWeight: 400,
         opacity: 0.5,
         restVisibility: 'outline',
       });
     }
+  });
+
+  it("brings a key's font stack down to its first family, like the global one", () => {
+    const result = migrate({
+      version: 1,
+      layout: 'iso',
+      style: {},
+      keys: [{ ...aKey, style: { fontFamily: "'Chakra Petch', system-ui, sans-serif" } }],
+    });
+
+    expect(result.ok && result.config.keys[0]?.style).toEqual({ fontFamily: 'Chakra Petch' });
   });
 
   it('leaves them all alone on the global style, where every one belongs', () => {

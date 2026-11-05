@@ -299,7 +299,7 @@ describe('a frame is numbers the renderer will divide by', () => {
 
 describe('naming a version we cannot read', () => {
   it('returns the version of a message plainly meant for us', () => {
-    expect(foreignVersion({ heOverlay: { v: 7, t: 'hello' } })).toBe(7);
+    expect(foreignVersion({ heOverlay: { v: 6, t: 'hello' } })).toBe(6);
   });
 
   it('says nothing about a message at our own version', () => {

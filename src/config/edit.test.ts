@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
   clearKeyStyle,
   recomputeLabels,
+  resetKeyFonts,
   setFont,
+  setKeyFont,
   setGlobalStyle,
   setKeyLabel,
   setKeyMode,
@@ -20,6 +22,32 @@ function config(): OverlayConfig {
   base.keys.push({ id: 2, usage: 0x16, mode: 'key', label: 'S', x: 1, y: 0, w: 1, h: 1 });
   return base;
 }
+
+describe("a key's own font", () => {
+  it('writes family and weight on every key of the selection, and only there', () => {
+    const next = setKeyFont(config(), [1], 'Chakra Petch', 700);
+
+    expect(next.keys[0]?.style).toEqual({ fontFamily: 'Chakra Petch', fontWeight: 700 });
+    expect(next.keys[1]?.style).toBeUndefined();
+  });
+
+  it('clears the weight with the family: they are one choice', () => {
+    const styled = setKeyStyle(setKeyFont(config(), [1], 'Bahnschrift', 350), [1], 'opacity', 0.5);
+    const next = clearKeyStyle(styled, [1], 'fontFamily');
+
+    expect(next.keys[0]?.style).toEqual({ opacity: 0.5 });
+  });
+
+  it('hands every key back to the global font and leaves the rest of their styles', () => {
+    let next = setKeyFont(config(), [1, 2], 'Fredoka', 700);
+    next = setKeyStyle(next, [2], 'activeColor', '#ff0000');
+
+    next = resetKeyFonts(next);
+
+    expect(next.keys[0]?.style).toBeUndefined();
+    expect(next.keys[1]?.style).toEqual({ activeColor: '#ff0000' });
+  });
+});
 
 describe('style editing', () => {
   it('changes the global style', () => {

@@ -6,6 +6,7 @@ import {
   hasOverrides,
   overriddenInAny,
   overriddenKeys,
+  ownFontCount,
 } from './resolve';
 import { COLOR_KEYS, isStyleValue } from './validate';
 import {
@@ -47,10 +48,12 @@ describe('resolve', () => {
       borderColor: DEFAULT_STYLE.borderColor,
       restVisibility: DEFAULT_STYLE.restVisibility,
       activeBorder: DEFAULT_STYLE.activeBorder,
+      fontFamily: DEFAULT_STYLE.fontFamily,
+      fontWeight: DEFAULT_STYLE.fontWeight,
     });
   });
 
-  it('lifts the label settings to the root, where every key reads them', () => {
+  it('lifts the text size and outline to the root, and leaves the font on each key', () => {
     const config = withKeys(key());
     config.style.fontFamily = 'Fredoka';
     config.style.labelSize = 'l';
@@ -58,13 +61,33 @@ describe('resolve', () => {
 
     const resolved = resolve(config);
 
-    expect(resolved).toMatchObject({
-      fontFamily: 'Fredoka',
-      fontWeight: DEFAULT_STYLE.fontWeight,
-      labelSize: 'l',
-      labelOutline: 'none',
-    });
-    expect('fontFamily' in resolved.keys[0]!.style).toBe(false);
+    expect(resolved).toMatchObject({ labelSize: 'l', labelOutline: 'none' });
+    expect('fontFamily' in resolved).toBe(false);
+    expect('fontWeight' in resolved).toBe(false);
+    expect(resolved.keys[0]!.style.fontFamily).toBe('Fredoka');
+  });
+
+  it('lets one key draw its label in its own font while the others inherit', () => {
+    const config = withKeys(
+      key(),
+      key({ id: 9, style: { fontFamily: 'Chakra Petch', fontWeight: 700 } }),
+    );
+    config.style.fontFamily = 'Fredoka';
+
+    const { keys } = resolve(config);
+
+    expect(keys[0]?.style.fontFamily).toBe('Fredoka');
+    expect(keys[1]?.style).toMatchObject({ fontFamily: 'Chakra Petch', fontWeight: 700 });
+  });
+
+  it('counts a font as one override, whether family, weight or both differ', () => {
+    const both = key({ style: { fontFamily: 'Chakra Petch', fontWeight: 700 } });
+    const weightOnly = key({ id: 9, style: { fontWeight: 300 } });
+
+    expect(overriddenKeys(both)).toEqual(['fontFamily']);
+    expect(overriddenKeys(weightOnly)).toEqual(['fontFamily']);
+    expect(overriddenInAny([both, weightOnly])).toEqual(['fontFamily']);
+    expect(ownFontCount([both, weightOnly, key({ id: 10 })])).toBe(2);
   });
 
   it('inherits the fill direction like any other style property', () => {

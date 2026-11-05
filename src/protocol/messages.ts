@@ -25,8 +25,11 @@ import { MAX_TRAVEL } from '../keyboard/analog-report';
  * 6 since 2026-11-04: `fontFamily` and `fontWeight` left `keys[].style` for
  * the root, beside two new root fields, `labelSize` and `labelOutline` — and
  * `hello` and `beat` gained `missingFont` the same day, under the same number.
+ *
+ * 7 since 2026-11-05: `fontFamily` and `fontWeight` went back down to
+ * `keys[].style`, a key being allowed a face of its own again.
  */
-export const PROTOCOL_VERSION = 6;
+export const PROTOCOL_VERSION = 7;
 
 /** [matrix index, travel 0..1023, actuation]. `active` is always transmitted. */
 export type FrameKey = readonly [id: number, travel: number, active: 0 | 1];

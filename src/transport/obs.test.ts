@@ -464,10 +464,10 @@ describe('an overlay speaking a protocol we cannot read', () => {
     const { socket, versions, messages } = setupWithVersions();
 
     socket().receive(
-      event({ heOverlay: { v: 7, t: 'hello', id: 'a', browser: false, missingFont: null } }),
+      event({ heOverlay: { v: 6, t: 'hello', id: 'a', browser: false, missingFont: null } }),
     );
 
-    expect(versions).toEqual([7]);
+    expect(versions).toEqual([6]);
     expect(messages).toEqual([]);
   });
 

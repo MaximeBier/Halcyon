@@ -52,8 +52,23 @@ export function setKeyStyle<K extends keyof KeyStyle>(
   return patchKeys(config, ids, (key) => ({ ...key, style: { ...key.style, [property]: value } }));
 }
 
+/** `setFont` for a selection of keys: family and weight, in one write. */
+export function setKeyFont(
+  config: OverlayConfig,
+  ids: readonly number[],
+  family: string,
+  weight: number,
+): OverlayConfig {
+  return patchKeys(config, ids, (key) => ({
+    ...key,
+    style: { ...key.style, fontFamily: family, fontWeight: weight },
+  }));
+}
+
 /**
- * Hands one property back to inheritance.
+ * Hands one property back to inheritance. `fontFamily` takes `fontWeight`
+ * with it: the two are one choice, and a weight left behind would draw the
+ * global family at a weight nobody picked for it.
  *
  * The bag is dropped entirely once it holds nothing, rather than left as an
  * empty object: `style: {}` and no style at all mean the same thing to the
@@ -66,9 +81,20 @@ export function clearKeyStyle(
   property: keyof KeyStyle,
 ): OverlayConfig {
   return patchKeys(config, ids, (key) => {
-    const { [property]: _removed, ...rest } = key.style ?? {};
+    const rest: Partial<KeyStyle> = { ...key.style };
+    delete rest[property];
+    if (property === 'fontFamily') delete rest.fontWeight;
     return Object.keys(rest).length === 0 ? { ...key, style: undefined } : { ...key, style: rest };
   });
+}
+
+/** Every key back on the global font, and nothing else of their styles touched. */
+export function resetKeyFonts(config: OverlayConfig): OverlayConfig {
+  return clearKeyStyle(
+    config,
+    config.keys.map((key) => key.id),
+    'fontFamily',
+  );
 }
 
 export function setKeyMode(

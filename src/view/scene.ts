@@ -188,8 +188,7 @@ export function buildScene(
   frame: readonly FrameKey[],
   { pack = false, reveal = false }: SceneOptions = {},
 ): Scene {
-  const { unit, gap, radius, borderWidth, fontFamily, fontWeight } = config;
-  const stack = fontStack(fontFamily);
+  const { unit, gap, radius, borderWidth } = config;
   const states = new Map(frame.map(([id, travel, active]) => [id, { travel, active }]));
 
   let width = 0;
@@ -339,8 +338,11 @@ export function buildScene(
       labelFill: OVERLAY_TOKENS.keyLabel,
       labelOutline: OVERLAY_TOKENS.keyLabelOutline,
       labelOutlineWidth: fontSize * LABEL_OUTLINE_RATIOS[config.labelOutline],
-      fontFamily: stack,
-      fontWeight,
+      // Per key: a key may draw its label in a face of its own. The stack
+      // still ends on Archivo, so a family missing on the PC running OBS
+      // falls back to the face the overlay brings, not to the system's.
+      fontFamily: fontStack(key.style.fontFamily),
+      fontWeight: key.style.fontWeight,
       // Proportional: a frozen pixel size breaks on resize and becomes
       // unreadable at the real stream size (mockup 4b).
       fontSize,

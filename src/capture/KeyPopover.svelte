@@ -513,10 +513,10 @@
 
     <!--
       Every appearance property a key may hold, in a flat section between two
-      hairlines (board 3a) — the inset card it used to sit in is gone. Seven of
-      the eight: opacity stays global. The label's font left the keys
-      altogether on 2026-11-04 — two typefaces in one overlay serve no real
-      case. The radius left this section on
+      hairlines (board 3a) — the inset card it used to sit in is gone. Opacity
+      stays global. The label's font is a key's to choose too, but it belongs
+      with the label rather than here, and is counted in the heading all the
+      same. The radius left this section on
       2026-09-05, the day the border's colour joined it: nobody ever rounded
       one key differently, and everybody wanted the coral key's outline coral.
 

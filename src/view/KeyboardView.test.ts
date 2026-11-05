@@ -22,8 +22,6 @@ const config: ResolvedConfig = {
   gap: 10,
   radius: 4,
   borderWidth: DEFAULT_STYLE.borderWidth,
-  fontFamily: DEFAULT_STYLE.fontFamily,
-  fontWeight: DEFAULT_STYLE.fontWeight,
   labelSize: DEFAULT_STYLE.labelSize,
   labelOutline: DEFAULT_STYLE.labelOutline,
   keys: [
@@ -45,6 +43,8 @@ const config: ResolvedConfig = {
         borderColor: DEFAULT_STYLE.borderColor,
         restVisibility: 'filled',
         activeBorder: 'fixed',
+        fontFamily: DEFAULT_STYLE.fontFamily,
+        fontWeight: DEFAULT_STYLE.fontWeight,
       },
     },
   ],
@@ -77,16 +77,33 @@ describe('KeyboardView', () => {
     expect(getByText('Q')).toBeTruthy();
   });
 
-  it('draws the label in the chosen family, with its fallbacks behind it', () => {
+  it("draws each label in its key's family, with its fallbacks behind it", () => {
+    const base = config.keys[0]!;
     const { getByText } = render(KeyboardView, {
-      props: { config: { ...config, fontFamily: 'Bahnschrift', fontWeight: 600 }, frame: [] },
+      props: {
+        config: {
+          ...config,
+          keys: [
+            base,
+            {
+              ...base,
+              id: 175,
+              label: '→',
+              x: 1,
+              style: { ...base.style, fontFamily: 'Bahnschrift', fontWeight: 600 },
+            },
+          ],
+        },
+        frame: [],
+      },
     });
-    const label = getByText('Q');
 
-    expect(label.getAttribute('font-family')).toBe(
+    expect(getByText('Q').getAttribute('font-family')).toBe("'Archivo', system-ui, sans-serif");
+    expect(getByText('Q').getAttribute('font-weight')).toBe('700');
+    expect(getByText('→').getAttribute('font-family')).toBe(
       "'Bahnschrift', 'Archivo', system-ui, sans-serif",
     );
-    expect(label.getAttribute('font-weight')).toBe('600');
+    expect(getByText('→').getAttribute('font-weight')).toBe('600');
   });
 
   it('never displays the raw value', () => {

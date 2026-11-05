@@ -247,11 +247,10 @@ export function isResolvedConfig(value: unknown): value is ResolvedConfig {
     inBounds(config.radius as number, RADIUS_BOUNDS) &&
     isNonNegative(config.borderWidth) &&
     inBounds(config.borderWidth as number, BORDER_WIDTH_BOUNDS) &&
-    // The label settings joined the root on 2026-11-04, and go through the
-    // very rule import applies instead of a copy of it: a copy is how the two
-    // sides came to disagree about the two sizes above.
-    isStyleValue('fontFamily', config.fontFamily) &&
-    isStyleValue('fontWeight', config.fontWeight) &&
+    // The label's size and outline joined the root on 2026-11-04, and go
+    // through the very rule import applies instead of a copy of it: a copy is
+    // how the two sides came to disagree about the two sizes above. Its font
+    // sat here for a day, and is checked on each key again since 2026-11-05.
     isStyleValue('labelSize', config.labelSize) &&
     isStyleValue('labelOutline', config.labelOutline) &&
     Array.isArray(config.keys) &&

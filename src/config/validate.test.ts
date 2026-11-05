@@ -190,30 +190,30 @@ describe('isResolvedConfig - rules that must match the import side', () => {
     expect(styled({ opacity: OPACITY_BOUNDS.min - 0.1 })).toBe(false);
   });
 
-  it('refuses a font weight outside the numeric CSS scale, on the root it now sits on', () => {
-    const config = resolved();
-
-    expect(isResolvedConfig({ ...config, fontWeight: FONT_WEIGHT_BOUNDS.min })).toBe(true);
-    expect(isResolvedConfig({ ...config, fontWeight: FONT_WEIGHT_BOUNDS.max })).toBe(true);
-    expect(isResolvedConfig({ ...config, fontWeight: FONT_WEIGHT_BOUNDS.min - 1 })).toBe(false);
-    expect(isResolvedConfig({ ...config, fontWeight: FONT_WEIGHT_BOUNDS.max + 9000 })).toBe(false);
+  it('refuses a font weight outside the numeric CSS scale, on the key it sits on again', () => {
+    expect(styled({ fontWeight: FONT_WEIGHT_BOUNDS.min })).toBe(true);
+    expect(styled({ fontWeight: FONT_WEIGHT_BOUNDS.max })).toBe(true);
+    expect(styled({ fontWeight: FONT_WEIGHT_BOUNDS.min - 1 })).toBe(false);
+    expect(styled({ fontWeight: FONT_WEIGHT_BOUNDS.max + 9000 })).toBe(false);
   });
 
-  it('refuses a root without the label font, which every key is drawn in', () => {
-    const { fontFamily: _dropped, ...partial } = resolved();
+  it('refuses a key without its label font, and no longer asks the root for one', () => {
+    const config = resolved();
+    const first = (config.keys as Record<string, unknown>[])[0]!;
+    const { fontFamily: _dropped, ...style } = first.style as Record<string, unknown>;
 
-    expect(isResolvedConfig(partial)).toBe(false);
+    expect('fontFamily' in config).toBe(false);
+    expect(isResolvedConfig(config)).toBe(true);
+    expect(isResolvedConfig({ ...config, keys: [{ ...first, style }] })).toBe(false);
   });
 
   it('refuses a family name that would break out of the font stack', () => {
     // The name ends up quoted inside a CSS stack: a quote or a semicolon in it
     // closes the string early and the rest of the stack is whatever follows.
-    const config = resolved();
-
-    expect(isResolvedConfig({ ...config, fontFamily: 'Chakra Petch' })).toBe(true);
-    expect(isResolvedConfig({ ...config, fontFamily: "Evil', serif" })).toBe(false);
-    expect(isResolvedConfig({ ...config, fontFamily: 'a;b' })).toBe(false);
-    expect(isResolvedConfig({ ...config, fontFamily: '' })).toBe(false);
+    expect(styled({ fontFamily: 'Chakra Petch' })).toBe(true);
+    expect(styled({ fontFamily: "Evil', serif" })).toBe(false);
+    expect(styled({ fontFamily: 'a;b' })).toBe(false);
+    expect(styled({ fontFamily: '' })).toBe(false);
   });
 
   it('refuses a text size or an outline the scene has no ratio for', () => {

@@ -22,6 +22,8 @@ const style = {
   borderColor: DEFAULT_STYLE.borderColor,
   restVisibility: DEFAULT_STYLE.restVisibility,
   activeBorder: DEFAULT_STYLE.activeBorder,
+  fontFamily: DEFAULT_STYLE.fontFamily,
+  fontWeight: DEFAULT_STYLE.fontWeight,
 };
 
 const key = (over: Partial<ResolvedKey> = {}): ResolvedKey => ({
@@ -47,8 +49,6 @@ const config = (...keys: ResolvedKey[]): ResolvedConfig => ({
   gap: 10,
   radius: DEFAULT_STYLE.radius,
   borderWidth: DEFAULT_STYLE.borderWidth,
-  fontFamily: DEFAULT_STYLE.fontFamily,
-  fontWeight: DEFAULT_STYLE.fontWeight,
   labelSize: DEFAULT_STYLE.labelSize,
   labelOutline: DEFAULT_STYLE.labelOutline,
   keys,
@@ -212,10 +212,30 @@ describe('buildScene', () => {
     // A face missing on the machine running OBS falls back to the one the
     // overlay serves itself, never to whatever the system calls sans-serif.
     const archivo = buildScene(config(key()), []).keys[0]!;
-    const installed = buildScene({ ...config(key()), fontFamily: 'Bahnschrift' }, []).keys[0]!;
+    const installed = buildScene(
+      config(key({ style: { ...style, fontFamily: 'Bahnschrift' } })),
+      [],
+    ).keys[0]!;
 
     expect(archivo.fontFamily).toBe("'Archivo', system-ui, sans-serif");
     expect(installed.fontFamily).toBe("'Bahnschrift', 'Archivo', system-ui, sans-serif");
+  });
+
+  it('draws each label in its own resolved font', () => {
+    const scene = buildScene(
+      config(
+        key({ id: 1 }),
+        key({ id: 2, x: 1, style: { ...style, fontFamily: 'Chakra Petch', fontWeight: 700 } }),
+        key({ id: 3, x: 2, style: { ...style, fontFamily: 'Bahnschrift', fontWeight: 350 } }),
+      ),
+      [],
+    );
+
+    expect(scene.keys.map(({ fontFamily, fontWeight }) => [fontFamily, fontWeight])).toEqual([
+      ["'Archivo', system-ui, sans-serif", 700],
+      ["'Chakra Petch', 'Archivo', system-ui, sans-serif", 700],
+      ["'Bahnschrift', 'Archivo', system-ui, sans-serif", 350],
+    ]);
   });
 
   it('flags axis mode without decorating it: the renderer decides', () => {

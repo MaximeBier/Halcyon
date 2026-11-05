@@ -46,8 +46,27 @@ export function effectiveStyle(global: GlobalStyle, key: KeyConfig): KeyStyle {
   return style as KeyStyle;
 }
 
+/**
+ * The properties an override is counted and cleared by: every inheritable one
+ * but `fontWeight`, which travels with `fontFamily`.
+ *
+ * A font is one choice, made in one row. Counted as two properties, picking a
+ * face would read "2 overrides" and offer two ways back for one decision.
+ */
+const COUNTED = STYLE_KEYS.filter((property) => property !== 'fontWeight');
+
+/**
+ * Whether a key overrides one counted property. `fontFamily` stands for the
+ * pair: a weight alone is an override too — an installed family with several
+ * faces, shared with the global style, can differ by its weight only.
+ */
+function overrides(key: KeyConfig, property: keyof KeyStyle): boolean {
+  if (overrideOf(key, property) !== undefined) return true;
+  return property === 'fontFamily' && overrideOf(key, 'fontWeight') !== undefined;
+}
+
 export function overriddenKeys(key: KeyConfig): (keyof KeyStyle)[] {
-  return STYLE_KEYS.filter((property) => overrideOf(key, property) !== undefined);
+  return COUNTED.filter((property) => overrides(key, property));
 }
 
 /**
@@ -67,9 +86,12 @@ export function overriddenKeys(key: KeyConfig): (keyof KeyStyle)[] {
  * marker was already doing.
  */
 export function overriddenInAny(keys: readonly KeyConfig[]): (keyof KeyStyle)[] {
-  return STYLE_KEYS.filter((property) =>
-    keys.some((key) => overrideOf(key, property) !== undefined),
-  );
+  return COUNTED.filter((property) => keys.some((key) => overrides(key, property)));
+}
+
+/** How many keys draw their label in a font of their own. */
+export function ownFontCount(keys: readonly KeyConfig[]): number {
+  return keys.filter((key) => overrides(key, 'fontFamily')).length;
 }
 
 /** Visible marker in the editor: without it, months later you are left hunting
@@ -99,8 +121,6 @@ export function resolve(config: OverlayConfig): ResolvedConfig {
     gap: config.style.gap,
     radius: config.style.radius,
     borderWidth: config.style.borderWidth,
-    fontFamily: config.style.fontFamily,
-    fontWeight: config.style.fontWeight,
     labelSize: config.style.labelSize,
     labelOutline: config.style.labelOutline,
     keys: config.keys.map((key) => ({

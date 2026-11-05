@@ -68,6 +68,8 @@ function knownStyle(raw: unknown): Partial<GlobalStyle> {
  * Every profile written before 2026-11-04 stored the default stack itself as
  * its family. Brought down to its first name before the check, or the stack's
  * quotes would have it refused and a chosen face silently reset to the default.
+ * A key's own font gets the same treatment: one imported before that date
+ * holds a stack just the same.
  */
 function withFamilyName(raw: unknown): unknown {
   if (typeof raw !== 'object' || raw === null) return raw;
@@ -93,7 +95,7 @@ function knownKeyStyle(raw: unknown): Partial<KeyStyle> {
   // itself, the mistake has nowhere left to happen — which is also what makes
   // `radius` fall off a key since 2026-09-05, when it went global, with no
   // line written here for it.
-  return pickStyle(raw, STYLE_KEYS) as Partial<KeyStyle>;
+  return pickStyle(withFamilyName(raw), STYLE_KEYS) as Partial<KeyStyle>;
 }
 
 /**

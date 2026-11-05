@@ -142,6 +142,21 @@ export interface KeyStyle {
    * itself, that one does not.
    */
   activeBorder: ActiveBorder;
+  /**
+   * The family this key's label is drawn in: a name, never a CSS stack — the
+   * fallbacks are the renderer's to add.
+   *
+   * Global on 2026-11-04, per key again the next day. The case that brought
+   * it back: arrows drawn as icons, whose symbols do not suit the face the
+   * rest of the overlay is set in. `restVisibility` took the same road — one
+   * value for the whole overlay on purpose, until a key needed its own.
+   *
+   * Family and weight are one choice: they are set together, cleared
+   * together, and counted as a single override.
+   */
+  fontFamily: string;
+  /** Chosen with the family, never typed: an embedded face has one weight. */
+  fontWeight: number;
 }
 
 export interface GlobalStyle extends KeyStyle {
@@ -162,18 +177,10 @@ export interface GlobalStyle extends KeyStyle {
    */
   borderWidth: number;
   /**
-   * The family the labels are drawn in: a name, never a CSS stack — the
-   * fallbacks are the renderer's to add.
-   *
-   * Global since 2026-11-04. The model, the resolution and the renderer had
-   * accepted one per key from the start without any interface offering it, so
-   * an override that arrived by import was drawn and counted among a key's
-   * overrides with no row to show it. Two typefaces in one overlay serve no
-   * real case.
+   * The label's size and outline stay global where its font does not: they
+   * describe how the overlay's lettering reads, and a key whose letters are
+   * bigger than its neighbours' reads as a mistake.
    */
-  fontFamily: string;
-  /** Chosen with the family, never typed: an embedded face has one weight. */
-  fontWeight: number;
   labelSize: LabelSize;
   labelOutline: LabelOutline;
   /** Pixels per key unit. */
@@ -225,8 +232,6 @@ export interface ResolvedConfig {
   gap: number;
   radius: number;
   borderWidth: number;
-  fontFamily: string;
-  fontWeight: number;
   labelSize: LabelSize;
   labelOutline: LabelOutline;
   keys: ResolvedKey[];
@@ -251,6 +256,8 @@ const INHERITABLE: Record<keyof KeyStyle, true> = {
   borderColor: true,
   restVisibility: true,
   activeBorder: true,
+  fontFamily: true,
+  fontWeight: true,
 };
 
 export const STYLE_KEYS = Object.keys(INHERITABLE) as readonly (keyof KeyStyle)[];

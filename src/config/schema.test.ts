@@ -46,6 +46,8 @@ describe('default values', () => {
         'restColor',
         'restVisibility',
         'activeBorder',
+        'fontFamily',
+        'fontWeight',
       ].sort(),
     );
   });
@@ -63,18 +65,10 @@ describe('default values', () => {
     // and the schema had said so in advance: global "deliberately", and adding
     // it later costs one field. It cost one field. `radius` joined them the
     // day `borderColor` left: nobody ever rounded one key differently. The
-    // label's font, size and outline followed on 2026-11-04 — two typefaces in
-    // one overlay serve no real case, and no interface ever offered one per key.
-    const globalOnly = [
-      'unit',
-      'gap',
-      'radius',
-      'borderWidth',
-      'fontFamily',
-      'fontWeight',
-      'labelSize',
-      'labelOutline',
-    ];
+    // label's size and outline joined them on 2026-11-04. Its font did too,
+    // for a day: arrows drawn as icons wanted a face of their own, the way
+    // `restVisibility` once wanted keys of its own.
+    const globalOnly = ['unit', 'gap', 'radius', 'borderWidth', 'labelSize', 'labelOutline'];
     const inheritable = Object.keys(DEFAULT_STYLE).filter((key) => !globalOnly.includes(key));
 
     expect([...STYLE_KEYS].sort()).toEqual(inheritable.sort());
