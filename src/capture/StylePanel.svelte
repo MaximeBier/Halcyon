@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { setFont, setGlobalStyle } from '../config/edit';
+  import { resetKeyFonts, setFont, setGlobalStyle } from '../config/edit';
+  import { ownFontCount } from '../config/resolve';
   import { FONT_CATALOG, fontStack } from '../config/fonts';
   import { normalizeHex } from '../config/validate';
   import { PRESETS, presetFor, withPreset } from './presets';
@@ -76,6 +77,8 @@
   const fonts = useInstalledFonts(untrack(() => localFonts));
   const access = $derived(fonts.access);
   const installed = $derived(fonts.list);
+  /** How many keys draw their label in a font of their own, whatever this group says. */
+  const ownFonts = $derived(ownFontCount(config.keys));
   /** What the open menu shows, or `null` while it is shut. */
   let menu = $state<InstalledFamily[] | 'denied' | null>(null);
   let slot = $state<HTMLElement | null>(null);
@@ -549,6 +552,26 @@
 
         <!-- "Text size", never "Size": "Key size" in Shape changes the whole
              key, and this changes the letters alone. -->
+        <!-- Without it, changing the font above would read as changing the
+             whole overlay's, while the keys that chose their own keep theirs. -->
+        {#if ownFonts > 0}
+          <div class="row" data-own-fonts>
+            <span class="missing"
+              >{ownFonts === 1
+                ? '1 key uses its own font'
+                : `${ownFonts} keys use their own font`}</span
+            >
+            <button
+              type="button"
+              class="text-link"
+              data-reset-own-fonts
+              onclick={() => onChange(resetKeyFonts(config))}
+            >
+              Reset
+            </button>
+          </div>
+        {/if}
+
         <div class="row">
           <span class="label" id="global-labelSize-label">Text size</span>
           <div class="segments" role="group" aria-labelledby="global-labelSize-label">
@@ -1011,6 +1034,20 @@
     font-size: var(--he-size-xs);
     color: var(--he-override);
     white-space: nowrap;
+  }
+  .text-link {
+    all: unset;
+    cursor: pointer;
+    font-size: var(--he-size-xs);
+    color: var(--he-accent);
+  }
+  .text-link:hover {
+    color: var(--he-accent-hover);
+  }
+  .text-link:focus-visible {
+    outline: 2px solid var(--he-accent);
+    outline-offset: 2px;
+    border-radius: 2px;
   }
   /* A specimen, not text to read: 26 px is the size at which three faces tell
      themselves apart in a tile, and it sits outside the interface's scale on

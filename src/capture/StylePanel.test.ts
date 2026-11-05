@@ -847,3 +847,64 @@ describe('StylePanel - the outline of a key', () => {
     expect(field((await panel(config, 'shape')).container, 'borderWidth').value).toBe('5');
   });
 });
+
+describe('StylePanel - keys with a font of their own', () => {
+  function withKeys(...styles: OverlayConfig['keys'][number]['style'][]): OverlayConfig {
+    const config = defaultConfig();
+    styles.forEach((style, index) =>
+      config.keys.push({
+        id: index + 1,
+        usage: 0x04 + index,
+        mode: 'key',
+        label: String(index),
+        x: index,
+        y: 0,
+        w: 1,
+        h: 1,
+        ...(style ? { style } : {}),
+      }),
+    );
+    return config;
+  }
+
+  const line = (container: Element) => container.querySelector<HTMLElement>('[data-own-fonts]');
+
+  it('says nothing while every key follows the global font', async () => {
+    const { container } = await panel(withKeys(undefined, { activeColor: '#ff0000' }), 'label');
+
+    expect(line(container)).toBeNull();
+  });
+
+  it('counts the keys that keep their own font, in the singular for one', async () => {
+    const one = await panel(withKeys({ fontFamily: 'Fredoka', fontWeight: 700 }), 'label');
+    expect(line(one.container)?.textContent).toContain('1 key uses its own font');
+    cleanup();
+
+    const four = await panel(
+      withKeys(
+        { fontFamily: 'Fredoka', fontWeight: 700 },
+        { fontFamily: 'Chakra Petch', fontWeight: 700 },
+        { fontWeight: 300 },
+        { fontFamily: 'Fredoka', fontWeight: 700 },
+        undefined,
+      ),
+      'label',
+    );
+    expect(line(four.container)?.textContent).toContain('4 keys use their own font');
+  });
+
+  it('hands the global font back to every key, and touches nothing else', async () => {
+    const { container, onChange } = await panel(
+      withKeys(
+        { fontFamily: 'Fredoka', fontWeight: 700 },
+        { fontFamily: 'Chakra Petch', fontWeight: 700, activeColor: '#ff0000' },
+      ),
+      'label',
+    );
+
+    container.querySelector<HTMLButtonElement>('[data-reset-own-fonts]')!.click();
+
+    const next = onChange.mock.calls[0]![0] as OverlayConfig;
+    expect(next.keys.map((key) => key.style)).toEqual([undefined, { activeColor: '#ff0000' }]);
+  });
+});
