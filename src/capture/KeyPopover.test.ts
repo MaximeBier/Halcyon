@@ -6,6 +6,7 @@ import popoverSource from './KeyPopover.svelte?raw';
 import { setKeyLabel, setKeyStyle } from '../config/edit';
 import { DEFAULT_STYLE, defaultConfig, type OverlayConfig } from '../config/schema';
 import { surfaceOf } from './layout';
+import type { FontAccess, LocalFonts } from './local-fonts';
 
 afterEach(cleanup);
 
@@ -789,5 +790,162 @@ describe('KeyPopover - what names what', () => {
     expect(group.querySelector('[data-direction="left"]')?.getAttribute('aria-label')).toMatch(
       /left/i,
     );
+  });
+});
+
+describe('KeyPopover - the label font', () => {
+  const FACES = [
+    { family: 'Bahnschrift', style: 'Regular' },
+    { family: 'Bahnschrift', style: 'Bold' },
+    { family: 'Impact', style: 'Regular' },
+  ];
+
+  function fonts(access: FontAccess, read: LocalFonts['read'] = async () => FACES): LocalFonts {
+    return { access: vi.fn(async () => access), read: vi.fn(read) };
+  }
+
+  async function settle() {
+    for (let i = 0; i < 6; i++) await tick();
+  }
+
+  async function withFonts(
+    config = twoKeys(),
+    selectedIds = [1],
+    localFonts: LocalFonts = fonts('prompt'),
+  ) {
+    const onChange = vi.fn();
+    const view = render(KeyPopover, {
+      props: {
+        config,
+        selectedIds,
+        surface: SURFACE,
+        onChange,
+        onClose: vi.fn(),
+        storage: unfolded(),
+        localFonts,
+      },
+    });
+    await settle();
+    return { ...view, onChange, localFonts };
+  }
+
+  const trigger = (container: Element) =>
+    container.querySelector<HTMLButtonElement>('[data-font-trigger]')!;
+
+  async function openMenu(container: Element) {
+    trigger(container).click();
+    await settle();
+    return container.querySelector<HTMLElement>('[data-installed-menu]')!;
+  }
+
+  const ownFont = (family: string, weight = 700) => {
+    const config = twoKeys();
+    config.keys[0]!.style = { fontFamily: family, fontWeight: weight };
+    return config;
+  };
+
+  it('shows the global font, inherited, with nothing counted', async () => {
+    const { container } = await withFonts();
+
+    expect(trigger(container).textContent).toContain('Archivo');
+    expect(container.querySelector('[data-reset="fontFamily"]')).toBeNull();
+    expect(container.querySelector('[data-override-count]')).toBeNull();
+  });
+
+  it('writes an embedded face, family and weight, on the whole selection', async () => {
+    const { container, onChange } = await withFonts(twoKeys(), [1, 2]);
+
+    (await openMenu(container))
+      .querySelector<HTMLButtonElement>('[data-face="Chakra Petch"]')!
+      .click();
+
+    const next = onChange.mock.calls[0]![0] as OverlayConfig;
+    expect(next.keys.map((key) => key.style)).toEqual([
+      { fontFamily: 'Chakra Petch', fontWeight: 700 },
+      { fontFamily: 'Chakra Petch', fontWeight: 700 },
+    ]);
+  });
+
+  it('hands the key back when the global face is picked, rather than copying it', async () => {
+    const { container, onChange } = await withFonts(ownFont('Fredoka'));
+
+    (await openMenu(container)).querySelector<HTMLButtonElement>('[data-face="Archivo"]')!.click();
+
+    expect((onChange.mock.calls[0]![0] as OverlayConfig).keys[0]!.style).toBeUndefined();
+  });
+
+  it('counts an own font as one override, and its amber name gives the global back', async () => {
+    const { container, onChange } = await withFonts(ownFont('Fredoka'));
+
+    expect(container.querySelector('[data-override-count]')?.textContent).toContain('1 override');
+    container.querySelector<HTMLButtonElement>('[data-reset="fontFamily"]')!.click();
+
+    expect((onChange.mock.calls[0]![0] as OverlayConfig).keys[0]!.style).toBeUndefined();
+  });
+
+  it('gives the global back from the menu too, ticked while the key inherits', async () => {
+    const { container, onChange } = await withFonts(ownFont('Fredoka'));
+    const menu = await openMenu(container);
+
+    expect(menu.querySelector('[data-face="Fredoka"]')?.textContent).toContain('✓');
+    menu.querySelector<HTMLButtonElement>('[data-inherit]')!.click();
+
+    expect((onChange.mock.calls[0]![0] as OverlayConfig).keys[0]!.style).toBeUndefined();
+  });
+
+  it('draws no key of its own, and writes each name in its face, Global first', async () => {
+    const { container } = await withFonts(ownFont('Chakra Petch'));
+    const menu = await openMenu(container);
+
+    expect(container.querySelector('svg')).toBeNull();
+    expect(menu.querySelector('[data-inherit]')?.textContent).toContain('Global · Archivo');
+    expect(menu.firstElementChild?.hasAttribute('data-inherit')).toBe(true);
+    expect(
+      menu.querySelector<HTMLElement>('[data-face="Chakra Petch"] span')?.style.fontFamily,
+    ).toContain('Chakra Petch');
+  });
+
+  it('reads the installed fonts from a click, and offers a style for a family with several', async () => {
+    const localFonts = fonts('prompt');
+    const { container, onChange, rerender } = await withFonts(twoKeys(), [1], localFonts);
+
+    const menu = await openMenu(container);
+    expect(localFonts.read).not.toHaveBeenCalled();
+    menu.querySelector<HTMLButtonElement>('[data-read-installed]')!.click();
+    await settle();
+    expect(localFonts.read).toHaveBeenCalledTimes(1);
+
+    container.querySelector<HTMLButtonElement>('[data-family="Bahnschrift"]')!.click();
+    const next = onChange.mock.calls[0]![0] as OverlayConfig;
+    expect(next.keys[0]!.style).toEqual({ fontFamily: 'Bahnschrift', fontWeight: 700 });
+
+    await rerender({ config: next });
+    expect(container.querySelector('select[name="key-fontWeight"]')).not.toBeNull();
+
+    await rerender({ config: ownFont('Impact', 400) });
+    expect(container.querySelector('select[name="key-fontWeight"]')).toBeNull();
+  });
+
+  it('says a family is not installed here once the list is known, and only then', async () => {
+    const unread = await withFonts(ownFont('Nowhere Sans'), [1], fonts('prompt'));
+    expect(unread.container.querySelector('[data-not-installed]')).toBeNull();
+    cleanup();
+
+    const read = await withFonts(ownFont('Nowhere Sans'), [1], fonts('granted'));
+    expect(read.container.querySelector('[data-not-installed]')).not.toBeNull();
+  });
+
+  it('shuts the menu on Escape without letting the stage close the popover', async () => {
+    const { container } = await withFonts();
+    await openMenu(container);
+    const stage = vi.fn();
+    window.addEventListener('keydown', stage);
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await tick();
+
+    expect(container.querySelector('[data-installed-menu]')).toBeNull();
+    expect(stage).not.toHaveBeenCalled();
+    window.removeEventListener('keydown', stage);
   });
 });

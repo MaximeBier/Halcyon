@@ -34,6 +34,7 @@
   import KeyLearner from './KeyLearner.svelte';
   import LayoutEditor from './LayoutEditor.svelte';
   import StylePanel from './StylePanel.svelte';
+  import { provideInstalledFonts } from './installed-fonts-state.svelte';
   import { createProfileStore } from '../config/storage';
   import type { OverlayConfig } from '../config/schema';
   import StatusBar from './StatusBar.svelte';
@@ -267,6 +268,10 @@
   let listeners = $state({ inObs: 0, inBrowser: 0 });
   /** Families the live overlays say they cannot draw (Diagnostics, and the ⚙ dot). */
   let missingFonts = $state<string[]>([]);
+
+  // One reading of the fonts installed here, for the global panel and the key
+  // popover alike: a permission granted in one is granted in the other.
+  provideInstalledFonts();
 
   /** The scene table as the follower last reported it; mirrored into a rune for the popover. */
   let sceneState = $state<SceneState>({ scenes: null, live: null, links: [] });

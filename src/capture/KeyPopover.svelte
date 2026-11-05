@@ -3,11 +3,17 @@
   import {
     clearKeyStyle,
     detectedLabelFor,
+    setKeyFont,
     setKeyLabel,
     setKeyMode,
     setKeyStyle,
   } from '../config/edit';
-  import { effectiveStyle, overriddenInAny } from '../config/resolve';
+  import { effectiveStyle, overriddenInAny, overriddenKeys } from '../config/resolve';
+  import { FONT_CATALOG, fontStack } from '../config/fonts';
+  import InstalledFontsMenu from './InstalledFontsMenu.svelte';
+  import { defaultWeight, type InstalledFamily } from './installed-fonts';
+  import { useInstalledFonts } from './installed-fonts-state.svelte';
+  import type { LocalFonts } from './local-fonts';
   import { normalizeHex } from '../config/validate';
   import { GRID, moveKey, removeKeys, resizeKeys, type Rect } from './layout';
   import { ICON_SET, labelFor, type LayoutMapLike } from '../keyboard/labels';
@@ -48,6 +54,7 @@
     layout = null,
     suggestAxis = false,
     onDismissSuggestion = () => {},
+    localFonts,
   }: {
     config: OverlayConfig;
     selectedIds: number[];
@@ -72,6 +79,8 @@
     /** The key travels its whole depth and never fires (spec §7.4). */
     suggestAxis?: boolean;
     onDismissSuggestion?: () => void;
+    /** For tests: the page shares one instance through `provideInstalledFonts`. */
+    localFonts?: LocalFonts;
   } = $props();
 
   const selection = $derived(config.keys.filter((key) => selectedIds.includes(key.id)));
@@ -234,6 +243,87 @@
 
   /** The key as it came out of an edit, for `settle` to read its clamped value. */
   const after = (next: OverlayConfig, id: number) => next.keys.find((key) => key.id === id);
+
+  /*
+   * The label's font. Its row sits under Label, outside the STYLE fold — it is
+   * the label being dressed — and is counted in that fold's heading all the
+   * same, since it is an override like the colours below.
+   */
+  const fonts = useInstalledFonts(untrack(() => localFonts));
+  $effect(() => {
+    fonts.probe();
+  });
+
+  /** The lead's own choice, ticked in the menu; `null` when the lead inherits. */
+  const ownFont = $derived(
+    lead && effective && overriddenKeys(lead).includes('fontFamily') ? effective.fontFamily : null,
+  );
+  const fontEntry = $derived(fonts.list?.find(({ family }) => family === effective?.fontFamily));
+  const fontInstalled = $derived(
+    effective !== null && !FONT_CATALOG.some(({ family }) => family === effective.fontFamily),
+  );
+  /** As in the global panel: said only once the list is known, never guessed. */
+  const fontNotHere = $derived(fontInstalled && fonts.list !== null && fontEntry === undefined);
+
+  let fontMenu = $state(false);
+  /** A refusal met from this menu — forgotten when it shuts, so reopening tries again. */
+  let readDenied = $state(false);
+  let fontSlot = $state<HTMLElement | null>(null);
+  const installedView = $derived(fonts.list ?? (readDenied ? ('denied' as const) : null));
+
+  function toggleFontMenu() {
+    fontMenu = !fontMenu;
+    readDenied = false;
+  }
+
+  /** The click is the gesture Chrome wants: `read()` keeps it whole. */
+  function readInstalled() {
+    void fonts.read().then((result) => {
+      if (result === 'denied') readDenied = true;
+    });
+  }
+
+  /**
+   * Choosing the global font itself hands the key back rather than copying
+   * it: a copy would look inherited and stop following the global choice.
+   */
+  function pickFont(family: string, weight: number) {
+    const same = family === config.style.fontFamily && weight === config.style.fontWeight;
+    onChange(
+      same
+        ? clearKeyStyle(config, selectedIds, 'fontFamily')
+        : setKeyFont(config, selectedIds, family, weight),
+    );
+    fontMenu = false;
+  }
+
+  function pickInstalled(chosen: InstalledFamily) {
+    pickFont(chosen.family, defaultWeight(chosen.weights.map(({ weight }) => weight)));
+  }
+
+  // The doctrine of every other menu on this page: Escape and a pointer
+  // outside close it. Escape stops here — the stage reads it next, and would
+  // shut the whole popover for a keystroke meant for the menu.
+  $effect(() => {
+    if (!fontMenu) return;
+
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.stopPropagation();
+      fontMenu = false;
+      fontSlot?.querySelector<HTMLElement>('[data-font-trigger]')?.focus();
+    };
+    const onPointer = (event: PointerEvent) => {
+      if (!fontSlot?.contains(event.target as Node)) fontMenu = false;
+    };
+
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', onPointer);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', onPointer);
+    };
+  });
 </script>
 
 <!--
@@ -432,7 +522,69 @@
           </button>
         </div>
       {/if}
+    {/if}
 
+    <!-- The whole selection's, unlike the label above: a group of arrows is
+         exactly what gets a face of its own. The name drawn in itself, as in
+         the global panel's tiles. -->
+    <div class="row" data-style-row="fontFamily">
+      {@render name('fontFamily', 'Font', null, 'key-font-label')}
+      <div class="value font-slot" bind:this={fontSlot}>
+        {#if fontNotHere}
+          <span class="missing" data-not-installed>Not installed here</span>
+        {/if}
+        <button
+          type="button"
+          class="font-choice"
+          data-font-trigger
+          aria-haspopup="dialog"
+          aria-expanded={fontMenu}
+          aria-label={`Font: ${effective.fontFamily}`}
+          onclick={toggleFontMenu}
+        >
+          <span
+            style:font-family={fontStack(effective.fontFamily)}
+            style:font-weight={effective.fontWeight}>{effective.fontFamily}</span
+          >
+          <span class="more" aria-hidden="true">▾</span>
+        </button>
+        {#if fontMenu}
+          <InstalledFontsMenu
+            families={installedView}
+            current={ownFont}
+            onPick={pickInstalled}
+            inherit={{
+              family: config.style.fontFamily,
+              onPick: () => pickFont(config.style.fontFamily, config.style.fontWeight),
+            }}
+            onPickFace={pickFont}
+            onRead={fonts.access === 'unsupported' ? null : readInstalled}
+            retry="open the list again"
+          />
+        {/if}
+      </div>
+    </div>
+
+    <!-- Only for a family with a choice to make, as in the global panel. -->
+    {#if fontInstalled && fontEntry && fontEntry.weights.length > 1}
+      <div class="row">
+        <label for="key-fontWeight">Style</label>
+        <div class="value">
+          <select
+            id="key-fontWeight"
+            name="key-fontWeight"
+            value={String(effective.fontWeight)}
+            onchange={(event) => pickFont(fontEntry.family, Number(event.currentTarget.value))}
+          >
+            {#each fontEntry.weights as { weight, style } (weight)}
+              <option value={String(weight)}>{style}</option>
+            {/each}
+          </select>
+        </div>
+      </div>
+    {/if}
+
+    {#if single}
       <!-- Dragging alone becomes frustrating the moment two keys have to line
            up exactly, which is why the spec asks for numeric fields (§8.7).
            Single selection only: a group shares a size, not a position. -->
@@ -753,6 +905,41 @@
     justify-content: flex-end;
     gap: 8px;
     min-inline-size: 0;
+  }
+  /* The anchor of the font menu, which opens under the name, right-aligned. */
+  .font-slot {
+    position: relative;
+  }
+  .font-choice {
+    all: unset;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+    min-inline-size: 0;
+    font-size: var(--he-size-sm);
+    color: var(--he-text);
+    white-space: nowrap;
+  }
+  .font-choice > :first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .font-choice:focus-visible {
+    outline: 2px solid var(--he-accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+  /* In the interface's face, whatever the name beside it is drawn in. */
+  .more {
+    font: var(--he-font);
+    font-size: var(--he-size-sm);
+    color: var(--he-text-muted);
+  }
+  .missing {
+    font-size: var(--he-size-xs);
+    color: var(--he-override);
+    white-space: nowrap;
   }
   /* The STYLE heading: a handle that reads as a heading, and says how many
      lines under it depart from the global while it is shut. */

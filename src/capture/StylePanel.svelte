@@ -4,8 +4,10 @@
   import { normalizeHex } from '../config/validate';
   import { PRESETS, presetFor, withPreset } from './presets';
   import InstalledFontsMenu from './InstalledFontsMenu.svelte';
-  import { defaultWeight, families, type InstalledFamily } from './installed-fonts';
-  import { browserLocalFonts, type FontAccess, type LocalFonts } from './local-fonts';
+  import { untrack } from 'svelte';
+  import { defaultWeight, type InstalledFamily } from './installed-fonts';
+  import { useInstalledFonts } from './installed-fonts-state.svelte';
+  import type { LocalFonts } from './local-fonts';
   /** Shared with `KeyPopover`, whose three choices are the same three since 2026-08-26. */
   import {
     BORDER_STATES,
@@ -44,10 +46,11 @@
   let {
     config,
     onChange,
-    localFonts = browserLocalFonts,
+    localFonts,
   }: {
     config: OverlayConfig;
     onChange: (next: OverlayConfig) => void;
+    /** For tests: the page shares one instance through `provideInstalledFonts`. */
     localFonts?: LocalFonts;
   } = $props();
 
@@ -69,14 +72,13 @@
     open[group] = !open[group];
   }
 
-  /** `null` until the Label group first opens: nothing is asked of Chrome before. */
-  let access = $state<FontAccess | null>(null);
-  /** The installed families, once read — and `null` for as long as they are not. */
-  let installed = $state<InstalledFamily[] | null>(null);
+  /** Shared with the key popover, so a permission granted in one is granted in both. */
+  const fonts = useInstalledFonts(untrack(() => localFonts));
+  const access = $derived(fonts.access);
+  const installed = $derived(fonts.list);
   /** What the open menu shows, or `null` while it is shut. */
   let menu = $state<InstalledFamily[] | 'denied' | null>(null);
   let slot = $state<HTMLElement | null>(null);
-  let asked = false;
 
   /** Neither of the embedded faces: the family came from this machine, or another one. */
   const installedChosen = $derived(
@@ -97,26 +99,10 @@
    * before anyone clicks it.
    */
   $effect(() => {
-    if (!open.label || asked) return;
-    asked = true;
-    void localFonts.access().then(async (state) => {
-      access = state;
-      if (state !== 'granted') return;
-      try {
-        const faces = await localFonts.read();
-        if (faces !== 'denied') installed = families(faces);
-      } catch {
-        // Unread is a state the panel already handles: the menu reads again.
-      }
-    });
+    if (open.label) fonts.probe();
   });
 
-  /**
-   * Called from the click and reading in the same breath: Chrome grants its
-   * permission prompt to a gesture, and an await before `read()` would spend
-   * it. Read again on every click until a list comes back, so that someone who
-   * re-allowed fonts in the site's settings only has to click the tile again.
-   */
+  /** The click is the gesture Chrome wants: `read()` keeps it whole. */
   function toggleInstalled() {
     if (menu !== null) {
       menu = null;
@@ -126,21 +112,9 @@
       menu = installed;
       return;
     }
-    localFonts
-      .read()
-      .then((faces) => {
-        if (faces === 'denied') {
-          access = 'denied';
-          menu = 'denied';
-          return;
-        }
-        access = 'granted';
-        installed = families(faces);
-        menu = installed;
-      })
-      .catch(() => {
-        menu = null;
-      });
+    void fonts.read().then((result) => {
+      menu = result;
+    });
   }
 
   function pick(chosen: InstalledFamily) {
