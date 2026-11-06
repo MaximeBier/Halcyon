@@ -7,6 +7,8 @@
     type InstallWatch,
   } from './startup';
   import { copyToClipboard } from './clipboard';
+  import { Power } from './icons';
+  import Tooltip from './Tooltip.svelte';
 
   /**
    * The "Start with Windows" guide: a header trigger and the three steps.
@@ -22,6 +24,7 @@
     standalone,
     install,
     onInstall,
+    compact = false,
   }: {
     agent?: string;
     /** `(display-mode: standalone)` — the page runs in the installed window. */
@@ -34,6 +37,8 @@
     install: InstallWatch;
     /** Spends the held prompt — the page's, since the page holds it. */
     onInstall: () => void;
+    /** The header's third step: the icon alone, the name on hover. */
+    compact?: boolean;
   } = $props();
 
   let open = $state(false);
@@ -99,18 +104,26 @@
 </script>
 
 <div class="startup" bind:this={root}>
-  <button
-    class="trigger"
-    class:demoted={step === 'standalone'}
-    data-startup-trigger
-    type="button"
-    aria-expanded={open}
-    aria-haspopup="dialog"
-    bind:this={trigger}
-    onclick={toggle}
-  >
-    Start with Windows
-  </button>
+  <!-- As an icon, its name is the page's tooltip (board Editor-HeaderNarrow). -->
+  <Tooltip text={compact ? 'Start with Windows' : null}>
+    {#snippet children()}
+      <button
+        class="trigger"
+        class:demoted={step === 'standalone'}
+        class:he-btn-quiet={step === 'standalone'}
+        class:compact
+        data-startup-trigger
+        type="button"
+        aria-label={compact ? 'Start with Windows' : undefined}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        bind:this={trigger}
+        onclick={toggle}
+      >
+        {#if compact}<Power size={16} />{:else}Start with Windows{/if}
+      </button>
+    {/snippet}
+  </Tooltip>
 
   {#if open}
     <div
@@ -130,7 +143,7 @@
         <li data-step="install" class:done={step === 'standalone' || step === 'installed'}>
           <span class="title">Install Halcyon as an app</span>
           {#if step === 'installable'}
-            <button class="install" data-install type="button" onclick={onInstall}>
+            <button class="install he-btn-primary" data-install type="button" onclick={onInstall}>
               Install Halcyon…
             </button>
           {:else}
@@ -146,7 +159,7 @@
                  teach that the guide is broken. -->
             Go to <code data-address>{path.address}</code>
             <button
-              class="link"
+              class="he-btn-tertiary"
               data-copy
               type="button"
               onclick={copy}
@@ -181,12 +194,16 @@
      pill. Muted text was the first draft, and it made the one feature that
      changes how the product is *used* — open once, never touch again — look
      like a footnote next to the profile menu. */
-  .trigger {
+  .trigger:not(.he-btn-quiet) {
     all: unset;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    block-size: 28px;
     cursor: pointer;
-    padding: 4px 11px;
+    padding: 0 11px;
     border: 1px solid var(--he-accent);
-    border-radius: var(--he-radius-control);
+    border-radius: var(--he-radius);
     /* The header's own size (board 3a): the pills and the gear beside it
        speak at 14 px, and a pitch one notch louder read as a stray. */
     font-size: var(--he-size-xs);
@@ -194,14 +211,23 @@
     color: var(--he-accent);
     white-space: nowrap;
   }
-  .trigger:hover,
-  .trigger[aria-expanded='true'] {
-    color: var(--he-stage);
+  .trigger:not(.he-btn-quiet):hover,
+  .trigger:not(.he-btn-quiet)[aria-expanded='true'] {
+    color: var(--he-bg);
     background: var(--he-accent);
   }
-  .trigger:focus-visible {
+  .trigger:not(.he-btn-quiet):focus-visible {
     outline: 2px solid var(--he-accent);
-    outline-offset: 1px;
+    outline-offset: 2px;
+  }
+
+  /* The header's third step (board Editor-HeaderNarrow): the icon alone, a
+     28 px square — the accent outline kept while there is something to set
+     up, the quiet face otherwise. The name is the tooltip's and the label's. */
+  .trigger.compact {
+    inline-size: 28px;
+    padding: 0;
+    justify-content: center;
   }
   /* Once the page is `standalone`, step 1 is already done and this is no
      longer the button that sells the feature — it is the one someone who
@@ -210,16 +236,6 @@
      "footnote" recipe the comment above rejected for the pitch, which is
      exactly right once there is nothing left to pitch. Border kept
      transparent rather than removed so the click target does not shift. */
-  .trigger.demoted {
-    border-color: transparent;
-    font-weight: 400;
-    color: var(--he-text-muted);
-  }
-  .trigger.demoted:hover,
-  .trigger.demoted[aria-expanded='true'] {
-    color: var(--he-text);
-    background: none;
-  }
 
   .menu {
     position: absolute;
@@ -236,9 +252,6 @@
 
     font-size: var(--he-size-sm);
     color: var(--he-text-muted);
-  }
-  .menu:focus {
-    outline: none;
   }
 
   .lead {
@@ -257,7 +270,7 @@
     line-height: 1.45;
   }
   li::marker {
-    color: var(--he-text-faint);
+    color: var(--he-text-muted);
   }
   li.done::marker {
     color: var(--he-accent);
@@ -275,38 +288,15 @@
   code {
     font: var(--he-font-mono);
     color: var(--he-text);
-    background: var(--he-stage);
+    background: var(--he-well);
     border: 1px solid var(--he-border-control);
     border-radius: var(--he-radius);
     padding: 1px 5px;
   }
 
+  /* Under the step it belongs to, never stretched across the guide. */
   .install {
-    all: unset;
-    cursor: pointer;
+    align-self: flex-start;
     margin-block-start: 4px;
-    padding: 4px 10px;
-    border-radius: var(--he-radius);
-    font-weight: 600;
-    color: var(--he-stage);
-    background: var(--he-accent);
-  }
-  .install:focus-visible {
-    outline: 2px solid var(--he-text);
-    outline-offset: 1px;
-  }
-
-  .link {
-    all: unset;
-    cursor: pointer;
-    color: var(--he-accent);
-  }
-  .link:hover {
-    text-decoration: underline;
-  }
-  .link:focus-visible {
-    outline: 2px solid var(--he-accent);
-    outline-offset: 1px;
-    border-radius: var(--he-radius);
   }
 </style>

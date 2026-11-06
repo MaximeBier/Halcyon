@@ -5,6 +5,8 @@ import Harness from './StylePanel.harness.svelte';
 import { DEFAULT_STYLE, defaultConfig, type OverlayConfig } from '../config/schema';
 import { PRESETS } from './presets';
 import { tick } from 'svelte';
+import { openPicker } from '../test/picker';
+import { lastChildIsIcon } from '../test/dom';
 import type { FontAccess, LocalFonts } from './local-fonts';
 
 afterEach(cleanup);
@@ -77,7 +79,7 @@ describe('StylePanel - three groups, one open at a time', () => {
     // one mark allowed is the collapsible's own dot above the panel.
     const { container } = await panel();
     // The caret is decoration, not a note.
-    const words = (group: Group) => head(container, group).textContent!.replace('▸', '').trim();
+    const words = (group: Group) => head(container, group).textContent!.trim();
 
     expect(words('colors')).toBe('Colors');
     expect(words('shape')).toBe('Shape');
@@ -322,10 +324,31 @@ describe('StylePanel - an installed font', () => {
     expect(names).toEqual(['Arial', 'Bahnschrift', 'Impact']);
   });
 
+  it('opens in the top layer, placed in the window rather than in the panel that scrolls', async () => {
+    // Inside the panel's scrolling section it slid under Keys; in a key's
+    // popover it ran off the bottom of the screen.
+    const { container } = await labelPanel(fonts('prompt'));
+    const menu = (await openMenu(container))!;
+
+    expect(menu.getAttribute('popover')).toBe('manual');
+    expect(menu.style.top).not.toBe('');
+    expect(menu.style.left).not.toBe('');
+    expect(menu.style.maxHeight).not.toBe('');
+  });
+
+  it('draws its empty fourth tile as a place to fill, lifting on hover (board System › États)', async () => {
+    const { container } = await labelPanel(fonts('prompt'));
+    expect(slot(container).classList).toContain('he-slot');
+  });
+
   it('reminds that the font has to be on the PC running OBS too', async () => {
     const { container } = await labelPanel(fonts('prompt'));
 
-    expect((await openMenu(container))?.textContent).toMatch(/PC running OBS/);
+    const help = (await openMenu(container))!.querySelector('.he-help')!;
+    // Two sentences, a space between them.
+    expect(help.textContent!.replace(/\s+/g, ' ').trim()).toBe(
+      'Must also be installed on the PC running OBS. Arrows and icons may be missing.',
+    );
   });
 
   it('filters the list as the name is typed', async () => {
@@ -381,6 +404,18 @@ describe('StylePanel - an installed font', () => {
     expect(container.querySelector('[data-installed-menu]')).toBeNull();
   });
 
+  it('stays open when Escape closes a dropdown', async () => {
+    const { container } = await labelPanel(fonts('prompt'));
+    await openMenu(container);
+    const picker = openPicker();
+
+    picker.escape();
+    await tick();
+
+    expect(container.querySelector('[data-installed-menu]')).not.toBeNull();
+    picker.remove();
+  });
+
   it('cannot be opened in a browser that has no way to list fonts', async () => {
     const { container } = await labelPanel(fonts('unsupported'));
 
@@ -395,15 +430,74 @@ describe('StylePanel - an installed font', () => {
       return config;
     };
 
-    it('fills the fourth place, and the place still says what it is', async () => {
+    const other = (container: Element) =>
+      container.querySelector<HTMLButtonElement>('[data-other-fonts]')!;
+
+    it('splits the fourth place: the font to choose above, "Other fonts" below', async () => {
+      // Board Editor-LabelInstalledFont: one click, one meaning per half.
       const { container } = await labelPanel(fonts('prompt'), chosen('Bahnschrift'));
 
       expect(slot(container).getAttribute('aria-pressed')).toBe('true');
-      expect(slot(container).textContent).toContain('Bahnschrift');
-      expect(slot(container).textContent).toContain('Installed font');
+      // "Aa" and the name, as the three other tiles: no legend, no chevron.
+      expect(slot(container).textContent!.replace(/\s+/g, ' ').trim()).toBe('Aa Bahnschrift');
+      expect(slot(container).querySelector('svg')).toBeNull();
+      expect(other(container).textContent!.trim()).toBe('Other fonts');
+      expect(other(container).getAttribute('aria-haspopup')).toBe('listbox');
+      expect(other(container).querySelector('svg')).not.toBeNull();
+      expect(slot(container).closest('.installed')).toBe(other(container).closest('.installed'));
       expect(container.querySelector('[data-font="Archivo"]')!.getAttribute('aria-pressed')).toBe(
         'false',
       );
+    });
+
+    it('opens the list from "Other fonts", the current font marked', async () => {
+      const { container } = await labelPanel(fonts('granted'), chosen('Bahnschrift'));
+
+      other(container).click();
+      await settle();
+
+      const menu = container.querySelector('[data-installed-menu]')!;
+      expect(menu).not.toBeNull();
+      expect(menu.querySelector('[data-family="Bahnschrift"]')!.classList).toContain('on');
+      expect(other(container).getAttribute('aria-expanded')).toBe('true');
+    });
+
+    it('asks Chrome from "Other fonts" too, while it has not answered', async () => {
+      const localFonts = fonts('prompt');
+      const { container } = await labelPanel(localFonts, chosen('Bahnschrift'));
+
+      other(container).click();
+      await settle();
+
+      expect(localFonts.read).toHaveBeenCalledTimes(1);
+    });
+
+    it('does nothing when the font above is already the one chosen', async () => {
+      const { container, onChange } = await labelPanel(fonts('granted'), chosen('Bahnschrift'));
+
+      slot(container).click();
+      await settle();
+
+      expect(onChange).not.toHaveBeenCalled();
+      expect(container.querySelector('[data-installed-menu]')).toBeNull();
+    });
+
+    it('keeps the installed font once another tile is chosen, and gives it back above', async () => {
+      const { container, onChange, rerender } = await labelPanel(
+        fonts('granted'),
+        chosen('Bahnschrift', 600),
+      );
+
+      await rerender({ config: chosen('Archivo') });
+      await settle();
+      expect(slot(container).getAttribute('aria-pressed')).toBe('false');
+      expect(slot(container).textContent).toContain('Bahnschrift');
+
+      slot(container).click();
+      expect(onChange.mock.calls.at(-1)![0].style).toMatchObject({
+        fontFamily: 'Bahnschrift',
+        fontWeight: 600,
+      });
     });
 
     it('offers its faces when the family has more than one', async () => {
@@ -422,6 +516,13 @@ describe('StylePanel - an installed font', () => {
         fontFamily: 'Bahnschrift',
         fontWeight: 600,
       });
+    });
+
+    it("opens the page's own menu for its faces", async () => {
+      const { container } = await labelPanel(fonts('granted'), chosen('Bahnschrift'));
+      const select = container.querySelector('select[name="fontWeight"]')!;
+
+      expect(select.classList.contains('he-select')).toBe(true);
     });
 
     it('offers no Style row for a family with a single face', async () => {
@@ -607,6 +708,53 @@ describe('StylePanel - the opacity', () => {
     expect(field.value).toBe('40');
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it('reads on one line: name, slider, field', async () => {
+    const { slider, field, container } = await opacity();
+    const row = container.querySelector('label[for="global-opacity"]')!.closest('.row')!;
+
+    expect(row.contains(slider)).toBe(true);
+    expect(row.contains(field)).toBe(true);
+  });
+
+  it('fills the track up to the thumb while it moves, then to what was kept', async () => {
+    // The fill is drawn from the same figure as the field, so the two never
+    // disagree mid-gesture (spec §16.11).
+    const { slider, rerender, config } = await opacity();
+    expect(slider.style.getPropertyValue('--fill')).toBe('100%');
+
+    slider.value = '0.4';
+    slider.dispatchEvent(new Event('input', { bubbles: true }));
+    await Promise.resolve();
+    expect(slider.style.getPropertyValue('--fill')).toBe('40%');
+
+    slider.dispatchEvent(new Event('change', { bubbles: true }));
+    await rerender({ config: { ...config, style: { ...config.style, opacity: 0.4 } } });
+    expect(slider.style.getPropertyValue('--fill')).toBe('40%');
+  });
+
+  it('writes its unit just outside the field, the arrows holding its right end', async () => {
+    // Board Editor-NumberStepper: "%" left the frame when the arrows came in.
+    const { field } = await opacity();
+    const frame = field.closest('.he-field')!;
+
+    expect(frame.textContent).not.toContain('%');
+    expect(frame.querySelector('.he-steps')).not.toBeNull();
+    expect(frame.nextElementSibling?.textContent).toBe('%');
+  });
+
+  it('steps by one with its arrows, and greys the up arrow at 100', async () => {
+    const config = defaultConfig();
+    config.style.opacity = 1;
+    const { container, onChange } = await panel(config, 'behavior');
+    const frame = container.querySelector('input[name="opacityPercent"]')!.closest('.he-field')!;
+    const up = frame.querySelector<HTMLButtonElement>('button[aria-label="Increase"]')!;
+    const down = frame.querySelector<HTMLButtonElement>('button[aria-label="Decrease"]')!;
+
+    expect(up.disabled).toBe(true);
+    down.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
+    expect(onChange.mock.calls.at(-1)![0].style.opacity).toBeCloseTo(0.99);
+  });
 });
 
 describe('StylePanel - the presets', () => {
@@ -658,10 +806,10 @@ describe('StylePanel - the presets', () => {
     ).toBe(true);
   });
 
-  it('says what a preset touches, since it is three settings behind one dot', async () => {
-    expect((await panel(defaultConfig(), 'colors')).container.textContent).toContain(
-      'active, travel fill, rest & border',
-    );
+  it('puts no sentence under the presets: the swatches show what they set', async () => {
+    const { container } = await panel(defaultConfig(), 'colors');
+    expect(container.textContent).not.toContain('set the four colors');
+    expect(container.querySelector('.presets .caption')).toBeNull();
   });
 });
 
@@ -748,6 +896,44 @@ describe('StylePanel - how much of a resting key shows', () => {
     expect((await swatch(defaultConfig())).disabled).toBe(false);
   });
 
+  it('puts the whole Background row out of use, and says why (board Editor-Tooltip)', async () => {
+    const outlined = defaultConfig();
+    outlined.style.restVisibility = 'outline';
+    const { container } = await panel(outlined, 'colors');
+    const row = container.querySelector<HTMLElement>('[data-color-row="restColor"]')!;
+
+    expect(Boolean(row.inert) || row.hasAttribute('inert')).toBe(true);
+    expect(row.querySelector<HTMLInputElement>('input[type="color"]')!.disabled).toBe(true);
+    expect(row.querySelector<HTMLInputElement>('input[name="restColorHex"]')!.disabled).toBe(true);
+    expect(row.closest('[data-tooltip-host]')!.querySelector('[role="tooltip"]')!.textContent).toBe(
+      'No background while At rest is “Outline only”.',
+    );
+    // The page's tooltip, not the browser's.
+    expect(row.querySelector('[title]')).toBeNull();
+  });
+
+  it('leaves Background in use while a key overrides At rest with something that paints it', async () => {
+    const config = defaultConfig();
+    config.style.restVisibility = 'outline';
+    config.keys.push({
+      id: 1,
+      usage: 0x14,
+      mode: 'key',
+      label: 'A',
+      x: 0,
+      y: 0,
+      w: 1,
+      h: 1,
+      style: { restVisibility: 'filled' },
+    });
+    const { container } = await panel(config, 'colors');
+    const row = container.querySelector<HTMLElement>('[data-color-row="restColor"]')!;
+
+    expect(Boolean(row.inert) || row.hasAttribute('inert')).toBe(false);
+    expect(row.querySelector<HTMLInputElement>('input[type="color"]')!.disabled).toBe(false);
+    expect(container.querySelector('[role="tooltip"]')).toBeNull();
+  });
+
   it('says why the stage did not change when the keys go hidden', async () => {
     // Choosing the mode changes nothing on the capture page: the editor keeps
     // drawing every key so the layout stays editable. Without a word here, the
@@ -756,8 +942,10 @@ describe('StylePanel - how much of a resting key shows', () => {
     const concealed = defaultConfig();
     concealed.style.restVisibility = 'hidden';
 
-    expect((await panel(concealed, 'behavior')).container.textContent).toContain(
-      'editor keeps showing every key',
+    const { container } = await panel(concealed, 'behavior');
+    // Two sentences, a full stop between them, never a middle dot.
+    expect(container.querySelector('.he-help')!.textContent!.replace(/\s+/g, ' ').trim()).toBe(
+      'The editor keeps showing every key. The overlay shows none until you press one.',
     );
   });
 
@@ -781,9 +969,9 @@ describe('StylePanel - how much of a resting key shows', () => {
 
     const { container } = await panel(concealed, 'behavior');
 
-    expect(container.textContent).toContain('editor keeps showing every key');
-    expect(container.textContent).not.toContain('shows none');
-    expect(container.textContent).toMatch(/1 key/);
+    expect(container.querySelector('.he-help')!.textContent!.replace(/\s+/g, ' ').trim()).toBe(
+      'The editor keeps showing every key. The overlay shows only the 1 key set apart.',
+    );
   });
 
   it('keeps quiet in the modes where the stage tells the truth on its own', async () => {
@@ -906,5 +1094,276 @@ describe('StylePanel - keys with a font of their own', () => {
 
     const next = onChange.mock.calls[0]![0] as OverlayConfig;
     expect(next.keys.map((key) => key.style)).toEqual([undefined, { activeColor: '#ff0000' }]);
+  });
+
+  it('writes Reset fonts before its icon, as every reset is', async () => {
+    const { container } = await panel(
+      withKeys({ fontFamily: 'Fredoka', fontWeight: 700 }),
+      'label',
+    );
+    expect(lastChildIsIcon(container.querySelector('[data-reset-own-fonts]')!)).toBe(true);
+  });
+});
+
+describe('StylePanel - the dropdowns', () => {
+  it("open the page's own menu", async () => {
+    // The class is the contract with controls.css (spec §16.10).
+    const { container } = await panel(defaultConfig(), 'behavior');
+    const selects = [...container.querySelectorAll('select')];
+
+    expect(selects.length).toBe(2);
+    expect(selects.every((select) => select.classList.contains('he-select'))).toBe(true);
+  });
+});
+
+describe('StylePanel - units live in the fields', () => {
+  it('writes px inside each Shape field', async () => {
+    // Spec §16.13: the unit is part of the field, not a word floating after it.
+    const { container } = await panel(defaultConfig(), 'shape');
+
+    for (const name of ['radius', 'borderWidth', 'unit', 'gap']) {
+      const field = container.querySelector(`input[name="${name}"]`)!.closest('.he-field');
+      expect(field, name).not.toBeNull();
+      expect(field!.textContent).toContain('px');
+    }
+  });
+});
+
+describe('StylePanel - one name per setting (spec §16.15)', () => {
+  const text = (c: Element) => c.textContent!.replace(/\s+/g, ' ');
+
+  it('names the colours for what they paint', async () => {
+    const { container } = await panel(defaultConfig(), 'colors');
+
+    for (const name of ['Background', 'Press depth', 'Triggered', 'Border']) {
+      expect(text(container)).toContain(name);
+    }
+    expect(text(container)).not.toMatch(/Travel fill|\bRest\b|\bActive\b/);
+  });
+
+  it('calls the label outline a text outline', async () => {
+    const { container } = await panel(defaultConfig(), 'label');
+
+    expect(container.querySelector('#global-labelOutline-label')!.textContent).toBe('Text outline');
+  });
+
+  it('names the resting and pressed rows as the popover does', async () => {
+    const { container } = await panel(defaultConfig(), 'behavior');
+
+    expect(container.querySelector('label[for="global-restVisibility"]')!.textContent).toBe(
+      'At rest',
+    );
+    expect(container.querySelector('label[for="global-activeBorder"]')!.textContent).toBe(
+      'Pressed border',
+    );
+  });
+});
+
+describe('StylePanel - Colors, read on a key (spec §16.13)', () => {
+  const rows = (c: Element) => [...c.querySelectorAll<HTMLElement>('[data-color-row]')];
+  const mini = (c: Element) => c.querySelector<HTMLElement>('[data-mini-key]')!;
+  const enter = async (row: HTMLElement) => {
+    row.dispatchEvent(new PointerEvent('pointerenter'));
+    await Promise.resolve();
+  };
+
+  it('lists the colours from the back of the key to its edge', async () => {
+    const { container } = await panel(defaultConfig(), 'colors');
+
+    expect(rows(container).map((row) => row.dataset.colorRow)).toEqual([
+      'restColor',
+      'fillColor',
+      'activeColor',
+      'borderColor',
+    ]);
+  });
+
+  it('puts each swatch before its hex code', async () => {
+    const { container } = await panel(defaultConfig(), 'colors');
+    expect(rows(container)).toHaveLength(4);
+
+    for (const row of rows(container)) {
+      const inputs = [...row.querySelectorAll('input')].map((input) => input.type);
+      expect(inputs).toEqual(['color', 'text']);
+    }
+  });
+
+  it('names every preset, the default first', async () => {
+    const { container } = await panel(defaultConfig(), 'colors');
+    const names = [...container.querySelectorAll<HTMLElement>('[data-preset]')].map((p) => p.title);
+
+    expect(names).toEqual([
+      'Halcyon',
+      'Mint',
+      'Coral',
+      'Amber',
+      'Violet',
+      'Cyan',
+      'Graphite',
+      'Paper',
+    ]);
+  });
+
+  it('draws a key half pressed in the global colours', async () => {
+    const config = defaultConfig();
+    config.style.restColor = '#123456';
+    const { container } = await panel(config, 'colors');
+
+    expect(mini(container).dataset.state).toBe('half');
+    // No caption under it: one that changes width with the state moves the rows beside it.
+    expect(mini(container).querySelector('figcaption')).toBeNull();
+    expect(mini(container).querySelector('rect[fill="#123456"]')).not.toBeNull();
+  });
+
+  it('rings the part of the key the hovered row paints', async () => {
+    const { container } = await panel(defaultConfig(), 'colors');
+    const [background, depth, , border] = rows(container);
+
+    await enter(background!);
+    expect(mini(container).dataset.ring).toBe('face');
+    await enter(depth!);
+    expect(mini(container).dataset.ring).toBe('depth');
+    await enter(border!);
+    expect(mini(container).dataset.ring).toBe('border');
+
+    border!.dispatchEvent(new PointerEvent('pointerleave'));
+    await Promise.resolve();
+    expect(mini(container).dataset.ring).toBeUndefined();
+  });
+
+  it('rings face and fill inside the border, clipped by the corners of the key', async () => {
+    const config = defaultConfig();
+    config.style.borderWidth = 2;
+    const { container } = await panel(config, 'colors');
+    const [background, depth, , border] = rows(container);
+
+    // The face above a rising fill, then the fill: each round only where it
+    // meets the key's corners, never mid-key.
+    for (const [row, corners] of [
+      [background!, '3px 3px 0px 0px'],
+      [depth!, '0px 0px 3px 3px'],
+    ] as const) {
+      await enter(row);
+      const clip = mini(container).querySelector<HTMLElement>('[data-ring-clip]')!;
+      expect(clip.style.inset).toBe('2px');
+      expect(clip.style.borderRadius).toBe('3px');
+      expect(clip.querySelector<HTMLElement>('.ring')!.style.borderRadius).toBe(corners);
+    }
+
+    await enter(border!);
+    expect(mini(container).querySelector('[data-ring-clip]')).toBeNull();
+    expect(mini(container).querySelector('.ring.border')).not.toBeNull();
+  });
+
+  it('rounds the key and its rings with the global radius, as it follows the border width', async () => {
+    const config = defaultConfig();
+    config.style.radius = 12;
+    config.style.borderWidth = 2;
+    const { container } = await panel(config, 'colors');
+    const [background, , , border] = rows(container);
+
+    expect(mini(container).querySelector('rect')!.getAttribute('rx')).toBe('12');
+    // The transparency check under the face takes the same corners.
+    expect(mini(container).querySelector<HTMLElement>('.mini-key')!.style.borderRadius).toBe(
+      '12px',
+    );
+    await enter(background!);
+    expect(mini(container).querySelector<HTMLElement>('[data-ring-clip]')!.style.borderRadius).toBe(
+      '10px',
+    );
+    // The ring itself: round where it meets the key's corners, square across it.
+    expect(
+      mini(container).querySelector<HTMLElement>('[data-ring-clip] .ring')!.style.borderRadius,
+    ).toBe('10px 10px 0px 0px');
+    await enter(border!);
+    expect(mini(container).querySelector<HTMLElement>('.ring.border')!.style.borderRadius).toBe(
+      '12px',
+    );
+  });
+
+  it('shows the colour being picked on the key, live, and saves it only once chosen', async () => {
+    const { container, onChange } = await panel(defaultConfig(), 'colors');
+    const [background] = rows(container);
+    const swatch = background!.querySelector<HTMLInputElement>('input[type="color"]')!;
+
+    // Dragging in the picker: the key follows, the profile does not move.
+    swatch.value = '#ab1234';
+    swatch.dispatchEvent(new Event('input', { bubbles: true }));
+    background!.dispatchEvent(new PointerEvent('pointerleave'));
+    await Promise.resolve();
+    expect(mini(container).querySelector('rect[fill="#ab1234"]')).not.toBeNull();
+    // The zone being picked stays ringed though the pointer is in the picker.
+    expect(mini(container).dataset.ring).toBe('face');
+    expect(onChange).not.toHaveBeenCalled();
+
+    // Chosen: saved once, and the key goes back to the profile's colours.
+    swatch.dispatchEvent(new Event('change', { bubbles: true }));
+    await Promise.resolve();
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0]![0].style.restColor).toBe('#ab1234');
+    expect(mini(container).dataset.ring).toBeUndefined();
+  });
+
+  it('fires the key while Triggered is picked, so its colour shows', async () => {
+    const { container } = await panel(defaultConfig(), 'colors');
+    const swatch = rows(container)[2]!.querySelector<HTMLInputElement>('input[type="color"]')!;
+
+    swatch.value = '#00ff88';
+    swatch.dispatchEvent(new Event('input', { bubbles: true }));
+    await Promise.resolve();
+
+    expect(mini(container).dataset.state).toBe('triggered');
+    expect(mini(container).querySelector('rect[fill="#00ff88"]')).not.toBeNull();
+  });
+
+  it('fires the key while Triggered is hovered, as a real press swaps its colours', async () => {
+    const { container } = await panel(defaultConfig(), 'colors');
+
+    await enter(rows(container)[2]!);
+
+    expect(mini(container).dataset.state).toBe('triggered');
+    expect(mini(container).querySelector('figcaption')).toBeNull();
+    // scene.ts swaps them: the face takes Press depth, the fill Triggered.
+    expect(mini(container).querySelector(`rect[fill="${DEFAULT_STYLE.fillColor}"]`)).not.toBeNull();
+  });
+});
+
+describe('StylePanel - Press depth on a gamepad-only profile (board Editor-Tooltip)', () => {
+  const row = (c: Element) => c.querySelector<HTMLElement>('[data-color-row="fillColor"]')!;
+  const inert = (el: HTMLElement) => Boolean(el.inert) || el.hasAttribute('inert');
+  const withModes = (...modes: ('key' | 'axis')[]) => {
+    const config = defaultConfig();
+    modes.forEach((mode, i) =>
+      config.keys.push({ id: i + 1, usage: 0x04 + i, mode, label: 'A', x: i, y: 0, w: 1, h: 1 }),
+    );
+    return config;
+  };
+
+  it('stays in use whatever the keys: the next key added is a keyboard key', async () => {
+    // Only the popover greys it, on the gamepad inputs it edits.
+    expect(inert(row((await panel(withModes('axis', 'axis'), 'colors')).container))).toBe(false);
+    cleanup();
+    expect(inert(row((await panel(withModes('axis', 'key'), 'colors')).container))).toBe(false);
+    cleanup();
+    expect(inert(row((await panel(withModes(), 'colors')).container))).toBe(false);
+  });
+});
+
+describe('StylePanel - opened from elsewhere', () => {
+  it('opens a group on request and brings it into view', async () => {
+    // Diagnostics' Change font lands on Label, open, on screen (spec §11).
+    const scroll = vi.fn();
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = scroll;
+    const onChange = vi.fn();
+    const view = render(StylePanel, { props: { config: defaultConfig(), onChange } });
+    const panelApi = view.component as unknown as { reveal(group: 'label'): Promise<void> };
+
+    await panelApi.reveal('label');
+
+    expect(head(view.container, 'label').getAttribute('aria-expanded')).toBe('true');
+    expect(scroll).toHaveBeenCalledWith({ block: 'nearest', behavior: 'smooth' });
+    expect(document.activeElement).toBe(head(view.container, 'label'));
+    Element.prototype.scrollIntoView = original;
   });
 });

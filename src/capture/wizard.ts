@@ -132,23 +132,27 @@ export function saveStatus(storage: Pick<Storage, 'setItem'>, status: WizardStat
  * note sits on the right edge of a row inside a 470 px card, where a sentence
  * wraps and buries the verdict. The hint keeps the paragraph; the row gets
  * the diagnosis and the one gesture that moves it.
+ *
+ * Two of those are two sentences, never one held by a middle dot (the
+ * prototype, 2026-11-06): the dot separates values — "Width 216 · Height
+ * 216" — not clauses.
  */
 export function obsNote(status: ObsStatus, overlaysInObs: number): string {
   switch (status) {
     case 'identified':
       // The socket is the easy half (see nextStep): once it is up, the only
       // thing left to say is which half of the step is still missing.
-      return overlaysInObs > 0 ? 'connected' : 'connected · waiting for the browser source';
+      return overlaysInObs > 0 ? 'connected' : 'Connected. Waiting for the browser source.';
     case 'connecting':
       return 'connecting…';
     case 'auth-failed':
-      return 'password refused · check it above';
+      return 'Wrong password';
     case 'unreachable':
       // The retry rides on keyboard reports (spec §2.2): with step 1 behind,
       // a keystroke is always available — and nothing moves without one.
-      return 'not answering · press a key to retry';
+      return 'Not answering. Press a key to retry.';
     case 'disconnected':
-      return 'connection closed · press a key to reconnect';
+      return 'Connection closed. Press a key to reconnect.';
     case 'idle':
       return 'waiting…';
   }

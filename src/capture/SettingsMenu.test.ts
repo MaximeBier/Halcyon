@@ -1,15 +1,31 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, cleanup, fireEvent } from '@testing-library/svelte';
+import { createRawSnippet } from 'svelte';
+import { openPicker } from '../test/picker';
 import SettingsMenu from './SettingsMenu.svelte';
 import type { OverlayConfig } from '../config/schema';
 
 afterEach(cleanup);
 
-function menu(overrides: { layout?: OverlayConfig['layoutOverride']; toReport?: number } = {}) {
-  const handlers = { onLayout: vi.fn(), onPickDevice: vi.fn(), onDiagnostics: vi.fn() };
+function menu(
+  overrides: {
+    layout?: OverlayConfig['layoutOverride'];
+    toCheck?: number;
+    copies?: boolean;
+    obsConnected?: boolean;
+  } = {},
+) {
+  const handlers = {
+    onLayout: vi.fn(),
+    onPickDevice: vi.fn(),
+    onDiagnostics: vi.fn(),
+    onCopyUrl: vi.fn(() => Promise.resolve(overrides.copies ?? true)),
+    onObs: vi.fn(),
+  };
   const props = {
     layout: overrides.layout ?? ('auto' as const),
-    toReport: overrides.toReport ?? 0,
+    toCheck: overrides.toCheck ?? 0,
+    obsConnected: overrides.obsConnected ?? true,
     ...handlers,
   };
   return { ...render(SettingsMenu, { props }), ...handlers };
@@ -49,19 +65,30 @@ describe('the gear', () => {
     expect(panel(container)).toBeNull();
   });
 
+  it('stays open when Escape closes a dropdown', async () => {
+    const { container } = menu();
+    await open(container);
+    const picker = openPicker();
+
+    picker.escape();
+    await Promise.resolve();
+
+    expect(panel(container)).not.toBeNull();
+    picker.remove();
+  });
+
   it('wears no dot while everything behind it is at its default', () => {
     const { container } = menu();
 
     expect(container.querySelector('[data-flagged]')).toBeNull();
   });
 
-  it('wears the dot for a layout set by hand, and for something to report', () => {
-    // §9.3 on a trigger: what the gear hides departs from the defaults, or is
-    // ours to fix. Hiding either behind an unmarked icon is how it stays
-    // hidden.
-    expect(menu({ layout: 'azerty' }).container.querySelector('[data-flagged]')).not.toBeNull();
+  it('wears the dot for what Diagnostics asks to look at, and for nothing else', () => {
+    // Spec §11: only the Needs attention lines light it — a forced layout is
+    // one of them, counted by the page, not guessed here.
+    expect(menu({ layout: 'azerty' }).container.querySelector('[data-flagged]')).toBeNull();
     cleanup();
-    expect(menu({ toReport: 2 }).container.querySelector('[data-flagged]')).not.toBeNull();
+    expect(menu({ toCheck: 2 }).container.querySelector('[data-flagged]')).not.toBeNull();
   });
 
   it('promises no more than a popover: no menu or menuitem role', async () => {
@@ -113,11 +140,88 @@ describe('what the menu holds', () => {
     expect(panel(container)).toBeNull();
   });
 
-  it('counts what is ours to fix on the Diagnostics row', async () => {
-    const { container } = menu({ toReport: 3 });
+  it('lists its rows in the board’s order, OBS connection between the device and the URL', async () => {
+    const { container } = menu();
     await open(container);
 
-    expect(action(container, 'diagnostics').textContent).toContain('3 to report');
+    const rows = [...panel(container)!.querySelectorAll<HTMLElement>('[data-action]')].map(
+      (row) => row.dataset.action,
+    );
+    expect(rows).toEqual(['device', 'obs', 'copy-url', 'diagnostics']);
+  });
+
+  it('opens the OBS popover from OBS connection, and closes itself', async () => {
+    // A second way in: down, the OBS pill's click retries, and the popover —
+    // port, password — was a right click away, when it is needed most.
+    for (const obsConnected of [true, false]) {
+      const { container, onObs } = menu({ obsConnected });
+      await open(container);
+
+      await fireEvent.click(action(container, 'obs'));
+
+      expect(onObs).toHaveBeenCalledTimes(1);
+      expect(panel(container)).toBeNull();
+      cleanup();
+    }
+  });
+
+  it('hangs the OBS popover under the gear when it opened it, in the menu’s place', async () => {
+    // The App hands over the very popover the pill hangs; the gear gives it
+    // its corner. Its click closes it there, like the pill's does under the pill.
+    const onObsClose = vi.fn();
+    const obsPanel = createRawSnippet((close: () => () => void) => ({
+      render: () => '<div data-test-obs-panel></div>',
+      setup: (element: Element) => {
+        element.addEventListener('click', () => close()());
+      },
+    }));
+    const { container } = render(SettingsMenu, {
+      props: {
+        layout: 'auto' as const,
+        toCheck: 0,
+        onLayout: vi.fn(),
+        onPickDevice: vi.fn(),
+        onDiagnostics: vi.fn(),
+        onCopyUrl: vi.fn(() => Promise.resolve(true)),
+        obsConnected: false,
+        onObs: vi.fn(),
+        obsOpen: true,
+        onObsClose,
+        obsPanel,
+      },
+    });
+
+    const hung = container.querySelector('[data-test-obs-panel]')!;
+    expect(hung).not.toBeNull();
+    expect(hung.parentElement).toBe(trigger(container).parentElement);
+
+    await fireEvent.click(trigger(container));
+    expect(onObsClose).toHaveBeenCalledTimes(1);
+    expect(panel(container)).toBeNull();
+  });
+
+  it('says on OBS connection whether OBS is connected', async () => {
+    const up = menu({ obsConnected: true });
+    await open(up.container);
+    const state = action(up.container, 'obs').querySelector<HTMLElement>('[data-obs-state]')!;
+    expect(state.textContent!.trim()).toBe('Connected');
+    expect(state.classList).not.toContain('down');
+    expect(state.querySelector('.state-dot')).toBeNull();
+    cleanup();
+
+    const down = menu({ obsConnected: false });
+    await open(down.container);
+    const off = action(down.container, 'obs').querySelector<HTMLElement>('[data-obs-state]')!;
+    expect(off.textContent!.trim()).toBe('Disconnected');
+    expect(off.classList).toContain('down');
+    expect(off.querySelector('.state-dot')).not.toBeNull();
+  });
+
+  it('counts what is ours to fix on the Diagnostics row', async () => {
+    const { container } = menu({ toCheck: 3 });
+    await open(container);
+
+    expect(action(container, 'diagnostics').textContent).toContain('3 to check');
   });
 
   it('names the build, so a report can without opening Diagnostics', async () => {
@@ -134,5 +238,95 @@ describe('what the menu holds', () => {
     await open(container);
 
     expect(panel(container)!.textContent).not.toMatch(/start with windows/i);
+  });
+});
+
+describe('the layout dropdown', () => {
+  it("opens the page's own menu", async () => {
+    const { container } = menu();
+    await open(container);
+
+    const select = container.querySelector('select[aria-label="Keyboard layout"]')!;
+    expect(select.classList.contains('he-select')).toBe(true);
+  });
+});
+
+describe('the gear button', () => {
+  it('is a framed icon button, like undo and redo beside it', () => {
+    const { container } = menu();
+    expect(trigger(container).classList.contains('he-icon-btn')).toBe(true);
+  });
+});
+
+describe('the gear says how much there is to check', () => {
+  it('names the count on its title, and stays plain with nothing to check', () => {
+    expect(trigger(menu().container).getAttribute('title')).toBe('Settings');
+    cleanup();
+    expect(trigger(menu({ toCheck: 1 }).container).getAttribute('title')).toBe(
+      'Settings · 1 thing to check',
+    );
+    cleanup();
+    expect(trigger(menu({ toCheck: 2 }).container).getAttribute('title')).toBe(
+      'Settings · 2 things to check',
+    );
+  });
+});
+
+describe('Copy overlay URL', () => {
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+  it('copies the URL from the menu, says so, then goes back when its two seconds run out', async () => {
+    // The two seconds are a CSS animation, never a timer: spec §2 bars
+    // timers from the capture page (the Toast recipe).
+    const { container, onCopyUrl } = menu();
+    await open(container);
+
+    action(container, 'copy-url').click();
+    await settle();
+    expect(onCopyUrl).toHaveBeenCalledTimes(1);
+    expect(action(container, 'copy-url').textContent).toContain('Overlay URL copied');
+
+    container.querySelector('[data-copy-label]')!.dispatchEvent(new Event('animationend'));
+    await settle();
+    expect(action(container, 'copy-url').textContent).toContain('Copy overlay URL');
+  });
+
+  it('starts over when the menu is reopened', async () => {
+    const { container } = menu();
+    await open(container);
+    action(container, 'copy-url').click();
+    await settle();
+
+    await open(container);
+    await open(container);
+
+    expect(action(container, 'copy-url').textContent).toContain('Copy overlay URL');
+  });
+
+  it('forgets a copy that answers after the menu closed', async () => {
+    // Escape before the clipboard answered: the late answer reopened the menu
+    // on "Overlay URL copied", for a copy no one had just made.
+    let answer!: (done: boolean) => void;
+    const { container, onCopyUrl } = menu();
+    onCopyUrl.mockImplementation(() => new Promise<boolean>((resolve) => (answer = resolve)));
+    await open(container);
+    action(container, 'copy-url').click();
+
+    await open(container);
+    answer(true);
+    await settle();
+    await open(container);
+
+    expect(action(container, 'copy-url').textContent).toContain('Copy overlay URL');
+  });
+
+  it('says when the browser refused', async () => {
+    const { container } = menu({ copies: false });
+    await open(container);
+
+    action(container, 'copy-url').click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(action(container, 'copy-url').textContent!.trim()).toBe('Copy failed');
   });
 });

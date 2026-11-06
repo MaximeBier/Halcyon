@@ -34,10 +34,13 @@ function patchKey(
 /**
  * The smallest work surface, in key units.
  *
- * Only ever reached before the stage has been laid out — under a test, or
- * before the first paint — where a surface of nothing would clamp every key
- * onto a single point. Smaller than any real stage, so it never wins on a
- * screen.
+ * Only for a stage not yet laid out — under a test, or before the first
+ * paint — where a surface of nothing would clamp every key onto a single
+ * point. **Never a floor under a measured stage**: it once was, on the belief
+ * that it was smaller than any real one, but 12 units are 864 px at the
+ * default unit and a stage goes down to 560. The keys in the strip between
+ * the two were clipped by the stage and still "on the surface", so the Keys
+ * list never named them.
  */
 const MIN_SURFACE = { w: 12, h: 8 };
 
@@ -67,8 +70,8 @@ export function surfaceOf(box: { width: number; height: number }, unit: number):
   // that cannot be clamped against. The style validator already refuses it;
   // this is here because the consequence is silent.
   const across = unit > 0 ? unit : 1;
-  const w = Math.max(MIN_SURFACE.w, box.width / across);
-  const h = Math.max(MIN_SURFACE.h, box.height / across);
+  const w = box.width > 0 ? box.width / across : MIN_SURFACE.w;
+  const h = box.height > 0 ? box.height / across : MIN_SURFACE.h;
 
   return { x: -w / 2, y: -h / 2, w, h };
 }

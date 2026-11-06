@@ -1,4 +1,12 @@
+<script module lang="ts">
+  /** Anchor names are document-wide: each bar gets its own pair. */
+  let instances = 0;
+</script>
+
 <script lang="ts">
+  import { selectOnFocus } from './select-on-focus';
+  import Tooltip from './Tooltip.svelte';
+  import { Check, Ellipsis, Plus, X } from './icons';
   import type { Snippet } from 'svelte';
 
   /**
@@ -62,6 +70,15 @@
   let nameField = $state<HTMLInputElement | null>(null);
   /** The control that opened whatever is open, for the focus to come back to. */
   let opener: HTMLElement | null = null;
+  let strip = $state<HTMLElement | null>(null);
+
+  /**
+   * The two menus hang outside the strip that scrolls — a scrolling box clips
+   * whatever overflows it, on both axes — and find their trigger by CSS anchor
+   * positioning, which also follows the strip as it scrolls.
+   */
+  const id = ++instances;
+  const anchors = { tab: `--he-profile-tab-${id}`, add: `--he-profile-add-${id}` };
 
   function close() {
     menu = null;
@@ -169,6 +186,22 @@
     popoverEl?.querySelector<HTMLElement>('button, input, select')?.focus();
   });
 
+  // The open profile is always in view: an OBS scene switch can open one that
+  // sits past the right edge. The strip scrolls and nothing else — even
+  // `scrollIntoView({ block: 'nearest' })` scrolls a stacked page up to this
+  // row, at every scene switch, mid-stream.
+  $effect(() => {
+    const name = active;
+    const slot = [...(strip?.querySelectorAll<HTMLElement>('[data-tab]') ?? [])]
+      .find((button) => button.dataset.tab === name)
+      ?.closest<HTMLElement>('.slot');
+    if (!strip || !slot) return;
+    const view = strip.getBoundingClientRect();
+    const tab = slot.getBoundingClientRect();
+    if (tab.left < view.left) strip.scrollLeft += tab.left - view.left;
+    else if (tab.right > view.right) strip.scrollLeft += tab.right - view.right;
+  });
+
   $effect(() => {
     if (menu === null) return;
 
@@ -176,12 +209,12 @@
       if (event.key === 'Escape') close();
     };
     // `pointerdown`, not `click`: the popover must be gone before whatever was
-    // clicked underneath it reacts. The anchor is the slot the popover hangs
-    // from — trigger included — so the trigger's own click still reaches
-    // `toggle` and closes it there.
+    // clicked underneath it reacts. The trigger's slot counts as inside, so the
+    // trigger's own click still reaches `toggle` and closes it there.
     const onPointer = (event: PointerEvent) => {
-      const anchor = popoverEl?.parentElement;
-      if (anchor && !anchor.contains(event.target as Node)) close();
+      const target = event.target as Node;
+      const slot = opener?.closest('.slot');
+      if (!popoverEl?.contains(target) && !slot?.contains(target)) close();
     };
 
     document.addEventListener('keydown', onKey);
@@ -198,6 +231,7 @@
        is being typed nothing else in the menu makes sense to click. -->
   <form class="edit" onsubmit={submitName}>
     <input
+      use:selectOnFocus
       bind:this={nameField}
       data-name-field
       type="text"
@@ -205,8 +239,12 @@
       placeholder="Profile name"
       aria-label={editing === 'rename' ? 'Rename this profile' : 'New profile name'}
     />
-    <button type="submit" class="ok" aria-label="Confirm">✓</button>
-    <button type="button" class="cancel" aria-label="Cancel" onclick={close}>✕</button>
+    <button type="submit" class="ok he-icon-btn he-icon-btn--bare" aria-label="Confirm"
+      ><Check size={16} /></button
+    >
+    <button type="button" class="he-icon-btn he-icon-btn--bare" aria-label="Cancel" onclick={close}
+      ><X size={16} /></button
+    >
   </form>
 {/snippet}
 
@@ -217,126 +255,165 @@
   popovers stay `dialog`s of ordinary controls, for the same reason.
 -->
 <nav class="tabs" aria-label="Profiles">
-  {#each names as name (name)}
-    <div class="slot" class:current={name === active}>
-      <button
-        type="button"
-        class="tab"
-        data-tab={name}
-        aria-current={name === active ? 'true' : undefined}
-        onclick={() => select(name)}
-        ondblclick={(event) => rename(event.currentTarget)}
-        oncontextmenu={(event) => context(name, event)}
+  <!-- Only the tabs and the + scroll (spec §16.9): what the page hands in stays
+       pinned at the right end, however many profiles there are. -->
+  <div class="strip" data-strip bind:this={strip}>
+    {#each names as name (name)}
+      <div
+        class="slot"
+        class:current={name === active}
+        style:anchor-name={name === active ? anchors.tab : undefined}
       >
-        <span class="name">{name}</span>
-        <span class="count">{keyCount(name)}</span>
-      </button>
+        <button
+          type="button"
+          class="tab he-text-btn"
+          data-tab={name}
+          aria-current={name === active ? 'true' : undefined}
+          onclick={() => select(name)}
+          ondblclick={(event) => rename(event.currentTarget)}
+          oncontextmenu={(event) => context(name, event)}
+        >
+          <span class="name">{name}</span>
+          <span class="count" title={`${keyCount(name)} key${keyCount(name) === 1 ? '' : 's'}`}
+            >{keyCount(name)}</span
+          >
+        </button>
 
-      {#if name === active}
-        <!-- On the active tab only: every action behind it acts on the open
+        {#if name === active}
+          <!-- On the active tab only: every action behind it acts on the open
              profile, so a `⋯` on the others would promise what a click there
              cannot keep. A sibling of the tab, never inside it — a button in
              a button is not a thing. -->
-        <button
-          type="button"
-          class="more"
-          data-more
-          aria-label={`Options for “${name}”`}
-          aria-expanded={menu === 'tab'}
-          aria-haspopup="dialog"
-          onclick={(event) => toggle('tab', event.currentTarget)}
-        >
-          ⋯
-        </button>
-
-        {#if menu === 'tab'}
-          <div
-            class="popover"
-            data-menu
-            role="dialog"
-            aria-label="Profile options"
-            bind:this={popoverEl}
+          <button
+            type="button"
+            class="more he-icon-btn he-icon-btn--bare"
+            data-more
+            aria-label={`Options for “${name}”`}
+            title="Profile menu"
+            aria-expanded={menu === 'tab'}
+            aria-haspopup="dialog"
+            onclick={(event) => toggle('tab', event.currentTarget)}
           >
-            {#if editing}
-              {@render field()}
-            {:else}
-              <button
-                class="row"
-                data-action="duplicate"
-                type="button"
-                onclick={() => act(onDuplicate)}
-              >
-                Duplicate “{active}”
-              </button>
-              <button
-                class="row"
-                data-action="rename"
-                type="button"
-                onclick={() => (editing = 'rename')}
-              >
-                Rename “{active}”…
-              </button>
-              <!-- Nothing to delete when one profile is left: the store always
-                   keeps one, and a row that answers a click with nothing is
-                   how someone presses it four times. -->
-              {#if names.length > 1}
-                <button
-                  class="row danger"
-                  class:armed={confirming}
-                  data-action="remove"
-                  type="button"
-                  onclick={remove}
-                >
-                  {confirming ? `Really delete “${active}”?` : `Delete “${active}”`}
-                </button>
-              {/if}
-
-              <hr />
-
-              <button class="row" data-action="export" type="button" onclick={() => act(onExport)}>
-                Export “{active}” as JSON
-              </button>
-            {/if}
-          </div>
-        {/if}
-      {/if}
-    </div>
-  {/each}
-
-  <div class="slot">
-    <button
-      type="button"
-      class="add"
-      data-add
-      aria-label="Add a profile"
-      aria-expanded={menu === 'add'}
-      aria-haspopup="dialog"
-      onclick={(event) => toggle('add', event.currentTarget)}
-    >
-      +
-    </button>
-
-    {#if menu === 'add'}
-      <div class="popover" data-menu role="dialog" aria-label="Add a profile" bind:this={popoverEl}>
-        {#if editing}
-          {@render field()}
-        {:else}
-          <button class="row" data-action="new" type="button" onclick={() => (editing = 'new')}>
-            New profile…
+            <Ellipsis size={16} />
           </button>
-          <!-- Here and not in the per-profile menu: `importFrom` always lands
-               the file in a profile of its own, beside the others, never in
-               the open one. A real label around a real file input: no click
-               forwarding, and the keyboard reaches the picker the way it
-               reaches everything else. -->
-          <label class="row">
-            Import JSON…
-            <input class="file" type="file" accept="application/json" onchange={pick} />
-          </label>
         {/if}
       </div>
-    {/if}
+    {/each}
+
+    <!-- After the last tab while they fit; once they overflow, held at the
+         strip's right edge, the tabs scrolling — and fading — under it
+         (board prototype, noteFluid). Never against Add key: it stays in the
+         strip. -->
+    <div class="slot pinned" style:anchor-name={anchors.add}>
+      <button
+        type="button"
+        class="add he-icon-btn he-icon-btn--bare he-icon-btn--wide"
+        data-add
+        aria-label="New profile"
+        title="New profile"
+        aria-expanded={menu === 'add'}
+        aria-haspopup="dialog"
+        onclick={(event) => toggle('add', event.currentTarget)}
+      >
+        <Plus size={16} />
+      </button>
+    </div>
   </div>
+
+  {#if menu === 'tab'}
+    <div
+      class="popover"
+      style:position-anchor={anchors.tab}
+      data-menu
+      role="dialog"
+      aria-label="Profile options"
+      bind:this={popoverEl}
+    >
+      {#if editing}
+        {@render field()}
+      {:else}
+        <button
+          class="row he-menu-item"
+          data-action="duplicate"
+          type="button"
+          onclick={() => act(onDuplicate)}
+        >
+          Duplicate “{active}”
+        </button>
+        <button
+          class="row he-menu-item"
+          data-action="rename"
+          type="button"
+          onclick={() => (editing = 'rename')}
+        >
+          Rename “{active}”…
+        </button>
+        <!-- The store always keeps one profile: with one left, the row stays
+             where it is, off, and its tooltip says why (board
+             Editor-ProfileMenu). -->
+        {@const last = names.length < 2}
+        <Tooltip text={last ? 'The last profile cannot be deleted' : null} block>
+          {#snippet children(describedBy)}
+            <button
+              class="row danger he-menu-item he-menu-item--danger"
+              class:armed={confirming}
+              data-action="remove"
+              type="button"
+              disabled={last}
+              aria-describedby={describedBy}
+              onclick={remove}
+            >
+              {confirming ? `Click again to delete “${active}”` : `Delete “${active}”`}
+            </button>
+          {/snippet}
+        </Tooltip>
+
+        <hr />
+
+        <button
+          class="row he-menu-item"
+          data-action="export"
+          type="button"
+          onclick={() => act(onExport)}
+        >
+          Export “{active}”…
+        </button>
+      {/if}
+    </div>
+  {/if}
+
+  {#if menu === 'add'}
+    <div
+      class="popover"
+      style:position-anchor={anchors.add}
+      data-menu
+      role="dialog"
+      aria-label="Add a profile"
+      bind:this={popoverEl}
+    >
+      {#if editing}
+        {@render field()}
+      {:else}
+        <button
+          class="row he-menu-item"
+          data-action="new"
+          type="button"
+          onclick={() => (editing = 'new')}
+        >
+          New profile…
+        </button>
+        <!-- Here and not in the per-profile menu: `importFrom` always lands
+             the file in a profile of its own, beside the others, never in
+             the open one. A real label around a real file input: no click
+             forwarding, and the keyboard reaches the picker the way it
+             reaches everything else. -->
+        <label class="row he-menu-item">
+          Import profile…
+          <input class="file" type="file" accept="application/json" onchange={pick} />
+        </label>
+      {/if}
+    </div>
+  {/if}
 
   {#if children}
     <div class="trailing">
@@ -348,9 +425,15 @@
 <style>
   .tabs {
     flex: none;
+    /* The menus hang from here, outside the strip that scrolls. */
+    position: relative;
     display: flex;
     align-items: stretch;
     gap: 4px;
+    /* 50 with its bottom border, as the stage counts it (max(560px, 100vh −
+       header − tab row)): in content-box the border made 51, and the page
+       scrolled by one pixel at full screen. */
+    box-sizing: border-box;
     block-size: var(--he-tab-row-height);
     padding: 0 20px;
     border-block-end: 1px solid var(--he-border);
@@ -358,11 +441,41 @@
     font-size: var(--he-size-sm);
     color: var(--he-text-muted);
   }
-  .slot {
-    position: relative;
+  /* Never wraps, never shortens a name: the strip scrolls instead (spec
+     §16.9). `contain` keeps a sideways swipe from turning into a page back. */
+  .strip {
+    flex: 1;
     display: flex;
     align-items: stretch;
+    gap: 4px;
     min-inline-size: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+  }
+  /* A 6 px lane under the underline, the thumb 4 px of it (spec §16.12). */
+  .strip::-webkit-scrollbar {
+    block-size: 6px;
+  }
+  .strip::-webkit-scrollbar-thumb {
+    border-width: 1px;
+    border-radius: 3px;
+  }
+  /* The underline belongs to the slot, so the active tab and its `⋯` read
+     as one tab; transparent elsewhere, so no slot is taller than another. */
+  /* A tab is the width of its name, count and ⋯, always: short of room it
+     never gives up its padding — which squeezed the ⋯ against the count — it
+     is the strip that scrolls (spec §16.9). */
+  .slot {
+    position: relative;
+    flex: none;
+    display: flex;
+    align-items: stretch;
+    white-space: nowrap;
+    border-block-end: 2px solid transparent;
+  }
+  .slot.current {
+    border-block-end-color: var(--he-accent);
   }
   .trailing {
     margin-inline-start: auto;
@@ -375,79 +488,65 @@
     all: unset;
     box-sizing: border-box;
     cursor: pointer;
+    flex: none;
     display: flex;
     align-items: center;
     gap: 9px;
-    min-inline-size: 0;
+    white-space: nowrap;
     padding: 0 18px;
-    /* Transparent rather than absent, so the active underline adds no height. */
-    border-block-end: 2px solid transparent;
     color: var(--he-text-muted);
   }
   /* The `⋯` sits inside the active tab's padding, so the tab gives up its
      right half of it and the two read as one control. */
   .current .tab {
-    padding-inline-end: 0;
+    padding-inline-end: 8px;
     font-weight: 600;
     color: var(--he-text);
-    border-block-end-color: var(--he-accent);
   }
-  .tab:hover {
-    color: var(--he-text);
-  }
-  .tab:focus-visible,
-  .more:focus-visible,
-  .add:focus-visible {
+  .tab:focus-visible {
     outline: 2px solid var(--he-accent);
     outline-offset: -2px;
   }
   .name {
-    overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
   .count {
     flex: none;
     font-weight: 400;
     font-size: var(--he-size-xs);
-    color: var(--he-text-faint);
+    color: var(--he-text-muted);
   }
+  /* Sized and coloured by controls.css (bare icon buttons); placed here.
+     Nothing else: a scoped rule outranks a global class, and the last one to
+     try left the + off-centre and the ⋯ a tall square. */
   .more {
-    all: unset;
-    box-sizing: border-box;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    padding: 0 18px 0 9px;
-    /* The same invisible underline as the tab beside it, and the same accent:
-       the two are one tab to the eye. */
-    border-block-end: 2px solid var(--he-accent);
-    font-size: var(--he-size-xs);
-    color: var(--he-text-faint);
-  }
-  .more:hover,
-  .more[aria-expanded='true'] {
-    color: var(--he-text);
+    align-self: center;
+    margin-inline-end: 10px;
   }
   .add {
-    all: unset;
-    box-sizing: border-box;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    padding: 0 14px;
-    color: var(--he-text-faint);
+    align-self: center;
   }
-  .add:hover,
-  .add[aria-expanded='true'] {
-    color: var(--he-text);
+  /* The +'s slot: sticky at the strip's right edge, so it follows the last
+     tab while they fit and stays in view once they overflow. The whole row's
+     height and the page's ground, so a tab passing under is hidden, not seen
+     through; the shadow, in the same ground, fades that tab out instead of
+     cutting it off. Above the scrollbar's lane, which stays the strip's. */
+  .pinned {
+    position: sticky;
+    inset-inline-end: 0;
+    align-self: stretch;
+    align-items: center;
+    padding-inline-start: 6px;
+    background: var(--he-bg);
+    box-shadow: -14px 0 12px -6px var(--he-bg);
   }
 
   .popover {
     position: absolute;
-    /* Flush under the row's bottom border, hanging from the tab it belongs to. */
+    /* Flush under the row's bottom border, hanging from its trigger's slot. The
+       fallback, for a browser without anchor positioning, is the row's start. */
     top: 100%;
-    left: 0;
+    left: 20px;
     z-index: 9;
     inline-size: var(--he-menu-width);
     display: flex;
@@ -456,6 +555,16 @@
     background: var(--he-popover);
     border: 1px solid var(--he-border-popover);
     border-radius: var(--he-radius-panel);
+    box-shadow: var(--he-shadow-menu);
+  }
+  /* Flipped to end at its trigger's right edge when the window has no room
+     on the right — the + sits near the pinned Add key, 280 px from nothing. */
+  @supports (position-anchor: --a) {
+    .popover {
+      top: anchor(bottom);
+      left: anchor(left);
+      position-try-fallbacks: flip-inline;
+    }
   }
 
   .row {
@@ -471,18 +580,20 @@
     font-size: var(--he-size-sm);
     color: var(--he-text-muted);
   }
-  .row:hover,
-  .row:focus-visible,
   .row:focus-within {
-    background: var(--he-surface);
+    background: var(--he-highlight);
     color: var(--he-text);
   }
+  /* Inside its tooltip's host, a block: a button there is only as wide as its
+     words, and the armed tint would stop short of the menu's edge. */
   .row.danger {
+    inline-size: 100%;
     color: var(--he-danger);
   }
+  /* Armed on the danger tint: a hover's grey would read as nothing done. */
   .row.danger.armed {
     font-weight: 600;
-    background: var(--he-surface);
+    background: var(--he-border-danger);
   }
 
   hr {
@@ -507,32 +618,15 @@
     font-size: var(--he-size-sm);
     font-weight: 600;
     color: var(--he-text);
-    background: var(--he-stage);
-    border: 1px solid var(--he-accent);
+    background: var(--he-well);
+    /* The rest border of every field; the accent comes with the focus, from
+       the shared rule (controls.css) — it opens focused, so it shows. */
+    border: 1px solid var(--he-border-control);
     border-radius: var(--he-radius);
     padding: 5px 9px;
   }
-  .edit input:focus-visible {
-    outline: none;
-  }
-  .ok,
-  .cancel {
-    all: unset;
-    cursor: pointer;
-    padding: 4px;
-    font-size: var(--he-size-xs);
-  }
   .ok {
     color: var(--he-ok);
-  }
-  .cancel {
-    color: var(--he-text-muted);
-  }
-  .ok:focus-visible,
-  .cancel:focus-visible {
-    outline: 2px solid var(--he-accent);
-    outline-offset: 1px;
-    border-radius: 2px;
   }
 
   /* Hidden from sight, not from the keyboard: `display: none` would take the

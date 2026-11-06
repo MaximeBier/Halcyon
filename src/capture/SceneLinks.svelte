@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { ArrowRightLeft, X } from './icons';
+  import Tooltip from './Tooltip.svelte';
+  import { escapeClosesPicker } from './gestures';
   import type { ObsStatus } from '../transport/obs';
   import { linkButtonState, type SceneRow } from './scenes';
 
@@ -19,6 +22,7 @@
     onOpen,
     onLink,
     onUnlink,
+    compact = false,
   }: {
     obs: ObsStatus;
     rows: SceneRow[];
@@ -27,6 +31,8 @@
     onOpen: () => void;
     onLink: (uuid: string, profile: string | null) => void;
     onUnlink: (uuid: string) => void;
+    /** The header's third step: the icon alone, the name on hover. */
+    compact?: boolean;
   } = $props();
 
   let open = $state(false);
@@ -55,7 +61,7 @@
   $effect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && !escapeClosesPicker(event)) {
         open = false;
         trigger?.focus();
       }
@@ -79,20 +85,34 @@
 </script>
 
 <div class="scenes" bind:this={root}>
-  <button
-    class="trigger"
-    data-scenes-trigger
-    data-state={buttonState}
-    type="button"
-    disabled={buttonState === 'inert'}
-    title={buttonState === 'inert' ? 'Connect OBS first' : undefined}
-    aria-expanded={open}
-    aria-haspopup="dialog"
-    bind:this={trigger}
-    onclick={toggle}
+  <!-- Why it is inert, or — as an icon — what it is: the page's tooltip
+       (board Editor-Tooltip), never a title. -->
+  <Tooltip
+    text={buttonState === 'inert'
+      ? 'Connect OBS to link scenes'
+      : compact
+        ? 'Link OBS scenes'
+        : null}
   >
-    Link OBS scenes
-  </button>
+    {#snippet children()}
+      <button
+        class="trigger"
+        class:he-btn-quiet={buttonState !== 'pitch'}
+        class:compact
+        data-scenes-trigger
+        data-state={buttonState}
+        type="button"
+        disabled={buttonState === 'inert'}
+        aria-label={compact ? 'Link OBS scenes' : undefined}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        bind:this={trigger}
+        onclick={toggle}
+      >
+        {#if compact}<ArrowRightLeft size={16} />{:else}Link OBS scenes{/if}
+      </button>
+    {/snippet}
+  </Tooltip>
 
   {#if open}
     <div
@@ -123,18 +143,19 @@
               {#if row.missing}
                 <span class="profile">{row.profile}</span>
                 <button
-                  class="unlink"
+                  class="unlink he-icon-btn he-icon-btn--bare"
                   data-unlink
                   type="button"
                   aria-label={`Forget ${row.name}`}
                   onclick={() => onUnlink(row.uuid)}
                 >
-                  ✕
+                  <X size={16} />
                 </button>
               {:else}
                 <!-- Bare, like the layout select in the gear menu: the row reads
                      "Gameplay · Apex ranked ▾", not as a form. -->
                 <select
+                  class="he-select he-select--scene"
                   data-profile
                   class:unset={row.profile === null}
                   aria-label={`Profile for ${row.name}`}
@@ -162,42 +183,38 @@
     align-items: center;
     font: var(--he-font);
   }
-  .trigger {
+  .trigger:not(.he-btn-quiet) {
     all: unset;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    block-size: 28px;
     cursor: pointer;
-    padding: 4px 11px;
+    padding: 0 11px;
     border: 1px solid var(--he-accent);
-    border-radius: var(--he-radius-control);
+    border-radius: var(--he-radius);
     font-size: var(--he-size-xs);
     font-weight: 600;
     color: var(--he-accent);
     white-space: nowrap;
   }
-  .trigger:hover,
-  .trigger[aria-expanded='true'] {
-    color: var(--he-stage);
+  .trigger:not(.he-btn-quiet):hover,
+  .trigger:not(.he-btn-quiet)[aria-expanded='true'] {
+    color: var(--he-bg);
     background: var(--he-accent);
   }
-  .trigger:focus-visible {
+  .trigger:not(.he-btn-quiet):focus-visible {
     outline: 2px solid var(--he-accent);
-    outline-offset: 1px;
+    outline-offset: 2px;
   }
-  .trigger[data-state='quiet'] {
-    border-color: transparent;
-    font-weight: 400;
-    color: var(--he-text-muted);
-  }
-  .trigger[data-state='quiet']:hover,
-  .trigger[data-state='quiet'][aria-expanded='true'] {
-    color: var(--he-text);
-    background: none;
-  }
-  .trigger[data-state='inert'] {
-    border-color: transparent;
-    font-weight: 400;
-    color: var(--he-text-muted);
-    opacity: 0.4;
-    cursor: default;
+
+  /* The header's third step (board Editor-HeaderNarrow): the icon alone, a
+     28 px square — the accent outline kept while there is something to set
+     up, the quiet face otherwise. The name is the tooltip's and the label's. */
+  .trigger.compact {
+    inline-size: 28px;
+    padding: 0;
+    justify-content: center;
   }
 
   .menu {
@@ -209,12 +226,9 @@
     background: var(--he-popover);
     border: 1px solid var(--he-border-popover);
     border-radius: var(--he-radius-panel);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+    box-shadow: var(--he-shadow-menu);
     font-size: var(--he-size-xs);
     color: var(--he-text-muted);
-  }
-  .menu:focus {
-    outline: none;
   }
   .lead {
     margin: 0;
@@ -224,7 +238,7 @@
   .empty {
     margin: 0;
     padding: 0 14px 14px;
-    color: var(--he-text-faint);
+    color: var(--he-text-muted);
   }
   ul {
     margin: 0;
@@ -278,41 +292,19 @@
     color: var(--he-ok);
   }
   .gone {
-    color: var(--he-text-faint);
+    color: var(--he-text-muted);
   }
   .profile {
     color: var(--he-text-muted);
   }
+  /* A long profile name stops before the scene name it answers. */
   select {
-    font: inherit;
-    font-size: var(--he-size-xs);
-    color: var(--he-text);
-    background: none;
-    border: none;
-    padding: 0;
     max-inline-size: 11rem;
-    cursor: pointer;
   }
   select.unset {
     color: var(--he-text-faint);
   }
-  select:focus-visible {
-    outline: 2px solid var(--he-accent);
-    outline-offset: 2px;
-    border-radius: 2px;
-  }
   .unlink {
-    all: unset;
-    cursor: pointer;
     margin-inline-start: 4px;
-    color: var(--he-text-muted);
-  }
-  .unlink:hover {
-    color: var(--he-text);
-  }
-  .unlink:focus-visible {
-    outline: 2px solid var(--he-accent);
-    outline-offset: 2px;
-    border-radius: 2px;
   }
 </style>

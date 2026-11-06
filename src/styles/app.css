@@ -11,9 +11,52 @@
  * single frame.
  */
 :root {
-  /* Native controls, scrollbars and form fields follow the dark palette
-     instead of standing out as white rectangles. */
+  /* Native controls and form fields follow the dark palette instead of
+     standing out as white rectangles. */
   color-scheme: dark;
+}
+
+/*
+ * One scrollbar for everything that scrolls (spec §16.12): the browser's grey
+ * one is the only light thing left on a dark page. WebKit pseudo-elements
+ * because the page is Chromium-only (WebHID) — and no `scrollbar-color` or
+ * `scrollbar-width` anywhere: since Chrome 121 either one switches these
+ * rules off. The thumb is drawn 6 px inside a 10 px lane by a transparent
+ * border, so it never touches what it scrolls.
+ */
+::-webkit-scrollbar {
+  inline-size: 10px;
+  block-size: 10px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-button {
+  display: none;
+}
+::-webkit-scrollbar-thumb {
+  min-block-size: 32px;
+  min-inline-size: 32px;
+  border: 2px solid transparent;
+  border-radius: 5px;
+  background: var(--he-border-popover, #262b3a) padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--he-border-hover, #3a4054);
+}
+::-webkit-scrollbar-thumb:active {
+  background-color: var(--he-text-faint, #5a5f70);
+}
+
+/*
+ * The width the capture page lays itself out by (`@container app`): the mount
+ * point, not the page's root component, so that component can be styled by it
+ * too — a container query styles what is inside the container, never the
+ * container itself.
+ */
+#app {
+  container: app / inline-size;
 }
 
 body {
@@ -21,4 +64,23 @@ body {
   background: var(--he-bg, #0e1015);
   color: var(--he-text, #dde1e9);
   font: var(--he-font, 400 16px system-ui, sans-serif);
+  /* The arrow over the whole interface (spec §16.13): a name, a title, a help
+     sentence, a count is read, not typed into. The hand stays with what
+     clicks, set by each control. */
+  cursor: default;
+}
+
+/*
+ * The text cursor only where a click puts a caret: a field that can be typed
+ * into. Not a slider, a swatch or a box to tick; not a disabled field (the
+ * arrow, like every disabled control); not a read-only one — the overlay URL
+ * stays selectable to be copied, under the arrow. In `:where()`, so any
+ * control's own cursor still wins.
+ */
+:where(
+    input:not([type='range'], [type='color'], [type='checkbox'], [type='radio'], [type='file']),
+    textarea,
+    [contenteditable='true']
+  ):where(:not(:disabled, [readonly])) {
+  cursor: text;
 }

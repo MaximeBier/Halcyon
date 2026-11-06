@@ -175,35 +175,6 @@ describe('createFrameEmitter', () => {
 
     expect(emitter.push([[3, 1, 0]], 1, sent)).toBe('rest');
   });
-
-  it('measures the emission rate in frames per second', () => {
-    const emitter = createFrameEmitter();
-    const last = 9 * FRAME_INTERVAL_MS * 1.01;
-    for (let i = 0; i < 10; i++) emitter.push([[3, i * 10, 0]], i * FRAME_INTERVAL_MS * 1.01, sent);
-
-    expect(emitter.rateAt(last)).toBeGreaterThan(0);
-    expect(emitter.rateAt(last)).toBeLessThanOrEqual(61);
-  });
-
-  // A burst of off-cadence emissions is normal — every actuation change is one.
-  // Reading a single short interval as a rate would report a thousand frames
-  // per second at every keystroke.
-  it('never reports a rate a burst of close emissions could not sustain', () => {
-    const emitter = createFrameEmitter();
-    emitter.push([[3, 100, 0]], 0, sent);
-    emitter.push([[3, 110, 1]], 1, sent);
-    emitter.push([[3, 120, 0]], 2, sent);
-
-    expect(emitter.rateAt(2)).toBe(3);
-  });
-
-  it('forgets the emissions older than one second', () => {
-    const emitter = createFrameEmitter();
-    emitter.push([[3, 100, 0]], 0, sent);
-    emitter.push([[3, 200, 0]], 2000, sent);
-
-    expect(emitter.rateAt(2000)).toBe(1);
-  });
 });
 
 describe('createFrameEmitter — the far end only saw what actually left', () => {
@@ -218,39 +189,6 @@ describe('createFrameEmitter — the far end only saw what actually left', () =>
     emitter.push([[3, 100, 0]], 0, dropped);
 
     expect(emitter.push([[3, 100, 0]], 1, sent)).toBe('interval');
-  });
-
-  it('does not count a frame that never left towards the rate', () => {
-    // Otherwise the status bar reads "60 fps" next to a dot saying OBS is gone.
-    const emitter = createFrameEmitter();
-    emitter.push([[3, 100, 0]], 0, dropped);
-    emitter.push([[3, 200, 0]], 1, dropped);
-
-    expect(emitter.rateAt(1)).toBe(0);
-  });
-
-  it('lets the rate fall back to zero once nothing is going out', () => {
-    // Trimming only on a successful send leaves the window frozen the moment
-    // OBS goes away: the last good count stays on screen for good, next to a
-    // dot saying the connection is dead.
-    const emitter = createFrameEmitter();
-    emitter.push([[3, 100, 0]], 0, sent);
-    emitter.push([[3, 200, 0]], 100, sent);
-    expect(emitter.rateAt(100)).toBe(2);
-
-    emitter.push([[3, 300, 0]], 2000, dropped);
-
-    expect(emitter.rateAt(2000)).toBe(0);
-  });
-
-  it('ages the window out even on frames the cap sacrifices', () => {
-    const emitter = createFrameEmitter();
-    emitter.push([[3, 100, 0]], 0, sent);
-
-    // Identical frame, so nothing is emitted — but a second has gone by.
-    emitter.push([[3, 100, 0]], 2000, sent);
-
-    expect(emitter.rateAt(2000)).toBe(0);
   });
 
   // The milestone 2 review found this one, and it is spec §6.2 all over again:
@@ -284,15 +222,6 @@ describe('createFrameEmitter — the far end only saw what actually left', () =>
     emitter.reset();
 
     expect(emitter.push([[3, 100, 0]], 1, sent)).toBe('interval');
-  });
-
-  it('keeps the measured rate across a reset', () => {
-    // Only knowledge of the far end is dropped, not the throughput measurement.
-    const emitter = createFrameEmitter();
-    emitter.push([[3, 100, 0]], 0, sent);
-    emitter.reset();
-
-    expect(emitter.rateAt(0)).toBe(1);
   });
 });
 
@@ -406,21 +335,6 @@ describe('createFrameEmitter - both ends of the travel are guaranteed', () => {
   });
 });
 
-describe('createFrameEmitter — the rate ages on the clock, not on the keyboard', () => {
-  it('falls back to zero when asked later, with nothing pushed since', () => {
-    // The Wooting speaks only on change. As a getter reading its own last
-    // report timestamp, the rate froze the moment somebody stopped typing and
-    // the status bar kept the last figure indefinitely. Taking the clock as an
-    // argument is what lets a caller with a fresher one see the truth.
-    const emitter = createFrameEmitter();
-    emitter.push([[3, 100, 0]], 0, sent);
-    emitter.push([[3, 200, 0]], 100, sent);
-
-    expect(emitter.rateAt(100)).toBe(2);
-    expect(emitter.rateAt(5_000)).toBe(0);
-  });
-});
-
 describe('createFrameEmitter — refreshing a frame that has not changed', () => {
   it('redelivers the current frame once the refresh interval has passed', () => {
     const emitter = createFrameEmitter();
@@ -449,16 +363,6 @@ describe('createFrameEmitter — refreshing a frame that has not changed', () =>
     });
 
     expect(delivered).toEqual([[[3, 410, 0]]]);
-  });
-
-  it('counts the refreshed frame towards the rate: both pills count real traffic', () => {
-    const emitter = createFrameEmitter();
-    emitter.push([[3, 400, 1]], 0, sent);
-    emitter.refresh([[3, 400, 1]], REFRESH_INTERVAL_MS + 1, sent);
-
-    // The push at 0 has aged out of the one-second window by now, so this 1
-    // can only be the refresh itself: an uncounted refresh would read 0.
-    expect(emitter.rateAt(REFRESH_INTERVAL_MS + 1)).toBe(1);
   });
 
   it('does not remember a refresh that never left', () => {

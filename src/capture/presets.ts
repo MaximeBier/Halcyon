@@ -34,14 +34,14 @@ export interface Preset {
  */
 export const PRESETS: readonly Preset[] = [
   {
-    name: 'Blue',
+    name: 'Halcyon',
     activeColor: DEFAULT_STYLE.activeColor,
     fillColor: DEFAULT_STYLE.fillColor,
     restColor: DEFAULT_STYLE.restColor,
     borderColor: DEFAULT_STYLE.borderColor,
   },
   {
-    name: 'Green',
+    name: 'Mint',
     activeColor: '#5ED49E',
     fillColor: '#2E5D48',
     restColor: '#121815',

@@ -1,6 +1,8 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, cleanup, fireEvent } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import StatusBar from './StatusBar.svelte';
+import statusSource from './StatusBar.svelte?raw';
 import type { KeyboardStatus } from '../keyboard/device';
 import type { ObsStatus } from '../transport/obs';
 
@@ -16,7 +18,6 @@ function bar(overrides: { keyboard?: KeyboardStatus; obs?: ObsStatus } = {}) {
     keyboard: 'connected' as KeyboardStatus,
     device: 'Wooting 60HE+',
     obs: 'identified' as ObsStatus,
-    rate: 58,
     overlays: { inObs: 1, inBrowser: 0 },
     otherCapture: false,
     url: 'http://localhost:5173/overlay.html?port=4455',
@@ -30,9 +31,56 @@ function bar(overrides: { keyboard?: KeyboardStatus; obs?: ObsStatus } = {}) {
   return { ...render(StatusBar, { props }), ...handlers };
 }
 
+function baseProps() {
+  return {
+    keyboard: 'connected' as KeyboardStatus,
+    device: 'Wooting 60HE+',
+    obs: 'identified' as ObsStatus,
+    overlays: { inObs: 1, inBrowser: 0 },
+    otherCapture: false,
+    url: 'http://localhost:5173/overlay.html?port=4455',
+    size: { width: 216, height: 216 },
+    settings: { port: 4455, password: 'secret' },
+    sources: 1,
+    onPickDevice: vi.fn(),
+    onRetryObs: vi.fn(),
+    onCopyUrl: vi.fn(() => Promise.resolve(true)),
+    onReloadSources: vi.fn(() => Promise.resolve(1)),
+  };
+}
+
 const pill = (c: HTMLElement, name: string) =>
   c.querySelector<HTMLElement>(`[data-pill="${name}"]`)!;
+/** The page's tooltip around a pill, if it has one. */
+const tip = (el: HTMLElement) =>
+  el.closest('[data-tooltip-host]')?.querySelector('[role="tooltip"]')?.textContent ?? null;
 const popover = (c: HTMLElement) => c.querySelector<HTMLElement>('[data-obs-popover]');
+
+describe('the OBS popover, anchored to what opened it', () => {
+  it('hangs under the pill when the pill opened it, and closes on Escape', async () => {
+    const { container, rerender } = render(StatusBar, { props: baseProps() });
+    expect(popover(container)).toBeNull();
+
+    await rerender({ ...baseProps(), obsOpen: 'pill' });
+    expect(popover(container)).not.toBeNull();
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await tick();
+    expect(popover(container)).toBeNull();
+  });
+
+  it('leaves it to the ⚙ when Settings › OBS connection opened it', async () => {
+    // Under the gear, where the click was — not at the other end of the header.
+    const { container } = render(StatusBar, { props: { ...baseProps(), obsOpen: 'settings' } });
+    expect(popover(container)).toBeNull();
+  });
+
+  it('takes it under the pill from the pill’s own click, wherever it was', async () => {
+    const { container } = render(StatusBar, { props: { ...baseProps(), obsOpen: 'settings' } });
+    await fireEvent.click(pill(container, 'obs'));
+    expect(popover(container)).not.toBeNull();
+  });
+});
 
 describe('a pill that can fix what it reports', () => {
   it('opens the device picker from the keyboard pill itself', async () => {
@@ -85,13 +133,14 @@ describe('the keyboard pill', () => {
     expect(onPickDevice).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps the full sentence within reach, on the tooltip', () => {
-    // The pill is cut down to the gesture; the firmware and Wootility advice
-    // still has to be findable from the pill itself.
+  it('keeps the gesture and the advice within reach, on the tooltip', () => {
+    // The pill is cut down to its state (board Editor-StatusPills); the
+    // firmware and Wootility advice is the page's tooltip, never a title.
     const { container } = bar({ keyboard: 'no-analog-interface' });
 
-    expect(pill(container, 'keyboard').textContent).toContain('click');
-    expect(pill(container, 'keyboard').getAttribute('title')).toMatch(/wootility/i);
+    expect(pill(container, 'keyboard').textContent!.trim()).toBe('No analog interface');
+    expect(pill(container, 'keyboard').hasAttribute('title')).toBe(false);
+    expect(tip(pill(container, 'keyboard'))).toMatch(/wootility/i);
   });
 
   it('is not a button on a browser with no WebHID at all', () => {
@@ -104,10 +153,11 @@ describe('the keyboard pill', () => {
 });
 
 describe('the one OBS pill', () => {
-  it('folds the state, the tally and the rate into one line', () => {
+  it('says OBS, and leaves the figures out entirely', () => {
+    // Spec §16.15: the figures went under the pill, where one goes to read them.
     const { container } = bar();
 
-    expect(pill(container, 'obs').textContent).toContain('OBS · 1 overlay · 58 fps');
+    expect(pill(container, 'obs').textContent!.trim()).toBe('OBS');
     expect(container.querySelector('[data-pill="rate"]')).toBeNull();
     expect(container.querySelector('[data-pill="overlays"]')).toBeNull();
   });
@@ -185,5 +235,108 @@ describe('the one OBS pill', () => {
     await fireEvent.change(port);
 
     expect(onRetryObs).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('one form for every pill (board Editor-StatusPills)', () => {
+  it('says each state short, and what the click does on hover', () => {
+    const cases: [
+      Partial<{ keyboard: KeyboardStatus; obs: ObsStatus }>,
+      string,
+      string,
+      string | null,
+    ][] = [
+      [{}, 'keyboard', 'Wooting 60HE+', 'Choose another keyboard'],
+      [{ keyboard: 'disconnected' }, 'keyboard', 'No keyboard', 'Click to choose a keyboard'],
+      [{}, 'obs', 'OBS', null],
+      [{ obs: 'disconnected' }, 'obs', 'OBS disconnected', 'Click to reconnect'],
+    ];
+    for (const [overrides, name, text, hint] of cases) {
+      const { container, unmount } = bar(overrides);
+      expect(pill(container, name).textContent!.trim()).toBe(text);
+      expect(pill(container, name).hasAttribute('title')).toBe(false);
+      expect(tip(pill(container, name))).toBe(hint);
+      unmount();
+    }
+  });
+
+  it('shows the other capture pages as a pill of the same run', () => {
+    const { container } = render(StatusBar, {
+      props: { ...baseProps(), otherCapture: true },
+    });
+    const rival = pill(container, 'rival');
+
+    expect(rival.textContent!.trim()).toBe('Other capture pages open');
+    expect(rival.classList).toContain('pill');
+    expect(rival.classList).toContain('down');
+    // Nothing to click and nothing to add on hover: text, under the arrow.
+    expect(rival.tagName).not.toBe('BUTTON');
+    expect(rival.classList).not.toContain('act');
+    expect(tip(rival)).toBeNull();
+  });
+
+  it('cuts only the keyboard name, and only when asked to', async () => {
+    const { container, rerender } = render(StatusBar, { props: baseProps() });
+    const keyboard = pill(container, 'keyboard');
+
+    expect(keyboard.classList).not.toContain('squeeze');
+    await rerender({ ...baseProps(), squeeze: true });
+    expect(keyboard.classList).toContain('squeeze');
+    // The name in its own box, which is what an ellipsis can cut; the dot apart.
+    expect(keyboard.querySelector('.device')!.textContent).toBe('Wooting 60HE+');
+    expect(keyboard.querySelector('.dot')).not.toBeNull();
+    expect(pill(container, 'obs').classList).not.toContain('squeeze');
+  });
+
+  it('never lets a cut pill shrink below its dot and 40 px of name: no pill runs under the next', () => {
+    const style = (/<style>([\s\S]*?)<\/style>/.exec(statusSource)?.[1] ?? '').replace(/\s+/g, ' ');
+    const floor = /--pill-floor: ([^;]+);/.exec(style)?.[1];
+    expect(floor).toBe('calc(8px + 7px + 40px)');
+    for (const selector of ['.pill.squeeze', '.slot.squeeze']) {
+      const at = style.indexOf(` ${selector} {`);
+      const rule = at < 0 ? '' : style.slice(at, style.indexOf('}', at));
+      expect(rule, selector).toMatch(/min-inline-size: var\(--pill-floor\)/);
+    }
+    // The tooltip's host around a cut pill keeps the same floor.
+    expect(style).toMatch(
+      /:global\(\[data-tooltip-host\]:has\(> \.pill\.squeeze\)\) \{[^}]*min-inline-size: var\(--pill-floor\)/,
+    );
+  });
+
+  it('leaves the keyboard and OBS their dot alone at the last step, the name on hover', async () => {
+    const { container, rerender } = render(StatusBar, {
+      props: { ...baseProps(), otherCapture: true, squeeze: true, squeezeObs: true },
+    });
+    await rerender({
+      ...baseProps(),
+      otherCapture: true,
+      squeeze: true,
+      squeezeObs: true,
+      dots: true,
+    });
+
+    for (const [name, label] of [
+      ['keyboard', 'Wooting 60HE+'],
+      ['obs', 'OBS'],
+    ] as const) {
+      const p = pill(container, name);
+      expect(p.classList).toContain('dots');
+      expect(p.getAttribute('aria-label')).toBe(label);
+      expect(tip(p)).toContain(label);
+    }
+    // The alert keeps its words.
+    expect(pill(container, 'rival').classList).not.toContain('dots');
+    expect(pill(container, 'rival').textContent!.trim()).toBe('Other capture pages open');
+  });
+
+  it('cuts the OBS pill too, last of all, when asked to', async () => {
+    const { container, rerender } = render(StatusBar, { props: { ...baseProps(), squeeze: true } });
+    expect(pill(container, 'obs').classList).not.toContain('squeeze');
+
+    await rerender({ ...baseProps(), squeeze: true, squeezeObs: true });
+    const obs = pill(container, 'obs');
+    expect(obs.classList).toContain('squeeze');
+    expect(obs.querySelector('.device')!.textContent).toBe('OBS');
+    expect(obs.querySelector('.dot')).not.toBeNull();
   });
 });

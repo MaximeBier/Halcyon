@@ -195,21 +195,34 @@ describe('what the OBS row admits to', () => {
     // The header pill said it all along, but the person mid-setup is looking
     // at the card, right under the field they just filled. Three different
     // failures used to share one "waiting…" — this is the one a retype fixes.
-    expect(obsNote('auth-failed', 0)).toContain('password refused');
+    expect(obsNote('auth-failed', 0)).toBe('Wrong password');
+  });
+
+  it('writes two sentences, never a middle dot inside one (the prototype)', () => {
+    // The middle dot separates values ("Width 216 · Height 216"), not clauses.
+    for (const status of [
+      'identified',
+      'connecting',
+      'auth-failed',
+      'unreachable',
+      'disconnected',
+      'idle',
+    ] as const) {
+      expect(obsNote(status, 0)).not.toContain('·');
+    }
   });
 
   it('names the keystroke that retries a silent server', () => {
     // The retry rides on keyboard reports (spec §2.2): a screen nobody types
     // at never moves, so the note must say what moves it.
-    expect(obsNote('unreachable', 0)).toContain('press a key');
-    expect(obsNote('disconnected', 0)).toContain('press a key');
+    expect(obsNote('unreachable', 0)).toBe('Not answering. Press a key to retry.');
+    expect(obsNote('disconnected', 0)).toBe('Connection closed. Press a key to reconnect.');
   });
 
   it('splits the socket from the browser source once connected', () => {
     // The socket is the easy half; the step is not cleared until something
     // inside OBS reports in, and the note says which half is missing.
-    expect(obsNote('identified', 0)).toContain('connected');
-    expect(obsNote('identified', 0)).toContain('waiting for the browser source');
+    expect(obsNote('identified', 0)).toBe('Connected. Waiting for the browser source.');
   });
 
   it('claims no more than connected once a source listens', () => {

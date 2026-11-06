@@ -36,3 +36,53 @@ describe('capture components trust the tokens', () => {
     }
   });
 });
+
+describe('the scrollbars keep their own rules', () => {
+  it('never sets scrollbar-color or scrollbar-width, which switch them off', () => {
+    // Since Chrome 121 either standard property disables every
+    // ::-webkit-scrollbar rule on the element it reaches (spec §16.12) — a
+    // one-line "tidy-up" would quietly bring the grey bars back.
+    const styles = join(captureDir, '..', 'styles');
+    const sheets = readdirSync(styles)
+      .filter((name) => name.endsWith('.css'))
+      .map((name) => readFileSync(join(styles, name), 'utf-8').replace(/\/\*[\s\S]*?\*\//g, ''));
+
+    for (const { source } of captureSources) {
+      expect(source).not.toMatch(/scrollbar-(color|width)\s*:/);
+    }
+    for (const sheet of sheets) {
+      expect(sheet).not.toMatch(/scrollbar-(color|width)\s*:/);
+    }
+  });
+});
+
+describe('the text floor', () => {
+  it('leaves no ghost text in any component', () => {
+    for (const { name, source } of captureSources) {
+      expect(source, name).not.toMatch(/--he-text-ghost|#4a4f60/i);
+    }
+  });
+});
+
+describe('the capture page keeps no timer', () => {
+  /** The page's code beyond its components: its modules and the OBS client it runs. */
+  const modules = [captureDir, join(captureDir, '..', 'transport')].flatMap((dir) =>
+    readdirSync(dir)
+      .filter((name) => name.endsWith('.ts') && !name.endsWith('.test.ts'))
+      .map((name) => ({ name, source: readFileSync(join(dir, name), 'utf-8') })),
+  );
+
+  it('uses neither setTimeout nor setInterval, in a component or a module', () => {
+    // Spec §2: a background tab throttles timers to a minute; anything the
+    // page shows for a while rides a CSS animation instead.
+    const code = (source: string) =>
+      source
+        .replace(/<!--[\s\S]*?-->/g, '')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/^\s*\/\/.*$/gm, '');
+    expect(modules.length).toBeGreaterThan(10);
+    for (const { name, source } of [...captureSources, ...modules]) {
+      expect(code(source), name).not.toMatch(/\bset(Timeout|Interval)\(/);
+    }
+  });
+});

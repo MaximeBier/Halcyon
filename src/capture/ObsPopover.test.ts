@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, cleanup, fireEvent } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import ObsPopover from './ObsPopover.svelte';
+import popoverSource from './ObsPopover.svelte?raw';
 import type { ObsStatus } from '../transport/obs';
 
 afterEach(cleanup);
@@ -35,6 +36,21 @@ function popover(
   return { ...render(ObsPopover, { props }), ...handlers, settings };
 }
 
+function popoverProps() {
+  return {
+    obs: 'identified' as ObsStatus,
+    overlays: { inObs: 1, inBrowser: 0 },
+    url: 'http://localhost:5173/overlay.html?port=4455',
+    size: { width: 216, height: 216 },
+    settings: { port: 4455, password: 'secret' },
+    sources: 2,
+    onReconnect: vi.fn(),
+    onCopy: vi.fn(() => Promise.resolve(true)),
+    onClose: vi.fn(),
+    onReload: vi.fn(() => Promise.resolve(2)),
+  };
+}
+
 const q = <T extends HTMLElement>(c: HTMLElement, selector: string) =>
   c.querySelector<T>(selector)!;
 
@@ -42,7 +58,8 @@ describe('what the popover says about the connection', () => {
   it('reports who is listening once connected', () => {
     const { container } = popover({ overlays: { inObs: 1, inBrowser: 0 } });
 
-    expect(container.textContent).toContain('receiving frames');
+    expect(container.querySelector('.state')!.textContent!.trim()).toBe('Overlay connected in OBS');
+    expect(container.textContent).not.toContain('receiving frames');
   });
 
   it('names the tab as the thing that is not a source in OBS', () => {
@@ -64,12 +81,12 @@ describe('what the popover says about the connection', () => {
 });
 
 describe('the URL to paste', () => {
-  it('shows it read-only, with the password inside', () => {
+  it('shows it as a value to copy, with the password inside', () => {
     const { container } = popover();
 
-    const field = q<HTMLInputElement>(container, 'input[readonly]');
-    expect(field.value).toContain('overlay.html');
-    expect(field.value).toContain('password=secret');
+    const value = q<HTMLElement>(container, '[aria-label="Overlay URL for OBS"]');
+    expect(value.textContent).toContain('overlay.html');
+    expect(value.textContent).toContain('password=secret');
   });
 
   it('copies through the caller and says so', async () => {
@@ -145,6 +162,28 @@ describe('the two credentials', () => {
   });
 });
 
+describe('where it hangs', () => {
+  it('under its pill by default, from the left edge', () => {
+    const { container } = popover();
+    expect(q(container, '[data-obs-popover]').classList).not.toContain('end');
+  });
+
+  it('under the ⚙ when the gear opened it: right edges aligned, at the menu’s offset', () => {
+    const { container } = render(ObsPopover, {
+      props: { ...popoverProps(), align: 'end' as const },
+    });
+    expect(q(container, '[data-obs-popover]').classList).toContain('end');
+    const style = (/<style>([\s\S]*?)<\/style>/.exec(popoverSource)?.[1] ?? '').replace(
+      /\s+/g,
+      ' ',
+    );
+    const end = /\.popover\.end \{([^}]*)\}/.exec(style)?.[1] ?? '';
+    expect(end).toMatch(/top: var\(--he-menu-offset\)/);
+    expect(end).toMatch(/right: 0/);
+    expect(end).toMatch(/left: auto/);
+  });
+});
+
 describe('closing', () => {
   it('takes the focus on open, and asks to close on Escape', async () => {
     const { container, onClose } = popover();
@@ -160,7 +199,7 @@ describe('closing', () => {
   it('asks to close on a pointer outside its own slot, and not on one inside', async () => {
     const { container, onClose } = popover();
 
-    q(container, 'input[readonly]').dispatchEvent(
+    q(container, '[aria-label="Overlay URL for OBS"]').dispatchEvent(
       new PointerEvent('pointerdown', { bubbles: true }),
     );
     await Promise.resolve();
@@ -201,5 +240,60 @@ describe('the sources row', () => {
     const { container } = popover({ obs: 'disconnected', sources: null });
     expect(q(container, '[data-sources-count]').textContent).toBe('—');
     expect(q<HTMLButtonElement>(container, '[data-reload]').disabled).toBe(true);
+  });
+});
+
+describe('ObsPopover - as the board draws it (Editor-OBSPopover)', () => {
+  it('gives no overlay count and no frame rate, connected or not', () => {
+    // The state sentence says who is listening; the figures under it read
+    // "No overlay · 4 fps" on a quiet stage, and the board has no such line.
+    for (const obs of ['identified', 'unreachable'] as const) {
+      const { container, unmount } = popover({ obs, overlays: { inObs: 1, inBrowser: 0 } });
+      expect(container.querySelector('[data-tally]')).toBeNull();
+      expect(container.textContent).not.toMatch(/fps/);
+      unmount();
+    }
+  });
+
+  it('shows the URL as a value to copy, not a field (no border, no focus)', () => {
+    const { container } = popover({ obs: 'identified' });
+    const value = q<HTMLElement>(container, '[aria-label="Overlay URL for OBS"]');
+    expect(value.tagName).toBe('OUTPUT');
+    expect(value.classList).toContain('he-copy-value');
+    expect(value.textContent).toContain('overlay.html');
+    expect(container.querySelector('input[readonly]')).toBeNull();
+  });
+
+  it('selects each field as it takes the focus, the password too', async () => {
+    const { container } = popover({ obs: 'identified' });
+    const port = q<HTMLInputElement>(container, 'input.port');
+    const password = q<HTMLInputElement>(container, 'input[type="password"]');
+
+    const click = (input: HTMLInputElement) => {
+      input.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+      input.focus();
+      const up = new MouseEvent('mouseup', { bubbles: true, cancelable: true });
+      input.dispatchEvent(up);
+      return up.defaultPrevented;
+    };
+
+    expect(click(port)).toBe(true);
+    expect(click(password)).toBe(true);
+  });
+
+  it('sizes the port to four digits, growing to a fifth', () => {
+    // As specific as the shared `.row input` it overrides, and after it: a bare
+    // `.port` lost to the 7rem every row's field gets.
+    const rule = (/\.row input\.port\s*\{([^}]*)\}/.exec(popoverSource)?.[1] ?? '').replace(
+      /\s+/g,
+      ' ',
+    );
+    expect(popoverSource.indexOf('.row input.port')).toBeGreaterThan(
+      popoverSource.indexOf('.row input {'),
+    );
+    expect(rule).toMatch(/field-sizing:\s*content/);
+    expect(rule).toMatch(/min-inline-size:\s*4ch/);
+    const { container } = popover({ obs: 'identified' });
+    expect(container.querySelector('input[type="number"]')!.classList).toContain('port');
   });
 });

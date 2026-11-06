@@ -7,7 +7,14 @@
  */
 export const UI_TOKENS = {
   bg: '#0E1015',
-  stage: '#0B0D11',
+  /**
+   * The work surface, a step below the page so the stage stands apart from the
+   * panel beside it (spec §16.13). Darker than any field, which is why fields
+   * have their own `well`.
+   */
+  stage: '#08090C',
+  /** The ground of every field: number, hex, URL, name, search. */
+  well: '#0B0D11',
   surface: '#151823',
   /**
    * A step below `surface`, for a box that groups controls without lifting
@@ -26,19 +33,27 @@ export const UI_TOKENS = {
    * the dot's own colour is the difference.
    */
   borderOk: '#2E5D42',
-  /** The disc behind a green ✓ in the wizard's rail: a step that is behind us (board 4a). */
-  surfaceOk: '#16321F',
+  /** The wizard rail's thread under a step that is behind us: a dimmed green (board Wizard 4a). */
+  wireOk: '#2E4A3B',
   borderWarn: '#4A3820',
   borderDanger: '#3A2226',
   accent: '#7C9EFF',
   accentHover: '#a5bcff',
-  override: '#D9A05B',
+  /**
+   * Something to look at, and only that (spec §16.13): Resume setup, the gear's
+   * dot, a forced layout, a font missing here or on the PC running OBS. A key
+   * with a style of its own is not a warning — it wears the accent.
+   */
+  warn: '#D9A05B',
   danger: '#E06C5B',
   ok: '#4CAF7D',
   text: '#DDE1E9',
   textMuted: '#8B90A0',
+  /**
+   * Decoration only — separators, dotted outlines, the "—" of an unlinked
+   * scene. Nothing meant to be read goes under `textMuted` (spec §16.13).
+   */
   textFaint: '#5A5F70',
-  textGhost: '#4A4F60',
   /**
    * The type scale, one step per role, **taken from the lot** — not guessed.
    *
@@ -58,21 +73,36 @@ export const UI_TOKENS = {
   font: "400 16px 'Archivo', system-ui, sans-serif",
   fontMono: "400 15px 'IBM Plex Mono', ui-monospace, monospace",
   /**
-   * Three radii, not one. The mockup gives inputs 4 px, tiles and buttons 5,
-   * panels and popovers 6 — a hierarchy small enough to look accidental and
-   * consistent enough that flattening it reads as sloppy at a glance.
+   * Three radii (spec §16.13): 4 for anything one presses or types in —
+   * buttons, fields, segments, list rows; 6 for what floats or groups —
+   * popovers, menus, the panel's groups, the selection bar; 10 for the setup
+   * card alone. The keys keep the radius of their own style.
    */
   radius: '4px',
-  radiusControl: '5px',
   radiusPanel: '6px',
-  /** KeyPopover's override badge: a full pill, rounder than any panel gets. */
-  radiusPill: '20px',
+  radiusCard: '10px',
   headerHeight: '54px',
   /** The profile tab row under the header (board 3a). */
   tabRowHeight: '50px',
   panelWidth: '380px',
+  /**
+   * The stage's floor both ways (spec §16.9): under 560 + 380 px of window the
+   * panel drops below it, and it never gets shorter than this — the key
+   * popover unfolded needs about that much to fit.
+   */
+  stageMinSize: '560px',
+  /**
+   * The window width from which stage and panel sit side by side: the stage's
+   * floor plus the panel. Written out in App.svelte's container queries, which
+   * take no var(); a test holds them to this.
+   */
+  splitBreakpoint: '940px',
+  /** Side by side, the panel's Keys list never gets shorter: Global style gives way first. */
+  panelListMinSize: '200px',
   /** Read by the editor too, which has to keep the popover inside the stage. */
   popoverWidth: '380px',
+  /** The popover's names column: "Pressed border" on one line. */
+  popoverNameColumn: '104px',
   /** How far the two dropdown menus (profiles, startup guide) hang below their trigger. */
   menuOffset: '30px',
   /** ProfileBar's two popovers, the active tab's and the one under `+`. */
@@ -83,6 +113,31 @@ export const UI_TOKENS = {
   statusPopoverWidth: '330px',
   /** The Diagnostics sheet over the stage — wide enough for a log line. */
   sheetWidth: '420px',
+  /**
+   * The row under the pointer or the one already chosen, in a menu or a list:
+   * a step above `popover`, so it reads on the menu it sits in (spec §16.10).
+   */
+  highlight: '#1B1F2C',
+  /** Every menu that floats over the page, so they all sit at one height. */
+  shadowMenu: '0 12px 32px rgba(0, 0, 0, 0.45)',
+  /** The selection bar, a step lower: it sits on the stage, among the keys. */
+  shadowBar: '0 8px 24px rgba(0, 0, 0, 0.45)',
+  /** How far a dropdown's menu hangs below its trigger (spec §16.10). */
+  dropdownOffset: '6px',
+  /** Wide enough for "Triggered color" and its check without wrapping. */
+  dropdownMinWidth: '200px',
+  /** A scene's profile list sits in a narrower table: it gets less. */
+  dropdownSceneMinWidth: '180px',
+  /**
+   * How long a control takes to change state — background, colour, border —
+   * under the pointer (spec §16.13): long enough to read as a response, short
+   * enough never to lag the hand.
+   */
+  stateTransition: '120ms',
+  /** The tooltip (board Editor-Tooltip): a step above every surface, so it reads over any of them. */
+  tooltip: '#232838',
+  /** One sentence, wrapped past this. */
+  tooltipMaxWidth: '240px',
 } as const;
 
 const CSS_PREFIX = '--he-';

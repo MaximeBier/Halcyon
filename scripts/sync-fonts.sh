@@ -52,13 +52,13 @@ for weight in "${ARCHIVO_WEIGHTS[@]}"; do
   copy "node_modules/@fontsource/archivo/files/$name" "$DEST/$name"
 done
 
-# 400 for URLs, numbers and the journal; 600 for the AXIS tag the editor draws
-# on an axis key (board 3a) — the one place the interface asks the mono for a
-# weight.
-for weight in 400 600; do
-  name="ibm-plex-mono-latin-${weight}-normal.woff2"
-  copy "node_modules/@fontsource/ibm-plex-mono/files/$name" "$DEST/$name"
-done
+# One italic, for the help sentences under a setting (spec §16.13): 400, the
+# weight they are written at. Without it the browser slants the roman.
+copy "node_modules/@fontsource/archivo/files/archivo-latin-400-italic.woff2"   "$DEST/archivo-latin-400-italic.woff2"
+
+# 400 for URLs, numbers and the journal: the one weight the interface asks of
+# the mono.
+copy "node_modules/@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-400-normal.woff2" "$DEST/ibm-plex-mono-latin-400-normal.woff2"
 
 # The two other faces a label can be drawn in, beside Archivo: a soft one and an
 # angular one. One weight each, the weight a label is drawn at — a face offered

@@ -121,35 +121,59 @@ export function keyboardHint(status: KeyboardStatus): string {
       // reasoning as the firmware wording above: send the reader to the thing
       // that turns out to be true most often, not to a diagnostics panel that
       // cannot see who is holding the device either.
-      return "Couldn't open the keyboard — close Wootility or other tabs using it, then try again.";
+      return 'Device refused to open. Close Wootility, then try again.';
     case 'unsupported':
       return 'WebHID is required. Use Chrome or Edge on desktop.';
   }
 }
 
 /**
- * The keyboard pill of board `3a`: the device's own name once it answers, and
- * a short line with the gesture otherwise.
+ * The keyboard pill (boards 3a, Editor-StatusPills): the device's own name
+ * once it answers, two or three words otherwise — never the gesture, which
+ * is the tooltip's (`keyboardTip`). One form for every state since
+ * 2026-11-06, so the header's width moves as little as the news does.
  *
  * The name is WebHID's `productName` — "Wooting 60HE+", not "Keyboard" — so
- * the pill says which one, which matters the day two are plugged in. The
- * other states are cut down to the pill's width; the full sentence, with the
- * firmware or Wootility advice, stays on the pill's `title` and in the panel's
- * gate (`keyboardHint`).
+ * the pill says which one, which matters the day two are plugged in. The full
+ * sentence, firmware or Wootility advice included, stays in the setup's gate
+ * (`keyboardHint`).
  */
 export function keyboardPill(status: KeyboardStatus, device: string | null): string {
   switch (status) {
     case 'connected':
-      return device ?? 'Keyboard connected';
+      return device ?? 'Keyboard';
     case 'no-permission':
     case 'disconnected':
-      return 'No keyboard · click to choose';
+      return 'No keyboard';
     case 'no-analog-interface':
-      return 'No analog interface · click to pick another';
+      return 'No analog interface';
     case 'open-failed':
-      return 'Keyboard busy · click to retry';
+      return 'Keyboard busy';
     case 'unsupported':
-      return 'WebHID required · use Chrome or Edge';
+      return 'WebHID required';
+  }
+}
+
+/**
+ * What the keyboard pill's click does, on hover (board Editor-StatusPills).
+ * Connected, it offers another keyboard and does not repeat the name: cut by
+ * a narrow header, the pill is not spelled out whole elsewhere. Where the
+ * click is not the whole answer — a firmware, Wootility holding the device —
+ * the sentence names it first.
+ */
+export function keyboardTip(status: KeyboardStatus): string {
+  switch (status) {
+    case 'connected':
+      return 'Choose another keyboard';
+    case 'no-permission':
+    case 'disconnected':
+      return 'Click to choose a keyboard';
+    case 'no-analog-interface':
+      return 'Update the firmware in Wootility, or click to pick another device';
+    case 'open-failed':
+      return 'Close Wootility or other tabs using the keyboard, then click to retry';
+    case 'unsupported':
+      return 'Use Chrome or Edge on desktop';
   }
 }
 
@@ -345,53 +369,49 @@ export function createObsProbe(deps: {
 }
 
 /**
- * The one OBS pill of board `3a` — "OBS · 1 overlay · 58 fps" — which replaced
- * three (state, tally, throughput) on 2026-09-05.
+ * The one OBS pill of board `3a`, which replaced three (state, tally,
+ * throughput) on 2026-09-05; one short form since 2026-11-06 (board
+ * Editor-StatusPills).
  *
- * Connected, it carries the two measures. **The overlay in OBS is never
- * folded into a total.** It is the one on air, so it is the figure someone is
- * looking for — and a single number stopped answering that the day anyone
- * opened `overlay.html` in a tab to check that it worked, because the tab is
- * an overlay too (spec §16.7). A diagnostic that its own use invalidates is
- * not a diagnostic.
- *
- * Not connected, it carries neither. Every heartbeat rides the OBS socket and
- * the registry is emptied the moment that socket goes (`OverlayRegistry.clear`);
- * the rate is zeroed there too (`App.svelte`). Both figures would be constants,
- * not measurements. The two states worth a click say so — the pill is the
- * retry (`canRetryObs`) — and the rest say what is going on; the full
- * sentence with what to do about it (`obsHint`) waits in the pill's popover.
+ * Connected, it says "OBS" and nothing more, and the header stops changing
+ * width with every frame rate. Not connected, it carries no figure
+ * either — every heartbeat rides the OBS socket, so both would be constants.
+ * Both states the click retries read "disconnected" (`canRetryObs`); what the
+ * click does is the tooltip's (`obsTip`), and the full sentence with what to
+ * do about it (`obsHint`) waits in the pill's popover.
  */
-export function obsPill(
-  status: ObsStatus,
-  counts: { inObs: number; inBrowser: number },
-  rate: number,
-): string {
+export function obsPill(status: ObsStatus): string {
   switch (status) {
     case 'identified':
-      return `OBS · ${overlayTally(counts)} · ${rate} fps`;
+      return 'OBS';
     case 'connecting':
-      return 'OBS · connecting…';
+      return 'OBS connecting…';
     case 'auth-failed':
-      return 'OBS · password refused';
+      return 'OBS password refused';
     case 'unreachable':
-      return 'OBS · not answering · click to retry';
     case 'disconnected':
-      return 'OBS · disconnected · click to retry';
+      return 'OBS disconnected';
     case 'idle':
-      return 'OBS · not connected yet';
+      return 'OBS not connected';
   }
 }
 
-function overlayTally(counts: { inObs: number; inBrowser: number }): string {
-  const overlays = (count: number) => `${count} overlay${count === 1 ? '' : 's'}`;
-
-  if (counts.inObs === 0 && counts.inBrowser === 0) return 'no overlay';
-  // A tab is named as such, and the one in OBS is not: this pill sits next to
-  // the word OBS already, and the tab is the case that needs telling apart.
-  if (counts.inObs === 0) return `${overlays(counts.inBrowser)} in a browser`;
-  if (counts.inBrowser === 0) return overlays(counts.inObs);
-  return `${overlays(counts.inObs)} · ${counts.inBrowser} in a browser`;
+/**
+ * What the OBS pill's click does, on hover, or `null` where it only opens the
+ * popover the pill already promises: connected, connecting, not yet tried.
+ */
+export function obsTip(status: ObsStatus): string | null {
+  switch (status) {
+    case 'unreachable':
+    case 'disconnected':
+      return 'Click to reconnect';
+    case 'auth-failed':
+      return 'Click to check the password';
+    case 'identified':
+    case 'connecting':
+    case 'idle':
+      return null;
+  }
 }
 
 /**
@@ -414,7 +434,7 @@ export function captureWarning(another: boolean): string | null {
   if (!another) return null;
   // One pill among the others since 2026-09-05, no longer a line of its own,
   // so it is cut to what fits in a run.
-  return 'Other capture pages open · close them';
+  return 'Other capture pages open';
 }
 
 /**
@@ -426,7 +446,7 @@ export function captureWarning(another: boolean): string | null {
  * wording — it is the exact confusion, and it says which half is missing.
  */
 export function sourceState(counts: { inObs: number; inBrowser: number }): string {
-  if (counts.inObs > 0) return 'Overlay connected in OBS · receiving frames';
+  if (counts.inObs > 0) return 'Overlay connected in OBS';
   if (counts.inBrowser > 0) return 'Only a browser tab is listening · no source in OBS yet';
   return 'No overlay has reported in yet';
 }

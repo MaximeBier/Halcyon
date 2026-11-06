@@ -1,14 +1,12 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, cleanup, fireEvent } from '@testing-library/svelte';
 import { tick } from 'svelte';
+import { openPicker } from '../test/picker';
 import LayoutEditor from './LayoutEditor.svelte';
 import editorSource from './LayoutEditor.svelte?raw';
-// Read rather than rendered: `App.svelte` owns the sidebar list and the
-// password reveal, and mounting the whole page here to check a glyph and two
-// words would drag in OBS websockets, WebHID and every other thing the page
-// wires up. The rule under test is structural — no emoji, an SVG with the
-// right attributes, Sentence case — and the source text says all of it.
-import appSource from './App.svelte?raw';
+// Read rather than rendered: the password reveal lives in components whose
+// mounting would drag in OBS websockets and everything the page wires up, and
+// the rule under test — Sentence case — is in the source text.
 import obsPopoverSource from './ObsPopover.svelte?raw';
 import wizardSource from './Wizard.svelte?raw';
 import { DEFAULT_STYLE, defaultConfig, type OverlayConfig } from '../config/schema';
@@ -86,6 +84,7 @@ function editor(
   const onChange = vi.fn();
   const view = render(LayoutEditor, {
     props: {
+      onCopyUrl: async () => true,
       config,
       frame: [],
       selectedIds,
@@ -142,14 +141,14 @@ describe('LayoutEditor - the stage says what to do when it has nothing to show',
 
   it('shows the message when there are no keys, and offers the way out', () => {
     // Board 3a: the copy says what to do next, and the button under it is
-    // the same "+ Add key" the header carries — the stage no longer points
-    // at a control somewhere else on the page.
+    // the same Add key the header carries — the stage no longer points at a
+    // control somewhere else on the page.
     const { container } = editor(defaultConfig());
     const empty = container.querySelector<HTMLElement>('[data-empty]')!;
 
     expect(empty.textContent).toContain(EMPTY_STATE);
     expect(empty.textContent).toContain('Add one, then press it on your keyboard');
-    expect(empty.querySelector('button')!.textContent).toContain('+ Add key');
+    expect(empty.querySelector('button')!.textContent!.trim()).toBe('Add key');
   });
 
   it('arms the capture from the empty stage', async () => {
@@ -171,6 +170,7 @@ describe('LayoutEditor - the stage says what to do when it has nothing to show',
     laidOut(STAGE);
     const view = render(LayoutEditor, {
       props: {
+        onCopyUrl: async () => true,
         config: defaultConfig(),
         frame: [],
         selectedIds: [],
@@ -191,20 +191,6 @@ describe('LayoutEditor - the stage says what to do when it has nothing to show',
     const { container } = editor(twoKeys());
 
     expect(container.querySelector('.stage')!.textContent).not.toContain(EMPTY_STATE);
-  });
-});
-
-describe('LayoutEditor - the sidebar delete glyph is not the emoji Windows recolours', () => {
-  // `.trash` used to hold a bare 🗑 — the one emoji in an otherwise monochrome,
-  // tokenized UI, and Windows renders it in full colour regardless of theme.
-  it('draws an inline monochrome SVG instead of the emoji', () => {
-    expect(appSource).not.toContain('🗑');
-    expect(appSource).toMatch(/class="trash"[\s\S]{0,800}<svg[^>]*aria-hidden="true"[^>]*>/);
-    expect(appSource).toMatch(/stroke="currentColor"/);
-  });
-
-  it('keeps the button’s own accessible name untouched', () => {
-    expect(appSource).toContain("aria-label={'Delete ' + key.label}");
   });
 });
 
@@ -426,6 +412,25 @@ describe('LayoutEditor - the popover is a place you go, not one you fall into', 
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     await tick();
     expect(handles[0]!.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('leaves the popover and the selection alone when Escape closes a dropdown', async () => {
+    const { handles, container } = editor();
+    handles[0]!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    await tick();
+    const picker = openPicker();
+
+    picker.escape();
+    await tick();
+    expect(isOpen(container)).toBe(true);
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await tick();
+    expect(isOpen(container)).toBe(false);
+    picker.escape();
+    await tick();
+    expect(handles[0]!.getAttribute('aria-pressed')).toBe('true');
+    picker.remove();
   });
 });
 
@@ -780,6 +785,77 @@ describe('LayoutEditor - the size OBS has to be told', () => {
     expect(line.textContent).toContain(String(2 * DEFAULT_STYLE.unit));
   });
 
+  it('reads as the size to give the source, nothing more', () => {
+    // Spec §16.14: one line at the foot of the stage; the gestures' help line
+    // went, the selection bar and the tooltips carry it now. The copy link
+    // after it speaks through its tooltip, not in the line.
+    const { container } = editor(twoKeys());
+    const foot = container.querySelector('.foot')!.cloneNode(true) as Element;
+    foot.querySelectorAll('[data-tooltip-host], [role="status"]').forEach((el) => el.remove());
+
+    expect(foot.textContent!.replace(/\s+/g, ' ').trim()).toMatch(/^OBS source size · \d+ × \d+$/);
+  });
+
+  it('floats over the foot of the stage, with no ground of its own (board Main)', () => {
+    // Under the stage, the line showed a plain band and cut the selection off
+    // above it. Over it, the dots run on behind the words, the stage goes down
+    // to the bottom, and a press on the line still reaches the stage — all but
+    // the copy link.
+    const style = (/<style>([\s\S]*?)<\/style>/.exec(editorSource)?.[1] ?? '').replace(
+      /\/\*[\s\S]*?\*\//g,
+      '',
+    );
+    const rule = (selector: string) =>
+      new RegExp(`\\n\\s*${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{([^}]*)\\}`).exec(
+        style,
+      )?.[1] ?? '';
+    expect(rule('.editor')).toMatch(/position:\s*relative/);
+    const foot = rule('.foot');
+    expect(foot).toMatch(/position:\s*absolute/);
+    expect(foot).toMatch(/inset-block-end:\s*0/);
+    expect(foot).toMatch(/pointer-events:\s*none/);
+    expect(foot).not.toMatch(/background/);
+    expect(rule('.foot :global(button)')).toMatch(/pointer-events:\s*auto/);
+    expect(rule('.stage')).toMatch(/background-image:\s*radial-gradient/);
+  });
+
+  it('centres the copy link on the words, not on its own box', () => {
+    // As flex items each piece was centred on its own box, and the icon sat
+    // off the text. Inline, the button's middle meets the middle of the
+    // lowercase, on a line as tall as the button.
+    const style = (/<style>([\s\S]*?)<\/style>/.exec(editorSource)?.[1] ?? '').replace(
+      /\/\*[\s\S]*?\*\//g,
+      '',
+    );
+    const rule = (selector: string) =>
+      (
+        new RegExp(
+          `\\n\\s*${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{([^}]*)\\}`,
+        ).exec(style)?.[1] ?? ''
+      ).replace(/\s+/g, ' ');
+    expect(rule('.source')).not.toMatch(/display:\s*flex/);
+    expect(rule('.source')).toMatch(/line-height:\s*24px/);
+    expect(rule('.source code')).toMatch(/line-height:\s*inherit/);
+    expect(rule('.source :global([data-tooltip-host])')).toMatch(/vertical-align:\s*middle/);
+  });
+
+  it('ends the line with a link that copies the overlay URL (board Main)', async () => {
+    const { container } = editor(twoKeys());
+    const line = container.querySelector('.source')!;
+    const copy = line.querySelector<HTMLButtonElement>('button[data-copy-url]')!;
+
+    // In the same line, after the figure.
+    expect(
+      line.querySelector('code')!.compareDocumentPosition(copy) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    copy.click();
+    await Promise.resolve();
+    await Promise.resolve();
+    await tick();
+    // Through the page's own copy (the helper's stand-in says it worked).
+    expect(copy.dataset.copied).toBe('done');
+  });
+
   it('says nothing at all before there is a layout to size', async () => {
     const { container } = editor(defaultConfig());
 
@@ -913,6 +989,7 @@ describe('LayoutEditor - the drawing and the handles agree', () => {
     laidOut(STAGE);
     const view = render(LayoutEditor, {
       props: {
+        onCopyUrl: async () => true,
         config: twoKeys(),
         frame: [],
         selectedIds: [],
@@ -1004,13 +1081,117 @@ describe('LayoutEditor - the popover stays inside the stage', () => {
     expect(await openAt(key.y, key.height)).toBe(above);
   });
 
-  it('pins the popover to the top when it fits neither above nor below', async () => {
-    // Half a panel on screen beats none, and the half worth keeping is the
-    // header — so it is the top edge it is pinned to, never the bottom.
+  it('opens beside the selection when it fits neither above nor below', async () => {
+    // It used to be pinned to the top of the stage instead, right over the key
+    // it was editing (spec §16.5).
     expect(await openAt(4, 700)).toBe(STAGE.height - 700);
-    // Taller than the stage itself, where pinning the bottom edge would put
-    // the whole panel above the top of the screen.
+    const anchor = document.querySelector<HTMLElement>('.anchor')!;
+    expect(anchor.dataset.side).toBe('right');
+    expect(translateX(anchor)).toBe(ORIGIN.x + DEFAULT_STYLE.unit + DEFAULT_STYLE.gap);
+  });
+
+  it('scrolls inside a panel taller than the stage, beside the key', async () => {
     expect(await openAt(4, STAGE.height + 80)).toBe(0);
+    const anchor = document.querySelector<HTMLElement>('.anchor')!;
+    expect(anchor.dataset.side).toBe('right');
+    expect(anchor.style.maxHeight).toBe(`${STAGE.height}px`);
+    expect(anchor.classList.contains('capped')).toBe(true);
+  });
+
+  it('keeps the side it opened on when the panel grows', async () => {
+    // Text to Icon, or the Style fold: opened under the key, it stays under
+    // it and scrolls inside, rather than jumping above or over the key.
+    let height = 200;
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+      get: () => height,
+      configurable: true,
+    });
+    const config = twoKeys();
+    config.keys[0]!.y = 0;
+    const { container, handles } = editor(config);
+    handles[0]!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    await tick();
+    await tick();
+
+    const anchor = container.querySelector<HTMLElement>('.anchor')!;
+    const top = translateY(anchor);
+    expect(anchor.dataset.side).toBe('below');
+
+    height = STAGE.height;
+    expect(resized()).toBeGreaterThan(0);
+    await tick();
+
+    expect(anchor.dataset.side).toBe('below');
+    expect(translateY(anchor)).toBe(top);
+    expect(anchor.style.maxHeight).toBe(`${STAGE.height - top}px`);
+  });
+
+  it('chooses its side afresh when reopened on keys that moved meanwhile', async () => {
+    // The side is kept while the popover is open, not past it: closed, then
+    // reopened on the same key moved near the bottom, it went under the key
+    // again — a strip of a few pixels that scrolled — instead of above it.
+    let height = 200;
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+      get: () => height,
+      configurable: true,
+    });
+    const config = twoKeys();
+    config.keys[0]!.y = 0;
+    const { container, handles, rerender } = editor(config);
+    handles[0]!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    await tick();
+    await tick();
+    expect(container.querySelector<HTMLElement>('.anchor')!.dataset.side).toBe('below');
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await tick();
+    expect(container.querySelector('.anchor')).toBeNull();
+
+    const moved = twoKeys();
+    moved.keys[0]!.y = 4;
+    await rerender({ config: moved });
+    height = 300;
+    handles[0]!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    await tick();
+    await tick();
+
+    expect(container.querySelector<HTMLElement>('.anchor')!.dataset.side).toBe('above');
+  });
+
+  it('chooses its side afresh once a drag has moved its keys', async () => {
+    // Hidden for the gesture, not closed: the side taken before the drag
+    // outlived it, and a key dropped near the bottom got its popover under
+    // it — a strip of a few pixels that scrolled — instead of above it.
+    let height = 200;
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+      get: () => height,
+      configurable: true,
+    });
+    const config = twoKeys();
+    config.keys[0]!.y = 0;
+    const { container, handles, rerender } = editor(config);
+    handles[0]!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    await tick();
+    await tick();
+    expect(container.querySelector<HTMLElement>('.anchor')!.dataset.side).toBe('below');
+
+    press(handles[0]!);
+    move(container.querySelector('.stage')!, { clientX: 0, clientY: 4 * DEFAULT_STYLE.unit });
+    await tick();
+    expect(container.querySelector('.anchor')).toBeNull();
+    window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }));
+    await tick();
+    // The parent takes the drop and hands the moved layout back.
+    const moved = twoKeys();
+    moved.keys[0]!.y = 4;
+    height = 300;
+    // The selection rides along: rerendering would otherwise hand back the
+    // empty one the editor was mounted with.
+    await rerender({ config: moved, selectedIds: [1] });
+    await tick();
+    await tick();
+
+    expect(container.querySelector<HTMLElement>('.anchor')!.dataset.side).toBe('above');
   });
 
   it('measures the panel again when its contents change', async () => {
@@ -1304,6 +1485,7 @@ describe('LayoutEditor - learning shows itself and lets go of the stream', () =>
     const onChange = vi.fn();
     const view = render(LayoutEditor, {
       props: {
+        onCopyUrl: async () => true,
         config: twoKeys(),
         frame: [],
         selectedIds: [1],
@@ -1326,8 +1508,30 @@ describe('LayoutEditor - learning shows itself and lets go of the stream', () =>
   it('shows a banner on the stage while it is armed', () => {
     const { container } = armed();
 
-    expect(container.querySelector('[data-learning-banner]')!.textContent).toContain(
-      'Listening · press any key — Esc stops',
+    const banner = container.querySelector('[data-learning-banner]')!;
+    expect(banner.textContent).toContain('Press any key to add it');
+    expect(banner.textContent).toContain('Esc to stop');
+  });
+
+  it('leaves an empty profile to its own empty state, which says the same', () => {
+    laidOut(STAGE);
+    const { container } = render(LayoutEditor, {
+      props: {
+        onCopyUrl: async () => true,
+        config: defaultConfig(),
+        frame: [],
+        selectedIds: [],
+        stageBox: { ...STAGE },
+        onChange: vi.fn(),
+        storage: { getItem: () => null, setItem: () => {} },
+        learning: true,
+        learningBanner: true,
+      },
+    });
+
+    expect(container.querySelector('[data-learning-banner]')).toBeNull();
+    expect(container.querySelector('[data-empty]')!.textContent).toContain(
+      'Press any key to add it',
     );
   });
 
@@ -1404,5 +1608,99 @@ describe('LayoutEditor - learning shows itself and lets go of the stream', () =>
     window.dispatchEvent(new Event('blur'));
 
     expect(isLearning()).toBe(false);
+  });
+});
+
+describe('LayoutEditor - the Edit · Delete bar over a selection', () => {
+  const bar = (c: Element) => c.querySelector<HTMLElement>('[data-selection-bar]');
+  const edit = (c: Element) => bar(c)!.querySelector<HTMLButtonElement>('[data-bar-edit]')!;
+  const remove = (c: Element) => bar(c)!.querySelector<HTMLButtonElement>('[data-bar-delete]')!;
+
+  it('is not there without a selection', () => {
+    const { container } = editor();
+    expect(bar(container)).toBeNull();
+  });
+
+  it('offers to edit one key, or says how many', async () => {
+    const one = editor(twoKeys(), STAGE, [1]);
+    expect(edit(one.container).textContent!.trim()).toBe('Edit');
+    cleanup();
+
+    const two = editor(twoKeys(), STAGE, [1, 2]);
+    expect(edit(two.container).textContent!.trim()).toBe('Edit 2 keys');
+  });
+
+  it('opens the popover from Edit, and gets out of its way', async () => {
+    const { container } = editor(twoKeys(), STAGE, [1]);
+
+    edit(container).click();
+    await tick();
+
+    expect(container.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(bar(container)).toBeNull();
+  });
+
+  it('deletes the selection from Delete, as the Delete key does', async () => {
+    const { container, onChange } = editor(twoKeys(), STAGE, [1]);
+
+    remove(container).click();
+    await tick();
+
+    expect(onChange.mock.calls[0]![0].keys.map((key: { id: number }) => key.id)).toEqual([2]);
+    expect(bar(container)).toBeNull();
+  });
+
+  it('hides while a key is dragged', async () => {
+    const { container, handles } = editor(twoKeys(), STAGE, [1]);
+    expect(bar(container)).not.toBeNull();
+
+    press(handles[0]!, { clientX: 10, clientY: 10 });
+    move(container.querySelector('.stage')!, { clientX: 200, clientY: 10 });
+    await tick();
+
+    expect(bar(container)).toBeNull();
+  });
+
+  it('hides while the capture listens', async () => {
+    const { container, rerender } = editor(twoKeys(), STAGE, [1]);
+    expect(bar(container)).not.toBeNull();
+    await rerender({ learning: true });
+
+    expect(bar(container)).toBeNull();
+  });
+});
+
+describe('LayoutEditor - a key bound to the gamepad says so, here only', () => {
+  it('tags an axis key with the gamepad icon, and leaves a keyboard key bare', () => {
+    const config = twoKeys();
+    config.keys[1]!.mode = 'axis';
+    const { handles } = editor(config);
+
+    expect(handles[0]!.querySelector('[data-gamepad]')).toBeNull();
+    const tag = handles[1]!.querySelector('[data-gamepad]')!;
+    expect(tag.getAttribute('title')).toBe('Gamepad');
+    expect(tag.querySelector('svg')).not.toBeNull();
+  });
+
+  it('draws no AXIS word any more', () => {
+    const config = twoKeys();
+    config.keys[1]!.mode = 'axis';
+    const { container } = editor(config);
+
+    expect(container.textContent).not.toContain('AXIS');
+  });
+});
+
+describe('LayoutEditor - where the focus goes after Delete', () => {
+  it('parks it on the stage rather than losing it to the page', async () => {
+    const { container } = editor(twoKeys(), STAGE, [1]);
+    const remove = container.querySelector<HTMLButtonElement>('[data-bar-delete]')!;
+    remove.focus();
+
+    remove.click();
+    await tick();
+    await tick();
+
+    expect(document.activeElement).toBe(container.querySelector('.stage'));
   });
 });

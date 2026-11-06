@@ -10,6 +10,8 @@ import {
   overlayUrl,
   keyboardHint,
   keyboardPill,
+  keyboardTip,
+  obsTip,
   obsHint,
   obsProbeHint,
   createObsProbe,
@@ -180,29 +182,50 @@ describe('what a pill offers to do about itself', () => {
   });
 });
 
-describe('keyboardPill', () => {
-  it('names the device once it answers', () => {
+describe('keyboardPill and keyboardTip (board Editor-StatusPills)', () => {
+  const ALL = [
+    'connected',
+    'no-permission',
+    'disconnected',
+    'no-analog-interface',
+    'open-failed',
+    'unsupported',
+  ] as const;
+
+  it('names the device once it answers, and offers another on hover', () => {
     expect(keyboardPill('connected', 'Wooting 60HE+')).toBe('Wooting 60HE+');
+    // Never the name again: cut by the narrow header, it is not repeated whole.
+    expect(keyboardTip('connected')).toBe('Choose another keyboard');
   });
 
-  it('still says connected when the device gave no name', () => {
-    expect(keyboardPill('connected', null)).toMatch(/connected/i);
+  it('still names a keyboard when the device gave no name', () => {
+    expect(keyboardPill('connected', null)).toBe('Keyboard');
   });
 
-  it('invites the click on every state a picker could fix, and only there', () => {
-    for (const status of [
-      'no-permission',
-      'disconnected',
-      'no-analog-interface',
-      'open-failed',
-      'unsupported',
-    ] as const) {
-      expect(/click/.test(keyboardPill(status, null))).toBe(canPickDevice(status));
+  it('says there is none in two words, and what the click does in the tooltip', () => {
+    for (const status of ['no-permission', 'disconnected'] as const) {
+      expect(keyboardPill(status, null)).toBe('No keyboard');
+      expect(keyboardTip(status)).toBe('Click to choose a keyboard');
     }
   });
 
-  it('names the browsers when there is no WebHID to click for', () => {
-    expect(keyboardPill('unsupported', null)).toMatch(/chrome|edge/i);
+  it('keeps the pill short in every state, the gesture in the tooltip', () => {
+    for (const status of ALL) {
+      expect(keyboardPill(status, null)).not.toMatch(/·|click/i);
+      expect(keyboardPill(status, null).length).toBeLessThan(24);
+    }
+    for (const status of ALL) {
+      expect(/click/i.test(keyboardTip(status))).toBe(canPickDevice(status));
+    }
+  });
+
+  it('still names the firmware and the browsers where they are the answer', () => {
+    expect(keyboardPill('no-analog-interface', null)).toBe('No analog interface');
+    expect(keyboardTip('no-analog-interface')).toMatch(/firmware.*wootility/i);
+    expect(keyboardPill('open-failed', null)).toBe('Keyboard busy');
+    expect(keyboardTip('open-failed')).toMatch(/wootility/i);
+    expect(keyboardPill('unsupported', null)).toBe('WebHID required');
+    expect(keyboardTip('unsupported')).toMatch(/chrome|edge/i);
   });
 });
 
@@ -245,8 +268,10 @@ describe('status bar wording', () => {
     // already holds the device exclusively — Wootility is the concrete first
     // guess, and the hint has to say to try again, since that is the whole
     // point of surfacing this rather than leaving the status stuck.
-    expect(keyboardHint('open-failed')).toMatch(/wootility/i);
-    expect(keyboardHint('open-failed')).toMatch(/try again/i);
+    // Two sentences, no dash or middle dot holding them together (the prototype).
+    expect(keyboardHint('open-failed')).toBe(
+      'Device refused to open. Close Wootility, then try again.',
+    );
   });
 
   it('tells a refused password apart from an unreachable server', () => {
@@ -364,89 +389,61 @@ describe('createObsProbe', () => {
   });
 });
 
-describe('obsPill', () => {
-  const none = { inObs: 0, inBrowser: 0 };
+describe('obsPill and obsTip (board Editor-StatusPills)', () => {
+  const ALL = [
+    'identified',
+    'idle',
+    'connecting',
+    'unreachable',
+    'disconnected',
+    'auth-failed',
+  ] as const;
 
-  it('carries the tally and the throughput once connected', () => {
-    expect(obsPill('identified', { inObs: 1, inBrowser: 0 }, 58)).toBe('OBS · 1 overlay · 58 fps');
-    expect(obsPill('identified', { inObs: 2, inBrowser: 0 }, 0)).toBe('OBS · 2 overlays · 0 fps');
+  it('says OBS and nothing else once connected, with no tooltip', () => {
+    expect(obsPill('identified')).toBe('OBS');
+    expect(obsTip('identified')).toBeNull();
   });
 
-  it('says nobody has reported in, once OBS is there to report through', () => {
-    expect(obsPill('identified', none, 0)).toMatch(/no overlay/i);
-  });
-
-  it('counts a tab apart, since opening one is how a single count got useless', () => {
-    // The overlay in OBS is the one on air: it comes first and is never
-    // folded into a total (spec §16.7).
-    expect(obsPill('identified', { inObs: 0, inBrowser: 1 }, 58)).toBe(
-      'OBS · 1 overlay in a browser · 58 fps',
-    );
-    expect(obsPill('identified', { inObs: 1, inBrowser: 1 }, 58)).toBe(
-      'OBS · 1 overlay · 1 in a browser · 58 fps',
-    );
-    expect(obsPill('identified', { inObs: 2, inBrowser: 3 }, 58)).toBe(
-      'OBS · 2 overlays · 3 in a browser · 58 fps',
-    );
-  });
-
-  it('prints neither figure while OBS is down, where both could only be constants', () => {
-    // Heartbeats only arrive over the OBS socket and the registry is cleared
-    // when it drops; the rate is zeroed there too. Neither is a measurement.
-    for (const status of [
-      'idle',
-      'connecting',
-      'unreachable',
-      'disconnected',
-      'auth-failed',
-    ] as const) {
-      expect(obsPill(status, { inObs: 1, inBrowser: 1 }, 58)).not.toMatch(/overlay|fps/);
+  it('says disconnected whenever the click reconnects, and says so on hover', () => {
+    for (const status of ['unreachable', 'disconnected'] as const) {
+      expect(obsPill(status)).toBe('OBS disconnected');
+      expect(obsTip(status)).toBe('Click to reconnect');
     }
   });
 
-  it('invites the click on exactly the states the pill retries', () => {
-    for (const status of [
-      'idle',
-      'connecting',
-      'unreachable',
-      'disconnected',
-      'auth-failed',
-    ] as const) {
-      expect(/click to retry/.test(obsPill(status, none, 0))).toBe(canRetryObs(status));
+  it('keeps every pill short, the gesture in the tooltip', () => {
+    for (const status of ALL) {
+      expect(obsPill(status)).toMatch(/^OBS/);
+      expect(obsPill(status)).not.toMatch(/·|click|overlay|fps/i);
+    }
+    for (const status of ALL) {
+      expect(obsTip(status) === 'Click to reconnect').toBe(canRetryObs(status));
     }
   });
 
   it('names the password when that is what OBS refused', () => {
-    expect(obsPill('auth-failed', none, 0)).toMatch(/password/i);
+    expect(obsPill('auth-failed')).toMatch(/password/i);
+    expect(obsTip('auth-failed')).toMatch(/password/i);
   });
 });
 
-describe('captureWarning', () => {
+describe('captureWarning and captureTip', () => {
   it('says nothing at all when this page is the only one talking', () => {
     expect(captureWarning(false)).toBeNull();
   });
 
-  // Plainly in the status bar, never behind a fold: this is the failure where
-  // both pages look perfectly healthy while the overlay swings between two
-  // layouts, so nothing about it is discoverable by looking closer.
-  //
-  // One step, since 2026-09-15. It used to read "close them, then reload":
-  // reloading resent this configuration, which is what takes the overlay
-  // back. Now the page hears the last rival leave, resends by itself, and the
-  // warning lifts on its own — so the only step left is the one it cannot do.
-  it('says that others are open, and the one step out', () => {
-    expect(captureWarning(true)).toBe('Other capture pages open · close them');
-  });
-
-  // It sits in the run of pills, not on a line of its own (the header wrapped
-  // onto a second row for it, which is what got it shortened).
-  it('fits a pill', () => {
-    expect(captureWarning(true)!.length).toBeLessThan(60);
+  // Plainly in the run of pills, never behind a fold: this is the failure
+  // where both pages look perfectly healthy while the overlay swings between
+  // two layouts, so nothing about it is discoverable by looking closer.
+  // No way out spelled on hover: the page hears the last rival leave, resends
+  // by itself and lifts the warning, so closing them is all there is, and the
+  // pill says what to close.
+  it('says that others are open', () => {
+    expect(captureWarning(true)).toBe('Other capture pages open');
   });
 
   // Quoting a number would mean knowing one, and a page draws a fresh name on
-  // every load: a tab reloaded three times reads as three pages. The plural is
-  // carried by the instruction, which is right for one page and for five.
+  // every load: a tab reloaded three times reads as three pages.
   it('quotes no figure it cannot stand behind', () => {
     expect(captureWarning(true)).not.toMatch(/\d/);
   });

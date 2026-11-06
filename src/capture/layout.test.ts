@@ -99,6 +99,32 @@ describe('surfaceOf', () => {
     expect(unmeasured.h).toBeGreaterThan(0);
   });
 
+  it('is exactly the stage on a narrow one, never the floor', () => {
+    // The floor was 12 × 8 units: 864 px at the default unit, wider than a
+    // 560 px stage. A key in the strip between the two was clipped by the
+    // stage and yet "on the surface", so the Keys list never named it.
+    const unit = DEFAULT_STYLE.unit;
+    const narrow = surfaceOf({ width: 560, height: 400 }, unit);
+
+    expect(narrow.w).toBe(560 / unit);
+    expect(narrow.h).toBe(400 / unit);
+  });
+
+  it('names a key clipped by a narrow stage as off the surface', () => {
+    const unit = DEFAULT_STYLE.unit;
+    const narrow = surfaceOf({ width: 560, height: 560 }, unit);
+    const config = {
+      ...defaultConfig(),
+      keys: [
+        { id: 1, usage: 0x1e, mode: 'key' as const, label: '1', x: -0.5, y: -0.5, w: 1, h: 1 },
+        // Right edge at 5 units from the centre: inside 12 units, past 560 px.
+        { id: 3, usage: 0x20, mode: 'key' as const, label: '3', x: 4, y: -0.5, w: 1, h: 1 },
+      ],
+    };
+
+    expect(keysOutside(config, narrow)).toEqual([3]);
+  });
+
   it('refuses to make the surface infinite over a unit of zero', () => {
     // The style validator already refuses it; what makes it worth a line here
     // is that the consequence — every clamp comparing against Infinity — is

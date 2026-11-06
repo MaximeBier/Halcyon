@@ -6,6 +6,10 @@ export type Tone = 'success' | 'warning' | 'error';
 /** One sentence and the tone to say it in. */
 export interface Notice {
   tone: Tone;
+  /**
+   * Plain words, in the toast's colour and weight: a name of a thing — a
+   * scene, a profile — goes between curly quotes, never in bold (board System).
+   */
   message: string;
   /**
    * An optional way back, offered at the moment of the mistake.

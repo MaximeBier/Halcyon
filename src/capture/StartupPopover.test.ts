@@ -12,7 +12,12 @@ const EDGE_UA = `${CHROME_UA} Edg/139.0.0.0`;
 
 /** Rendered shut — every test that reads a step opens the guide first. */
 function guide(
-  props: { agent?: string; standalone?: boolean; install?: Partial<InstallWatch> } = {},
+  props: {
+    agent?: string;
+    standalone?: boolean;
+    install?: Partial<InstallWatch>;
+    compact?: boolean;
+  } = {},
 ) {
   const onInstall = vi.fn();
   const rendered = render(StartupPopover, {
@@ -21,6 +26,7 @@ function guide(
       standalone: props.standalone ?? false,
       install: { prompt: null, installed: false, ...props.install },
       onInstall,
+      compact: props.compact ?? false,
     },
   });
   const open = async () => {
@@ -190,5 +196,39 @@ describe('StartupPopover - the sign-in step', () => {
       if (original) Object.defineProperty(Navigator.prototype, 'clipboard', original);
       else delete (navigator as { clipboard?: unknown }).clipboard;
     }
+  });
+});
+
+describe('StartupPopover - the quiet trigger', () => {
+  it('answers the pointer like a button once demoted', () => {
+    const quiet = guide({ standalone: true }).container.querySelector('[data-startup-trigger]')!;
+    expect(quiet.classList.contains('he-btn-quiet')).toBe(true);
+  });
+
+  it('keeps its own accent outline while it still pitches', () => {
+    const pitch = guide({ standalone: false }).container.querySelector('[data-startup-trigger]')!;
+    expect(pitch.classList.contains('he-btn-quiet')).toBe(false);
+  });
+});
+
+describe('StartupPopover - the trigger in a narrow header (board Editor-HeaderNarrow)', () => {
+  const trigger = (c: HTMLElement) => c.querySelector<HTMLButtonElement>('[data-startup-trigger]')!;
+  const tip = (el: HTMLElement) =>
+    el.closest('[data-tooltip-host]')?.querySelector('[role="tooltip"]')?.textContent ?? null;
+
+  it('keeps only its power icon, its name on hover', () => {
+    const { container } = guide({ compact: true });
+    expect(trigger(container).textContent!.trim()).toBe('');
+    expect(trigger(container).querySelector('svg')).not.toBeNull();
+    expect(trigger(container).getAttribute('aria-label')).toBe('Start with Windows');
+    expect(tip(trigger(container))).toBe('Start with Windows');
+    // Still the pitch, outline and all, until the app is installed.
+    expect(trigger(container).classList).not.toContain('he-btn-quiet');
+  });
+
+  it('says its name in full while it has room', () => {
+    const { container } = guide();
+    expect(trigger(container).textContent!.trim()).toBe('Start with Windows');
+    expect(tip(trigger(container))).toBeNull();
   });
 });

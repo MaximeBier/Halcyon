@@ -285,3 +285,26 @@ export function createGestures(read: () => GestureContext, out: GestureOutputs):
     },
   };
 }
+
+/**
+ * Whether this Escape is the one closing an open dropdown's picker.
+ *
+ * A `base-select` picker is a popover of the page, and the browser closes it
+ * *after* dispatching the keydown: every Escape handler on the page sees the
+ * keystroke first, and without this each would shut its own popover, menu or
+ * selection along with the list. While the picker is open the focus is on its
+ * option, so the target is an `<option>` — hence `closest`. Called before any
+ * `preventDefault`, which would keep the picker open; jsdom and browsers that
+ * predate `:open` throw on the selector, and the answer there is no.
+ */
+export function escapeClosesPicker(event: Pick<KeyboardEvent, 'key' | 'target'>): boolean {
+  if (event.key !== 'Escape') return false;
+  const target = event.target as Partial<Element> | null;
+  const select = typeof target?.closest === 'function' ? target.closest('select') : null;
+  if (!select) return false;
+  try {
+    return select.matches(':open');
+  } catch {
+    return false;
+  }
+}

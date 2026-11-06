@@ -1,4 +1,8 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
+  import { selectOnFocus } from './select-on-focus';
+  import { Check } from './icons';
+  import HelpText from './HelpText.svelte';
   import { obsNote, stepNumber, type WizardStep } from './wizard';
   import { keyboardHint, obsHint, type ConnectionSettings } from './settings';
   import type { KeyboardStatus } from '../keyboard/device';
@@ -28,6 +32,7 @@
     overlaysInObs,
     settings,
     url,
+    size = null,
     onAllowKeyboard,
     onReconnect,
     onSkip,
@@ -42,6 +47,12 @@
     /** The live settings object: the same two fields the OBS popover writes to. */
     settings: ConnectionSettings;
     url: string;
+    /**
+     * What the stage's foot gives as the browser source size, or `null` while
+     * there is no key to size: an empty layout is 0 × 0, which nobody can type
+     * into OBS.
+     */
+    size?: { width: number; height: number } | null;
     /**
      * Opens Chrome's HID picker. Called straight from the click, never through
      * an await or a timer: WebHID grants the picker to a user gesture and to
@@ -80,6 +91,17 @@
     keyboard === 'no-analog-interface' || keyboard === 'disconnected' || keyboard === 'open-failed',
   );
 
+  /**
+   * Whether a password has been tried: one was there already (saved from a
+   * session before), or something was typed. On a first arrival the socket
+   * tries an empty one and OBS refuses it — "Wrong password" before anyone
+   * wrote anything is a verdict on nothing, so the refusal reads as waiting
+   * until then.
+   */
+  let passwordTried = $state(untrack(() => settings.password !== ''));
+  /** The OBS state as the card tells it. */
+  const told = $derived<ObsStatus>(obs === 'auth-failed' && !passwordTried ? 'idle' : obs);
+
   /** What a row says under its name: the summary of a step behind, the state of the one at hand. */
   function note(row: WizardStep): string | null {
     const where = rowState(row);
@@ -93,7 +115,7 @@
     }
     if (row === 'obs') {
       if (where === 'done') return 'connected';
-      return where === 'current' ? obsNote(obs, overlaysInObs) : 'not connected yet';
+      return where === 'current' ? obsNote(told, overlaysInObs) : 'not connected yet';
     }
     return 'in the editor';
   }
@@ -105,11 +127,11 @@
    * network permission, which nothing else on the page names.
    */
   const obsLine = $derived(
-    obs === 'idle'
+    told === 'idle'
       ? 'Waiting for OBS'
-      : obs === 'unreachable'
-        ? obsHint(obs)
-        : obsNote(obs, overlaysInObs).replace(/^\w/, (first) => first.toUpperCase()),
+      : told === 'unreachable'
+        ? obsHint(told)
+        : obsNote(told, overlaysInObs).replace(/^\w/, (first) => first.toUpperCase()),
   );
 
   let revealed = $state(false);
@@ -126,10 +148,20 @@
     <span class="eyebrow">SETUP</span>
 
     <ol class="steps">
-      {#each ROWS as row (row.step)}
+      {#each ROWS as row, index (row.step)}
         <li data-row={row.step} data-state={rowState(row.step)}>
-          <span class="bullet" aria-hidden="true">
-            {rowState(row.step) === 'done' ? '✓' : stepNumber(row.step)}
+          <!-- A thread, not numbered discs (board Wizard 4a): a check behind us,
+               a dot with a halo where one stands, a hollow dot ahead; a line
+               from each step to the next, green once it is done. -->
+          <span class="track" aria-hidden="true">
+            <span class="mark">
+              {#if rowState(row.step) === 'done'}
+                <Check size={16} strokeWidth={2.5} />
+              {:else}
+                <span class="pip"></span>
+              {/if}
+            </span>
+            {#if index < ROWS.length - 1}<span class="wire"></span>{/if}
           </span>
           <span class="text">
             <span class="label">{row.label}</span>
@@ -141,7 +173,9 @@
 
     <!-- Quiet, and at the foot of the rail on both steps: the way out is
          always in the same place, and never dressed as the way forward. -->
-    <button class="skip" data-action="skip" type="button" onclick={onSkip}>Skip setup →</button>
+    <button class="skip he-text-btn" data-action="skip" type="button" onclick={onSkip}
+      >Skip setup →</button
+    >
   </aside>
 
   <section class="content">
@@ -156,28 +190,53 @@
       </p>
 
       <p class="status" data-status data-failed={keyboardFailed}>
-        <span class="dot" aria-hidden="true"></span>
-        {keyboardFailed ? keyboardHint(keyboard) : 'Scanning devices…'}
+        <span class="dot" class:he-pulse={!keyboardFailed} aria-hidden="true"></span>
+        <!-- The automatic look is `navigator.hid.getDevices()`, which only
+             returns a keyboard this site was already allowed: on a first visit
+             it finds nothing, and the button below is the way forward. -->
+        {keyboardFailed ? keyboardHint(keyboard) : 'Looking for a keyboard you’ve already allowed…'}
       </p>
 
       <!-- One label for every status this button is shown in: it always calls
            `requestPermission()`, which always opens the same HID picker —
            potentially empty. "Rescan devices" used to promise an automatic
            look that the code never performs. -->
-      <button class="secondary" data-action="keyboard" type="button" onclick={onAllowKeyboard}>
+      <!-- The primary button: on a first visit it is the only gesture that
+           moves the setup on (board Wizard-Step1). -->
+      <button
+        class="he-btn-primary choose"
+        data-action="keyboard"
+        type="button"
+        onclick={onAllowKeyboard}
+      >
         Choose device…
       </button>
     {:else}
       <h2>Connect OBS</h2>
-      <p class="lede">
-        In OBS: Tools → WebSocket Server Settings → tick “Enable WebSocket server” and “Enable
-        Authentication”. To see the password, click “Show Connect Info”.
-      </p>
+      <!-- Three things to do, in the order OBS asks for them (board 4a). -->
+      <ol class="todo" data-obs-steps>
+        <li>
+          <span class="num" aria-hidden="true">1.</span>
+          <span
+            >In OBS, open “Tools → WebSocket Server Settings”, then tick “Enable WebSocket server”
+            and “Enable Authentication”.</span
+          >
+        </li>
+        <li>
+          <span class="num" aria-hidden="true">2.</span>
+          <span>Click “Show Connect Info” and paste the password below.</span>
+        </li>
+        <li>
+          <span class="num" aria-hidden="true">3.</span>
+          <span>Add a “Browser” source to your scene with the URL below.</span>
+        </li>
+      </ol>
 
       <div class="fields">
         <label class="port">
           Port
           <input
+            use:selectOnFocus
             type="number"
             min="1"
             max={MAX_PORT}
@@ -187,30 +246,36 @@
         </label>
         <label class="password">
           Password
-          <span class="secret" class:refused={obs === 'auth-failed'}>
-            <input
-              type={revealed ? 'text' : 'password'}
-              bind:value={settings.password}
-              onchange={onReconnect}
-            />
-            <button type="button" onclick={() => (revealed = !revealed)}>
-              {revealed ? 'Hide' : 'Show'}
-            </button>
+          <!-- The field and what it is worth knowing about it, 4 px under it,
+               whatever happens (board Wizard 4a). A refusal is the status
+               line's to say, below: the field only turns red and points to it. -->
+          <span class="he-with-help">
+            <span class="secret" class:refused={told === 'auth-failed'}>
+              <input
+                use:selectOnFocus
+                aria-invalid={told === 'auth-failed' ? 'true' : undefined}
+                aria-describedby={told === 'auth-failed' ? 'wizard-obs-line' : undefined}
+                type={revealed ? 'text' : 'password'}
+                bind:value={settings.password}
+                oninput={() => (passwordTried = true)}
+                onchange={onReconnect}
+              />
+              <button type="button" class="he-btn-tertiary" onclick={() => (revealed = !revealed)}>
+                {revealed ? 'Hide' : 'Show'}
+              </button>
+            </span>
+            <HelpText>The password never leaves your computer.</HelpText>
           </span>
-          {#if obs === 'auth-failed'}
-            <!-- Under the field it was typed into: the correction appears
-                 where the mistake was made. -->
-            <span class="error" data-error>{obsNote(obs, overlaysInObs)}</span>
-          {/if}
         </label>
       </div>
 
       <div class="source">
-        <span class="caption">Then add this browser source in your scene</span>
+        <span class="caption">Browser source URL</span>
         <div class="url">
-          <input data-url readonly value={url} aria-label="Overlay URL for OBS" />
+          <!-- A value to copy, not a field (he-copy-value): one click selects it all. -->
+          <output class="he-copy-value" data-url aria-label="Overlay URL for OBS">{url}</output>
           <button
-            class="primary"
+            class="he-btn-primary"
             data-action="copy"
             type="button"
             onclick={copy}
@@ -222,24 +287,38 @@
             {copyState === 'done' ? 'Copied' : copyState === 'failed' ? 'Copy failed' : 'Copy URL'}
           </button>
         </div>
+        {#if size}
+          <!-- The stage foot's own figure, so the two never disagree. -->
+          <span class="caption" data-source-size>
+            Width <code>{size.width}</code> · Height <code>{size.height}</code>
+          </span>
+        {/if}
       </div>
 
       <div class="spacer"></div>
 
       <p class="foot" data-obs-line>
-        <span class="dot" class:live={obs === 'identified'} aria-hidden="true"></span>
-        <span class="line">{obsLine}</span>
-        <!-- The one page that hands out a URL with a password in it owes the
-             reader this sentence (spec §16.8). -->
-        <span class="fine">The password never leaves your computer.</span>
+        <span
+          class="dot"
+          class:live={told === 'identified'}
+          class:he-pulse={told === 'idle' || told === 'connecting'}
+          aria-hidden="true"
+        ></span>
+        <!-- Red for "Wrong password", muted for the longer explanations (board
+             System): the verdict short enough to read at a glance. -->
+        <span class="line" id="wizard-obs-line" class:wrong={told === 'auth-failed'}>{obsLine}</span
+        >
       </p>
     {/if}
   </section>
 </div>
 
 <style>
+  /* On a narrow window the rail goes above the step rather than squeezing it
+     (spec §16.9): the bases are the breakpoint, no media query. */
   .card {
     display: flex;
+    flex-wrap: wrap;
     inline-size: 960px;
     max-inline-size: 100%;
     box-sizing: border-box;
@@ -248,12 +327,11 @@
     color: var(--he-text);
     background: var(--he-surface-low);
     border: 1px solid var(--he-border-control);
-    border-radius: 10px;
+    border-radius: var(--he-radius-card);
   }
 
   .rail {
-    flex: none;
-    inline-size: 300px;
+    flex: 1 1 300px;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
@@ -268,29 +346,50 @@
     letter-spacing: 0.1em;
     color: var(--he-accent);
   }
+  /* The rail as a thread (board Wizard 4a): no gap between the steps, each
+     tall enough for its line to show; the marker 16 px wide, centred on the
+     title's line, the line under it to the next step. */
   .steps {
     display: flex;
     flex-direction: column;
-    gap: 20px;
     margin: 0;
     padding: 0;
     list-style: none;
   }
   .steps li {
     display: flex;
-    align-items: flex-start;
-    gap: 13px;
+    align-items: stretch;
+    gap: 14px;
   }
-  .bullet {
+  .steps li:not(:last-child) {
+    min-block-size: 62px;
+  }
+  .track {
     flex: none;
-    inline-size: 30px;
-    block-size: 30px;
-    border-radius: 50%;
-    border: 1px solid var(--he-border-popover);
+    inline-size: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .mark {
+    flex: none;
+    block-size: 20px;
     display: grid;
     place-items: center;
-    font-size: var(--he-size-xs);
-    color: var(--he-text-faint);
+  }
+  /* Not `.dot`: that is the status line's, amber, further down — sharing
+     its name painted the step ahead amber. */
+  .pip {
+    box-sizing: border-box;
+    inline-size: 10px;
+    block-size: 10px;
+    border-radius: 50%;
+  }
+  .wire {
+    flex: 1;
+    inline-size: 1px;
+    margin-block: 6px;
+    background: var(--he-border-popover);
   }
   .text {
     display: flex;
@@ -299,23 +398,26 @@
   }
   .label {
     font-size: var(--he-size-sm);
+    line-height: 20px;
     font-weight: 600;
-    color: var(--he-text-faint);
+    color: var(--he-text-muted);
   }
   .note {
     font-size: var(--he-size-xs);
-    color: var(--he-text-ghost);
+    color: var(--he-text-muted);
   }
   li[data-state='current'] .label {
     color: var(--he-text);
   }
   li[data-state='current'] .note {
-    color: var(--he-text-faint);
+    color: var(--he-text-muted);
   }
-  li[data-state='current'] .bullet {
-    font-weight: 600;
-    color: var(--he-accent);
-    border-color: var(--he-accent);
+  li[data-state='current'] .pip {
+    background: var(--he-accent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--he-accent) 18%, transparent);
+  }
+  li[data-state='pending'] .pip {
+    border: 1.5px solid var(--he-border-hover);
   }
   li[data-state='done'] .label {
     color: var(--he-text-muted);
@@ -323,25 +425,22 @@
   li[data-state='done'] .note {
     color: var(--he-ok);
   }
-  li[data-state='done'] .bullet {
-    font-size: var(--he-size-sm);
+  li[data-state='done'] .mark {
     color: var(--he-ok);
-    background: var(--he-surface-ok);
-    border-color: transparent;
+  }
+  li[data-state='done'] .wire {
+    background: var(--he-wire-ok);
   }
   .skip {
     all: unset;
     cursor: pointer;
     margin-block-start: auto;
     font-size: var(--he-size-xs);
-    color: var(--he-text-faint);
-  }
-  .skip:hover {
     color: var(--he-text-muted);
   }
 
   .content {
-    flex: 1;
+    flex: 999 1 420px;
     min-inline-size: 0;
     display: flex;
     flex-direction: column;
@@ -371,16 +470,23 @@
     padding: 11px 14px;
     font-size: var(--he-size-xs);
     color: var(--he-text-muted);
-    background: var(--he-stage);
+    background: var(--he-well);
     border: 1px solid var(--he-border-control);
-    border-radius: var(--he-radius-control);
+    border-radius: var(--he-radius);
   }
+  /* The status dot (board System): red and still for an error — OBS silent,
+     closed, the password refused; muted and pulsing while something is under
+     way (.he-pulse); green once connected (.live). Never amber. */
   .dot {
     flex: none;
     inline-size: 8px;
     block-size: 8px;
     border-radius: 50%;
-    background: var(--he-override);
+    background: var(--he-danger);
+  }
+  /* Still looking: the page's in-progress dot, drawn by controls.css. */
+  .dot.he-pulse {
+    background: var(--he-text-muted);
   }
   .status[data-failed='true'] .dot {
     background: var(--he-danger);
@@ -391,6 +497,7 @@
 
   .fields {
     display: flex;
+    flex-wrap: wrap;
     gap: 12px;
   }
   label {
@@ -401,16 +508,16 @@
     color: var(--he-text-muted);
   }
   .port {
-    flex: 1;
+    flex: 1 1 100px;
   }
   .password {
-    flex: 2;
+    flex: 2 1 200px;
   }
   .secret {
     display: flex;
     align-items: center;
     gap: 8px;
-    background: var(--he-stage);
+    background: var(--he-well);
     border: 1px solid var(--he-border-control);
     border-radius: var(--he-radius);
     padding: 0 12px 0 0;
@@ -428,22 +535,6 @@
     background: none;
     letter-spacing: 0.15em;
   }
-  .secret input:focus-visible {
-    outline: none;
-  }
-  .secret button {
-    all: unset;
-    cursor: pointer;
-    font-size: var(--he-size-xs);
-    color: var(--he-accent);
-  }
-  .secret button:hover {
-    color: var(--he-accent-hover);
-  }
-  .error {
-    font-size: var(--he-size-xs);
-    color: var(--he-danger);
-  }
 
   input {
     box-sizing: border-box;
@@ -451,14 +542,45 @@
     font: var(--he-font-mono);
     font-size: var(--he-size-sm);
     color: var(--he-text);
-    background: var(--he-stage);
+    background: var(--he-well);
     border: 1px solid var(--he-border-control);
     border-radius: var(--he-radius);
     padding: 9px 12px;
   }
-  input:focus-visible {
-    outline: none;
-    border-color: var(--he-accent);
+
+  .todo {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: -8px 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--he-size-sm);
+    line-height: 1.45;
+    color: var(--he-text-muted);
+  }
+  .todo li {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  /* A plain list (board Wizard 4a): "1." in mono, right-aligned in its column,
+     on the first line's baseline — no disc. */
+  .num {
+    flex: none;
+    inline-size: 18px;
+    text-align: right;
+    font: var(--he-font-mono);
+    font-size: var(--he-size-xs);
+    color: var(--he-text-muted);
+  }
+  .caption code {
+    font: var(--he-font-mono);
+    font-size: var(--he-size-xs);
+    color: var(--he-text);
+  }
+  .choose {
+    inline-size: 100%;
   }
 
   .source {
@@ -475,12 +597,9 @@
     align-items: center;
     gap: 10px;
   }
-  .url input {
-    flex: 1;
-    min-inline-size: 0;
-    font-size: var(--he-size-xs);
-    color: var(--he-text-muted);
-    text-overflow: ellipsis;
+  /* As tall as the fields above, whose border it does without. */
+  .url .he-copy-value {
+    padding: 10px 13px;
   }
 
   .spacer {
@@ -490,56 +609,24 @@
   .foot {
     margin: 0;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 9px;
     padding-block-start: 16px;
     border-block-start: 1px solid var(--he-border);
     font-size: var(--he-size-xs);
     color: var(--he-text-muted);
+    /* A layer of its own: on focus, the blinking caret's layer took the line
+       in, and Chrome drew it with grey antialiasing instead of ClearType — the
+       red "Wrong password" seemed to lose its weight, then get it back. Drawn
+       on its own layer, it looks the same whatever has the focus. */
+    will-change: transform;
   }
   .line {
     flex: 1;
     line-height: 1.4;
   }
-  .fine {
-    flex: none;
-    color: var(--he-text-faint);
-  }
-
-  .primary,
-  .secondary {
-    all: unset;
-    box-sizing: border-box;
-    cursor: pointer;
-    text-align: center;
-    font-size: var(--he-size-xs);
-    font-weight: 600;
-    border-radius: var(--he-radius-control);
-    white-space: nowrap;
-  }
-  .secondary {
-    padding: 9px 0;
-    color: var(--he-text);
-    border: 1px solid var(--he-border-popover);
-  }
-  .secondary:hover {
-    border-color: var(--he-border-hover);
-    background: var(--he-surface);
-  }
-  .primary {
-    padding: 9px 18px;
-    font-weight: 700;
-    color: var(--he-bg);
-    background: var(--he-accent);
-  }
-  .primary:hover {
-    background: var(--he-accent-hover);
-  }
-  .primary:focus-visible,
-  .secondary:focus-visible,
-  .skip:focus-visible,
-  .secret button:focus-visible {
-    outline: 2px solid var(--he-accent);
-    outline-offset: 2px;
+  .line.wrong {
+    color: var(--he-danger);
   }
 </style>

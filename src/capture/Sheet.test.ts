@@ -43,3 +43,12 @@ describe('the sheet', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 });
+
+describe('Sheet - its close button', () => {
+  it('is a bare icon button', () => {
+    const { container } = sheet();
+    expect(container.querySelector('[data-close]')!.classList.contains('he-icon-btn--bare')).toBe(
+      true,
+    );
+  });
+});

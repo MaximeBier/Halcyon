@@ -49,6 +49,14 @@ absent 'getLayoutMap' 'the layout detection'
 # easiest to drag over by importing one helper from the wrong module.
 absent 'undocumented low bits' 'the journal wording'
 absent 'Capture raw report' 'the diagnostics panel'
+# The interface icons (Lucide) are capture-only; the class every one of them
+# carries is the trace one would leave in a shared chunk.
+absent 'lucide-icon' 'the interface icons'
+# …and the trace is still there to find: were a Lucide upgrade to drop that
+# class, the line above would pass with nothing left to detect.
+grep -qF 'lucide-icon' dist/assets/capture-*.js ||
+  fail "the capture bundle no longer carries 'lucide-icon': the icon guard above proves nothing"
+ok   "the icon guard still has its trace in the capture bundle"
 
 # Stylesheets, checked the same way and for the same reason. Fonts are the one
 # resource where a leak is measured in tens of kilobytes rather than bytes, and
@@ -93,6 +101,13 @@ for face in fredoka-latin-700-normal chakra-petch-latin-700-normal; do
     fail "the overlay offers $face for its labels and does not declare it"
 done
 ok   "the overlay declares the label faces and nothing else"
+
+# The capture page's controls sheet is imported by its entry alone; the same
+# shared-module slip that dragged faces over would drag it here.
+if grep -qF 'base-select' "${sheets[@]}"; then
+  fail "the capture controls stylesheet reaches the overlay bundle"
+fi
+ok   "the capture controls stylesheet stays out of the overlay bundle"
 
 echo
 echo "Overlay bundle is clean."

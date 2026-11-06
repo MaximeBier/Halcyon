@@ -1,5 +1,4 @@
 import type { AnalogEntry } from '../keyboard/decode';
-import { createRateCounter } from './rate';
 import { MAX_TRAVEL, REST_TRAVEL_FLOOR } from '../keyboard/analog-report';
 import type { FrameKey } from './messages';
 
@@ -162,25 +161,11 @@ export interface FrameEmitter {
    */
   reset(): void;
   /** Frames per second, counted over report timestamps — never over a timer. */
-  /**
-   * Frames per second at `now` — the clock is an argument, deliberately.
-   *
-   * As a getter reading its own last report timestamp, it froze the instant
-   * the keyboard fell silent: the Wooting speaks only on change, so nothing
-   * aged the window and the last figure stayed on screen indefinitely. That is
-   * the exact failure `rate.ts` documents as the reason `read` takes a clock,
-   * and the capture side was still getting it wrong.
-   */
-  rateAt(now: number): number;
 }
 
 export function createFrameEmitter(minIntervalMs: number = FRAME_INTERVAL_MS): FrameEmitter {
   let lastFrame: FrameKey[] | null = null;
   let lastSentAt = Number.NEGATIVE_INFINITY;
-  // The same counter the overlay reads its own figure from. Two of them would
-  // eventually disagree by a little, and the two pills sit side by side on a
-  // screen where somebody is working out where a stream went.
-  const emitted = createRateCounter();
 
   function reasonFor(frame: FrameKey[], now: number): EmitReason {
     if (sameFrame(lastFrame, frame)) return null;
@@ -219,11 +204,6 @@ export function createFrameEmitter(minIntervalMs: number = FRAME_INTERVAL_MS): F
       lastFrame = frame;
       lastSentAt = now;
 
-      // Counted, not derived from the last interval: two thirds of the frames
-      // go out off cadence — every actuation change does — and a single one
-      // millisecond apart would read as a thousand frames per second.
-      emitted.tick(now);
-
       return reason;
     },
     refresh(frame, now, deliver) {
@@ -238,19 +218,11 @@ export function createFrameEmitter(minIntervalMs: number = FRAME_INTERVAL_MS): F
 
       lastFrame = frame;
       lastSentAt = now;
-      // Counted like any other emission: the two pills advertise real
-      // traffic, and a frame that left is traffic whatever its reason.
-      emitted.tick(now);
       return true;
     },
     reset() {
-      // The rate is a measurement of our own throughput, not knowledge about
-      // the far end, so it survives.
       lastFrame = null;
       lastSentAt = Number.NEGATIVE_INFINITY;
-    },
-    rateAt(now) {
-      return emitted.read(now);
     },
   };
 }

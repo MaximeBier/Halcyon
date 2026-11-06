@@ -15,7 +15,7 @@
  */
 export const CHROME_TOKENS: Readonly<Record<string, string>> = {
   '--he-bg': '#0E1015',
-  '--he-stage': '#0B0D11',
+  '--he-stage': '#08090C',
   '--he-border': '#1B1E27',
   '--he-border-control': '#232838',
   '--he-ok': '#4CAF7D',

@@ -5,19 +5,20 @@
     canPickDevice,
     canRetryObs,
     captureWarning,
-    keyboardHint,
     keyboardPill,
+    keyboardTip,
     obsPill,
+    obsTip,
     type ConnectionSettings,
   } from './settings';
   import { UI_TOKENS } from '../styles/ui-tokens';
   import ObsPopover from './ObsPopover.svelte';
+  import Tooltip from './Tooltip.svelte';
 
   let {
     keyboard,
     device,
     obs,
-    rate,
     overlays,
     otherCapture,
     url,
@@ -28,12 +29,15 @@
     onRetryObs,
     onCopyUrl,
     onReloadSources,
+    squeeze = false,
+    squeezeObs = false,
+    dots = false,
+    obsOpen = $bindable(null),
   }: {
     keyboard: KeyboardStatus;
     /** WebHID's `productName` for the keyboard that answered, or `null`. */
     device: string | null;
     obs: ObsStatus;
-    rate: number;
     overlays: { inObs: number; inBrowser: number };
     /** Whether another capture page has been heard on the bus. */
     otherCapture: boolean;
@@ -54,15 +58,40 @@
     onCopyUrl: () => Promise<boolean>;
     /** Presses Refresh on each of our sources in OBS; resolves with how many took. */
     onReloadSources: () => Promise<number>;
+    /**
+     * The header's fifth step (board Editor-HeaderNarrow): the keyboard's name
+     * may be cut, "…", from the right, never under 40 px. Before it, no pill
+     * gives an inch — the header drops what it can first.
+     */
+    squeeze?: boolean;
+    /**
+     * The OBS pill cut the same way, at the same step as the keyboard's name:
+     * the two give way together, little by little.
+     */
+    squeezeObs?: boolean;
+    /**
+     * The header's last step: the keyboard and OBS pills keep only their dot,
+     * the state read by its colour, the name on hover and in the label. An
+     * alert keeps its words.
+     */
+    dots?: boolean;
+    /**
+     * Whether the OBS popover is open, and what opened it — held by the page.
+     * It hangs from what was clicked: under the pill from the pill, under the
+     * ⚙ from Settings › OBS connection (board Editor-Settings), which the
+     * page renders there. The same component either way.
+     */
+    obsOpen?: 'pill' | 'settings' | null;
   } = $props();
+
+  /** A pill's tooltip once it is a dot: its name first, then what the click does. */
+  const named = (label: string, tip: string | null) => (tip ? `${label}. ${tip}` : label);
 
   let rivals = $derived(captureWarning(otherCapture));
   let keyboardLabel = $derived(keyboardPill(keyboard, device));
   /** Red, and worth a click: something a picker could fix. */
   let keyboardDown = $derived(canPickDevice(keyboard));
-  let obsLabel = $derived(obsPill(obs, overlays, rate));
-  /** The OBS pill's popover, which is the whole OBS interface since board 3a. */
-  let obsOpen = $state(false);
+  let obsLabel = $derived(obsPill(obs));
   let obsPillEl = $state<HTMLButtonElement | null>(null);
 
   /**
@@ -75,16 +104,21 @@
    */
   function onObsClick() {
     if (canRetryObs(obs)) onRetryObs();
-    else obsOpen = !obsOpen;
+    else togglePill();
+  }
+
+  /** Under the pill, or closed if it already hangs there — taken from the ⚙ otherwise. */
+  function togglePill() {
+    obsOpen = obsOpen === 'pill' ? null : 'pill';
   }
 
   function onObsContext(event: MouseEvent) {
     event.preventDefault();
-    obsOpen = !obsOpen;
+    togglePill();
   }
 
   function closeObs() {
-    obsOpen = false;
+    obsOpen = null;
     // Whatever closed it — Escape, a click outside — the focus lands back on
     // the pill rather than on `<body>`, where the next Tab starts from the top.
     obsPillEl?.focus();
@@ -96,55 +130,75 @@
 </script>
 
 <header>
-  <!-- A pill that can fix what it reports is the button for it, whole: dot and
-       sentence in one target. The gesture it takes is the one someone makes
-       anyway — the cursor goes to the line that says something is wrong — and
-       the panel's own button stays where it is for anyone who looks there
-       instead. Connected, the same click reopens the picker: that is how one
-       swaps to the other keyboard on the desk (board 3a). A `<button>` in
-       every state but the one with no picker to open, because a control that
-       answers a click with silence is worse than plain text. The full
-       sentence rides on `title`: the pill says the gesture, the tooltip says
-       why (firmware, Wootility, …). -->
+  <!-- One form for every pill (board Editor-StatusPills): 14 px, normal
+       weight, an 8 px dot; muted when all is well, red when it is not. The
+       pill says the state in a few words; what its click does is the page's
+       tooltip, never a title. A pill that can fix what it reports is the
+       button for it, whole: the gesture someone makes anyway — the cursor
+       goes to the line that says something is wrong. Connected, the same
+       click reopens the picker: that is how one swaps to the other keyboard
+       on the desk (board 3a). Plain text only where there is nothing to open
+       (no WebHID at all). -->
   {#if keyboard !== 'unsupported'}
-    <button
-      type="button"
-      class="pill act"
-      class:down={keyboardDown}
-      data-pill="keyboard"
-      title={keyboardHint(keyboard)}
-      onclick={onPickDevice}
+    <Tooltip
+      text={dots ? named(keyboardLabel, keyboardTip(keyboard)) : keyboardTip(keyboard)}
+      shrink={squeeze && !dots}
     >
-      <span class="dot" style:background={dot(!keyboardDown)}></span>
-      {keyboardLabel}
-    </button>
+      {#snippet children()}
+        <button
+          type="button"
+          class="pill keyboard act he-text-btn"
+          class:down={keyboardDown}
+          class:squeeze={squeeze && !dots}
+          class:dots
+          aria-label={dots ? keyboardLabel : undefined}
+          data-pill="keyboard"
+          onclick={onPickDevice}
+        >
+          <span class="dot" style:background={dot(!keyboardDown)}></span>
+          <span class="device">{keyboardLabel}</span>
+        </button>
+      {/snippet}
+    </Tooltip>
   {:else}
-    <span class="pill down" data-pill="keyboard" title={keyboardHint(keyboard)}>
-      <span class="dot" style:background={UI_TOKENS.danger}></span>
-      {keyboardLabel}
-    </span>
+    <Tooltip text={keyboardTip(keyboard)}>
+      {#snippet children()}
+        <span class="pill down" data-pill="keyboard">
+          <span class="dot" style:background={UI_TOKENS.danger}></span>
+          <span class="device">{keyboardLabel}</span>
+        </span>
+      {/snippet}
+    </Tooltip>
   {/if}
 
   <!-- Always a button: connected it opens the popover, down it retries. The
        slot is what the popover hangs from and what its outside-click test
-       reads, so the pill's own click keeps reaching `onObsClick`. -->
-  <div class="slot">
-    <button
-      type="button"
-      class="pill act"
-      class:down={obs !== 'identified'}
-      data-pill="obs"
-      aria-expanded={obsOpen}
-      aria-haspopup="dialog"
-      bind:this={obsPillEl}
-      onclick={onObsClick}
-      oncontextmenu={onObsContext}
-    >
-      <span class="dot" style:background={dot(obs === 'identified')}></span>
-      {obsLabel}
-    </button>
+       reads, so the pill's own click keeps reaching `onObsClick`. Never cut:
+       "OBS disconnected" is the news. -->
+  <div class="slot" class:squeeze={squeezeObs && !dots}>
+    <Tooltip text={dots ? named(obsLabel, obsTip(obs)) : obsTip(obs)} shrink={squeezeObs && !dots}>
+      {#snippet children()}
+        <button
+          type="button"
+          class="pill act he-text-btn"
+          class:down={obs !== 'identified'}
+          class:squeeze={squeezeObs && !dots}
+          class:dots
+          aria-label={dots ? obsLabel : undefined}
+          data-pill="obs"
+          aria-expanded={obsOpen === 'pill'}
+          aria-haspopup="dialog"
+          bind:this={obsPillEl}
+          onclick={onObsClick}
+          oncontextmenu={onObsContext}
+        >
+          <span class="dot" style:background={dot(obs === 'identified')}></span>
+          <span class="device">{obsLabel}</span>
+        </button>
+      {/snippet}
+    </Tooltip>
 
-    {#if obsOpen}
+    {#if obsOpen === 'pill'}
       <ObsPopover
         {obs}
         {overlays}
@@ -160,14 +214,15 @@
     {/if}
   </div>
 
-  <!-- Shown only when it is true, and then as the last pill of the run: an
-       overlay obeying two masters is a failure in which both pages look
-       entirely correct, so it has to be visible without being looked for. Red
-       text, not just a red dot, because it is the one pill here that asks for
-       something to be done. `role="alert"` because it appears mid-session,
-       long after anyone last read this bar. -->
+  <!-- Shown only when it is true, and then as the last pill of the run, in
+       the same form: an overlay obeying two masters is a failure in which
+       both pages look entirely correct, so it has to be visible without being
+       looked for. `role="alert"` because it appears mid-session, long after
+       anyone last read this bar. Text, not a button, and no tooltip: there is
+       nothing to click, and closing the other pages is the whole of it — this
+       one lifts the warning by itself once they are gone. -->
   {#if rivals}
-    <span class="pill rival" role="alert">
+    <span class="pill down" data-pill="rival" role="alert">
       <span class="dot" style:background={UI_TOKENS.danger}></span>
       {rivals}
     </span>
@@ -177,12 +232,15 @@
 <style>
   header {
     display: flex;
-    /* Fills the rest of App's `.bar` row, leaving the undo/redo buttons their
-       own width instead of splitting the row evenly with them. */
-    flex: 1;
+    /* As wide as its pills; it gives way only at the header's last step, when
+       the keyboard's name is cut (`squeeze`). */
+    flex: 0 1 auto;
+    min-inline-size: 0;
     gap: 16px;
     align-items: center;
-    flex-wrap: wrap;
+    /* One line, always (board Editor-HeaderNarrow): the header folds by
+       steps instead, never inside the run of pills. */
+    flex-wrap: nowrap;
     font: var(--he-font);
     font-size: var(--he-size-xs);
     /* `.bar` already frames this header with its own padding and background
@@ -196,10 +254,45 @@
     position: relative;
     display: inline-flex;
   }
+  /* The OBS pill's slot gives way with it at the last step. */
+  .slot.squeeze {
+    flex: 0 1 auto;
+    min-inline-size: var(--pill-floor);
+  }
   .pill {
+    flex: none;
     display: inline-flex;
     align-items: center;
     gap: 7px;
+    font-weight: 400;
+    white-space: nowrap;
+  }
+  /* The last step, and the keyboard's name only: cut from the right, text
+     held to the left, never under 40 px; the dot never squeezed. Before it,
+     the name is whole. */
+  /* A cut pill never goes below its dot, its gap and 40 px of name — nor do
+     the boxes around it, or it runs under the next pill. */
+  header {
+    --pill-floor: calc(8px + 7px + 40px);
+  }
+  .pill.squeeze {
+    flex: 0 1 auto;
+    min-inline-size: var(--pill-floor);
+  }
+  header :global([data-tooltip-host]:has(> .pill.squeeze)) {
+    min-inline-size: var(--pill-floor);
+  }
+  /* The last step: the dot alone. */
+  .pill.dots .device {
+    display: none;
+  }
+  .squeeze .device {
+    display: block;
+    min-inline-size: 40px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
   }
   .dot {
     flex: none;
@@ -215,6 +308,7 @@
      included: a bare <button> would otherwise arrive at 13px in its own face
      and break the run. */
   button.pill {
+    justify-content: flex-start;
     appearance: none;
     background: none;
     border: 0;
@@ -225,38 +319,15 @@
     text-align: left;
   }
   /* The reward for arriving, not a signal to look for: the cursor changes and
-     the text lifts once the pointer is on it. */
+     the text lifts once the pointer is on it — `he-text-btn`, the family of
+     clickable words (spec §16.13), which also gives the keyboard its ring. */
   .act {
     cursor: pointer;
-  }
-  .act:hover,
-  .act[aria-expanded='true'] {
-    color: var(--he-text);
-  }
-  /* Keyboard users get the one mark the mouse never needs. Without it a pill
-     that became a button is a trap: focusable, and invisible while focused. */
-  .act:focus-visible {
-    outline: 2px solid currentColor;
-    outline-offset: 3px;
-    border-radius: 2px;
   }
   /* Red text with the red dot for a pill reporting a fault (board 3a): those
      are the pills that ask for a click, and a dot alone reads as one status
      among several. */
   .down {
     color: var(--he-danger);
-  }
-  .act.down:hover {
-    color: var(--he-danger);
-    text-decoration: underline;
-  }
-  /* The other pill that colours its text: it reports a fault, and asks for
-     two actions. It used to take a line of its own, which pushed the whole
-     header onto a second row (2026-09-05); cut to a pill's length, it sits
-     in the run like the rest and never wraps inside itself. */
-  .rival {
-    color: var(--he-danger);
-    font-weight: 600;
-    white-space: nowrap;
   }
 </style>

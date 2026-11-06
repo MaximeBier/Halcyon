@@ -356,3 +356,61 @@ describe('telling a name someone typed from the one the layout gave', () => {
     expect(detectedLabelFor(brake, qwerty)).toBe('Ctrl');
   });
 });
+
+describe('a key set back to the global value', () => {
+  it('drops the override, so nothing is left to reset', () => {
+    const changed = setKeyStyle(config(), [1], 'fillDirection', 'left');
+    const back = setKeyStyle(changed, [1], 'fillDirection', config().style.fillDirection);
+
+    expect(back.keys[0]?.style).toBeUndefined();
+    expect(hasOverrides(back.keys[0]!)).toBe(false);
+  });
+
+  it('compares colours whatever their case: the colour picker writes lowercase', () => {
+    const global = config().style.restColor;
+    const changed = setKeyStyle(config(), [1], 'restColor', '#123456');
+    const back = setKeyStyle(changed, [1], 'restColor', global.toLowerCase());
+
+    expect(back.keys[0]?.style).toBeUndefined();
+  });
+
+  it('keeps the other properties the key still overrides', () => {
+    let next = setKeyStyle(config(), [1], 'activeColor', '#ff0000');
+    next = setKeyStyle(next, [1], 'fillDirection', 'left');
+    next = setKeyStyle(next, [1], 'fillDirection', config().style.fillDirection);
+
+    expect(next.keys[0]?.style).toEqual({ activeColor: '#ff0000' });
+  });
+
+  it('drops a font that is the global family at the global weight', () => {
+    const { fontFamily, fontWeight } = config().style;
+    const changed = setKeyFont(config(), [1], 'Fredoka', 700);
+    const back = setKeyFont(changed, [1], fontFamily, fontWeight);
+
+    expect(back.keys[0]?.style).toBeUndefined();
+  });
+
+  it('keeps the global family at another weight: the weight alone differs', () => {
+    const { fontFamily, fontWeight } = config().style;
+    const next = setKeyFont(config(), [1], fontFamily, fontWeight + 100);
+
+    expect(next.keys[0]?.style).toEqual({ fontFamily, fontWeight: fontWeight + 100 });
+  });
+
+  it('hands the same configuration back when nothing changes, so no undo step is empty', () => {
+    // The page tells "nothing changed" by identity: a new object for a key
+    // that already inherits was an undo step that undid nothing, a save and
+    // a broadcast.
+    const start = config();
+    const { fontFamily, fontWeight, restColor } = start.style;
+    expect(setKeyStyle(start, [1], 'restColor', restColor)).toBe(start);
+    expect(setKeyFont(start, [1], fontFamily, fontWeight)).toBe(start);
+    expect(clearKeyStyle(start, [1, 2], 'activeColor')).toBe(start);
+
+    // A value a key already holds is no change either.
+    const red = setKeyStyle(start, [1], 'activeColor', '#ff0000');
+    expect(setKeyStyle(red, [1], 'activeColor', '#ff0000')).toBe(red);
+    const fredoka = setKeyFont(start, [1], 'Fredoka', 700);
+    expect(setKeyFont(fredoka, [1], 'Fredoka', 700)).toBe(fredoka);
+  });
+});

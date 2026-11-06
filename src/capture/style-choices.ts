@@ -5,6 +5,7 @@ import type {
   LabelSize,
   RestVisibility,
 } from '../config/schema';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp } from './icons';
 
 /**
  * The labels the two style editors offer, and the order they offer them in.
@@ -15,29 +16,31 @@ import type {
  *
  * They **were** two copies until 2026-08-26, deliberately and for a reason that
  * has since gone: the popover is 284 px wide and its choices were groups of
- * buttons, so it wore `↑` where the panel wrote `↑ Up`, and `Hidden` where the
+ * buttons, so it wore an arrow where the panel wrote "Up", and `Hidden` where the
  * panel wrote `Hidden until pressed`. The day those groups became `<select>`s,
  * the constraint that justified the short forms went with them — and two lists
  * saying the same thing in two ways became two lists saying the same thing.
  */
 
 /**
- * The arrow alone, for the segmented control of board 3a — four glyphs in a
- * row, where a word each would not fit and the arrow says it all.
+ * The arrow alone, for the segmented control of board 3a — four icons in a
+ * row, where a word each would not fit and the arrow says it all. Lucide's
+ * arrows (spec §16.13), not characters: a character is drawn by whatever face
+ * the system falls back to, and four of them never lined up.
  */
-export const FILL_ARROWS: Readonly<Record<FillDirection, string>> = {
-  up: '↑',
-  down: '↓',
-  left: '←',
-  right: '→',
+export const FILL_ICONS: Readonly<Record<FillDirection, typeof ArrowUp>> = {
+  up: ArrowUp,
+  down: ArrowDown,
+  left: ArrowLeft,
+  right: ArrowRight,
 };
 
-/** An arrow ← reads better filled right to left than bottom to top. */
+/** The word each arrow stands for, for whoever hears the button or hovers it. */
 export const FILL_DIRECTIONS: readonly [FillDirection, string][] = [
-  ['up', `${FILL_ARROWS.up} Up`],
-  ['down', `${FILL_ARROWS.down} Down`],
-  ['left', `${FILL_ARROWS.left} Left`],
-  ['right', `${FILL_ARROWS.right} Right`],
+  ['up', 'Up'],
+  ['down', 'Down'],
+  ['left', 'Left'],
+  ['right', 'Right'],
 ];
 
 /**
@@ -55,15 +58,15 @@ export const REST_STATES: readonly [RestVisibility, string][] = [
 ];
 
 /**
- * Named for what the border does, not for what the field is called: "Active
- * colour" under a row called "Border on press" answers "what happens when I
- * press it", which is the question somebody arriving at that row is asking.
- * It read "Takes the active colour" until 2026-09-05, and the three extra
- * words were what made the popover's row clip its own select.
+ * Named for what the border does, not for what the field is called:
+ * "Triggered color" under a row called "Pressed border" answers "what happens
+ * when I press it", which is the question somebody arriving at that row is
+ * asking. One name per setting since 2026-11-06 (spec §16.15): the colour it
+ * takes is the one the panel calls Triggered.
  */
 export const BORDER_STATES: readonly [ActiveBorder, string][] = [
-  ['fixed', 'Always the same'],
-  ['active', 'Active colour'],
+  ['fixed', 'Unchanged'],
+  ['active', 'Triggered color'],
 ];
 
 /**

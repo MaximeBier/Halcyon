@@ -143,6 +143,8 @@ describe('what the interface says', () => {
   });
 
   it('names the scene and the profile in the toast and in the log', () => {
+    // Names of things between curly quotes, in the toast's colour and weight
+    // (board OBS-Toast, rule of board System): never bold.
     expect(sceneSwitchToast('Gameplay', 'Apex ranked')).toEqual({
       tone: 'success',
       message: 'OBS scene “Gameplay” opened “Apex ranked”',

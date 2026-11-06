@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { selectOnFocus } from './select-on-focus';
+  import { Check } from './icons';
+  import HelpText from './HelpText.svelte';
   import { MAX_PORT, type ObsStatus } from '../transport/obs';
   import { obsHint, sourceState, type ConnectionSettings } from './settings';
 
@@ -22,6 +25,7 @@
     onCopy,
     onReload,
     onClose,
+    align = 'start',
   }: {
     obs: ObsStatus;
     overlays: { inObs: number; inBrowser: number };
@@ -38,6 +42,12 @@
     /** Presses Refresh on each; resolves with how many took. */
     onReload: () => Promise<number>;
     onClose: () => void;
+    /**
+     * Which edge it hangs from: the pill's left, or — opened from Settings ›
+     * OBS connection — the ⚙'s right, at the menu's offset, in the place of
+     * the menu that just closed (board Editor-Settings).
+     */
+    align?: 'start' | 'end';
   } = $props();
 
   /** The password field's reveal — the one one comes back to weeks later. */
@@ -86,6 +96,7 @@
 
 <div
   class="popover"
+  class:end={align === 'end'}
   data-obs-popover
   role="dialog"
   aria-label="OBS connection"
@@ -101,14 +112,15 @@
   </p>
 
   <div class="url">
-    <input readonly value={url} aria-label="Overlay URL for OBS" />
+    <!-- A value to copy, not a field (he-copy-value): one click selects it all. -->
+    <output class="he-copy-value" aria-label="Overlay URL for OBS">{url}</output>
     <button
       type="button"
-      class="link"
+      class="he-btn-tertiary"
       data-copy
       onclick={copy}
       onblur={() => (copied = 'idle')}
-      title={copied === 'failed' ? 'Select the field and copy it by hand' : undefined}
+      title={copied === 'failed' ? 'Select the URL and copy it by hand' : undefined}
     >
       {copied === 'done' ? 'Copied' : copied === 'failed' ? 'Failed' : 'Copy'}
     </button>
@@ -123,26 +135,43 @@
 
   <label class="row">
     Port
-    <input type="number" min="1" max={MAX_PORT} bind:value={settings.port} onchange={onReconnect} />
+    <!-- An identifier, not a quantity: no arrows (spec §16.13). -->
+    <input
+      use:selectOnFocus
+      class="port"
+      type="number"
+      min="1"
+      max={MAX_PORT}
+      bind:value={settings.port}
+      onchange={onReconnect}
+    />
   </label>
-  <label class="row">
-    Password
-    <span class="secret">
-      <input
-        type={revealed ? 'text' : 'password'}
-        bind:value={settings.password}
-        onchange={onReconnect}
-      />
-      <button type="button" class="link" data-reveal onclick={() => (revealed = !revealed)}>
-        {revealed ? 'Hide' : 'Show'}
-      </button>
-    </span>
-  </label>
-
-  <p class="fine">
-    Stored in this browser and carried in the URL above. Anyone with access to this machine can read
-    it.
-  </p>
+  <!-- The field and what it is worth knowing about it, 4 px apart. -->
+  <div class="he-with-help">
+    <label class="row">
+      Password
+      <span class="secret">
+        <input
+          use:selectOnFocus
+          type={revealed ? 'text' : 'password'}
+          bind:value={settings.password}
+          onchange={onReconnect}
+        />
+        <button
+          type="button"
+          class="he-btn-tertiary"
+          data-reveal
+          onclick={() => (revealed = !revealed)}
+        >
+          {revealed ? 'Hide' : 'Show'}
+        </button>
+      </span>
+    </label>
+    <HelpText>
+      Stored in this browser and carried in the URL above. Anyone with access to this machine can
+      read it.
+    </HelpText>
+  </div>
 
   <hr />
 
@@ -164,11 +193,18 @@
             data-none={reloaded === 0}
             onanimationend={() => (reloaded = null)}
           >
-            ✓ Reloaded {reloaded}
+            <Check size={14} aria-hidden="true" />
+            Reloaded {reloaded}
           </span>
         {/key}
       {:else}
-        <button type="button" class="link" data-reload disabled={sources === null} onclick={reload}>
+        <button
+          type="button"
+          class="he-btn-tertiary"
+          data-reload
+          disabled={sources === null}
+          onclick={reload}
+        >
           Reload
         </button>
       {/if}
@@ -197,8 +233,12 @@
     text-align: left;
     font-weight: 400;
   }
-  .popover:focus {
-    outline: none;
+  /* Under the ⚙: right edges aligned, at the Settings menu's own offset — the
+     place of the menu that just closed. Never off the window's right edge. */
+  .popover.end {
+    top: var(--he-menu-offset);
+    right: 0;
+    left: auto;
   }
 
   .state {
@@ -225,31 +265,9 @@
     align-items: center;
     gap: 8px;
   }
-  .url input {
-    flex: 1;
-    min-inline-size: 0;
-    font: var(--he-font-mono);
-    font-size: var(--he-size-xs);
-    color: var(--he-text-muted);
-    background: var(--he-stage);
-    border: 1px solid var(--he-border-control);
-    border-radius: var(--he-radius);
-    padding: 6px 9px;
-    text-overflow: ellipsis;
-  }
-  .link {
-    all: unset;
-    cursor: pointer;
-    font-size: var(--he-size-xs);
-    color: var(--he-accent);
-  }
-  .link:hover {
-    color: var(--he-accent-hover);
-  }
-  .link:focus-visible {
-    outline: 2px solid var(--he-accent);
-    outline-offset: 2px;
-    border-radius: 2px;
+  /* As tall as the port and password below, whose border it does without. */
+  .url .he-copy-value {
+    padding: 7px 10px;
   }
 
   .row {
@@ -269,10 +287,17 @@
   }
   .row input {
     inline-size: 7rem;
-    background: var(--he-stage);
+    background: var(--he-well);
     border: 1px solid var(--he-border-control);
     border-radius: var(--he-radius);
     padding: 3px 9px;
+  }
+  /* Four digits wide, as a port almost always is, and a fifth when it takes
+     one: the field grows with what it holds. */
+  .row input.port {
+    inline-size: auto;
+    field-sizing: content;
+    min-inline-size: 4ch;
   }
   .secret {
     display: flex;
@@ -281,13 +306,6 @@
   }
   .secret input {
     letter-spacing: 0.1em;
-  }
-
-  .fine {
-    margin: 0;
-    font-size: var(--he-size-xs);
-    line-height: 1.5;
-    color: var(--he-text-faint);
   }
 
   hr {
@@ -303,7 +321,7 @@
     gap: 10px;
   }
   .value[data-none='true'] {
-    color: var(--he-override);
+    color: var(--he-warn);
   }
   .done {
     font-size: var(--he-size-xs);
@@ -311,11 +329,7 @@
     animation: shown 3s forwards;
   }
   .done[data-none='true'] {
-    color: var(--he-override);
-  }
-  .link:disabled {
-    color: var(--he-text-faint);
-    cursor: default;
+    color: var(--he-warn);
   }
   @keyframes shown {
     0%,

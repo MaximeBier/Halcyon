@@ -6,22 +6,11 @@
   let {
     config,
     frame,
-    decorations = false,
     pack = false,
     reveal = false,
   }: {
     config: ResolvedConfig;
     frame: readonly FrameKey[];
-    /**
-     * The AXIS label, which only the editor shows. False by default: the
-     * overlay must never display it (spec §16.3).
-     *
-     * It used to bring a dashed border with it. That went on 2026-08-23 — the
-     * tag says it, and a second mark for the same fact is a second mark to keep
-     * true. It had also stopped meaning what it looked like the day the border
-     * became a setting: a 4 px outline someone chose, rendered as dashes.
-     */
-    decorations?: boolean;
     /**
      * Pull the keys into the top-left corner (spec §5.4). On for the
      * broadcast, off for the editor, whose handles are positioned from the
@@ -106,30 +95,6 @@
       <clipPath id={`${uid}-${key.id}`}>
         <rect x={key.x} y={key.y} width={key.w} height={key.h} rx={key.radius} />
       </clipPath>
-
-      {#if decorations && key.axis}
-        <!-- Board 3a: a mono tag pinned 5 px under the top edge and 7 px in
-             from the right, in the interface's own face rather than the
-             label's. The family is written here and not imported from
-             `ui-tokens`: this component is shared with the broadcast, and
-             the interface palette must never reach that bundle (spec §5.1).
-             The face itself comes with `fonts-ui.css`, which only the
-             editor loads — the tag is never drawn anywhere else. -->
-        <text
-          x={key.x + key.w - 7}
-          y={key.y + 5}
-          text-anchor="end"
-          dominant-baseline="hanging"
-          fill={key.labelFill}
-          font-family="'IBM Plex Mono', ui-monospace, monospace"
-          font-weight="600"
-          font-size="11"
-          letter-spacing="0.08em"
-          opacity="0.85"
-        >
-          AXIS
-        </text>
-      {/if}
     </g>
   {/each}
 </svg>

@@ -1,6 +1,8 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, cleanup } from '@testing-library/svelte';
+import { createRawSnippet } from 'svelte';
 import ProfileBar from './ProfileBar.svelte';
+import profileSource from './ProfileBar.svelte?raw';
 
 afterEach(cleanup);
 
@@ -261,7 +263,9 @@ describe('deleting a profile', () => {
     action(container, 'remove')!.click();
     await Promise.resolve();
     expect(onRemove).not.toHaveBeenCalled();
-    expect(action(container, 'remove')!.textContent).toContain('Really delete');
+    // The board's words: what the second click does, not a question.
+    expect(action(container, 'remove')!.textContent!.trim()).toBe('Click again to delete “Apex”');
+    expect(action(container, 'remove')!.classList).toContain('armed');
 
     action(container, 'remove')!.click();
     await Promise.resolve();
@@ -277,14 +281,38 @@ describe('deleting a profile', () => {
     await openMore(container);
     await openMore(container);
 
-    expect(action(container, 'remove')!.textContent).not.toContain('Really delete');
+    expect(action(container, 'remove')!.textContent!.trim()).toBe('Delete “Apex”');
+    expect(action(container, 'remove')!.classList).not.toContain('armed');
   });
 
-  it('offers nothing to delete when a single profile is left', async () => {
-    const { container } = bar({ names: ['Apex'] });
+  it('keeps the row, off and saying why, when a single profile is left', async () => {
+    // The board: the row stays where it is, at the page's "not available",
+    // and the tooltip tells why — the store always keeps one profile.
+    const { container, onRemove } = bar({ names: ['Apex'], active: 'Apex' });
     await openMore(container);
 
-    expect(action(container, 'remove')).toBeNull();
+    const row = action(container, 'remove') as HTMLButtonElement;
+    expect(row.disabled).toBe(true);
+    expect(row.textContent!.trim()).toBe('Delete “Apex”');
+    expect(row.hasAttribute('title')).toBe(false);
+    const tip = document.getElementById(row.getAttribute('aria-describedby')!);
+    expect(tip!.textContent).toBe('The last profile cannot be deleted');
+    row.click();
+    await Promise.resolve();
+    expect(onRemove).not.toHaveBeenCalled();
+  });
+
+  it('arms the row on the danger tint, not the grey of a hover', () => {
+    const style = (/<style>([\s\S]*?)<\/style>/.exec(profileSource)?.[1] ?? '').replace(
+      /\s+/g,
+      ' ',
+    );
+    const armed = /\.row\.danger\.armed \{([^}]*)\}/.exec(style)?.[1] ?? '';
+    expect(armed).toMatch(/background: var\(--he-border-danger\)/);
+    expect(armed).toMatch(/font-weight: 600/);
+    // Wrapped in its tooltip's host, the row still spans the menu, tint and all.
+    const row = /\.row\.danger \{([^}]*)\}/.exec(style)?.[1] ?? '';
+    expect(row).toMatch(/inline-size: 100%/);
   });
 });
 
@@ -370,5 +398,118 @@ describe('the + menu', () => {
     expect(container.querySelectorAll('[data-menu]')).toHaveLength(1);
     expect(add(container).getAttribute('aria-expanded')).toBe('true');
     expect(more(container)!.getAttribute('aria-expanded')).toBe('false');
+  });
+});
+
+describe('ProfileBar - a row that scrolls', () => {
+  it('scrolls the tabs and the + together, and leaves what it is handed outside', () => {
+    // Add key stays pinned at the right end whatever the number of profiles.
+    const { container } = render(ProfileBar, {
+      props: {
+        names: ['Apex'],
+        active: 'Apex',
+        keyCount: () => 0,
+        onSelect: vi.fn(),
+        onCreate: vi.fn(),
+        onDuplicate: vi.fn(),
+        onRename: vi.fn(),
+        onRemove: vi.fn(),
+        onExport: vi.fn(),
+        onImport: vi.fn(),
+        children: createRawSnippet(() => ({ render: () => '<button data-trailing>x</button>' })),
+      },
+    });
+    const strip = container.querySelector('[data-strip]')!;
+
+    expect(strip.contains(tab(container, 'Apex'))).toBe(true);
+    expect(strip.contains(add(container))).toBe(true);
+    expect(strip.contains(container.querySelector('[data-trailing]'))).toBe(false);
+  });
+
+  it('hangs its menus outside the scrolling strip, where nothing clips them', async () => {
+    const { container } = bar();
+    await openMore(container);
+    const strip = container.querySelector('[data-strip]')!;
+
+    expect(menu(container)).not.toBeNull();
+    expect(strip.contains(menu(container))).toBe(false);
+  });
+
+  it('brings the open profile into view by scrolling the strip alone', async () => {
+    // Never scrollIntoView: on a stacked page scrolled down to the keys, even
+    // `block: 'nearest'` scrolls the page up to the row — at every OBS scene
+    // switch, mid-stream. Only the strip moves.
+    const page = vi.fn();
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = page;
+    const { rerender, container } = bar();
+    const strip = container.querySelector<HTMLElement>('[data-strip]')!;
+    const box = (left: number, right: number) => () => ({ left, right }) as DOMRect;
+    strip.getBoundingClientRect = box(0, 100);
+    tab(container, 'ZQSD minimal').closest<HTMLElement>('.slot')!.getBoundingClientRect = box(
+      150,
+      230,
+    );
+
+    await rerender({ active: 'ZQSD minimal' });
+
+    expect(strip.scrollLeft).toBe(130);
+    expect(page).not.toHaveBeenCalled();
+    Element.prototype.scrollIntoView = original;
+  });
+
+  it('closes a menu on a press outside it and its trigger, inside the row too', async () => {
+    const { container } = bar();
+    await openMore(container);
+
+    tab(container, 'ZQSD minimal').parentElement!.dispatchEvent(
+      new PointerEvent('pointerdown', { bubbles: true }),
+    );
+    await Promise.resolve();
+
+    expect(menu(container)).toBeNull();
+  });
+});
+
+describe('ProfileBar - its icon buttons', () => {
+  it('draws the menu and the + as bare icon buttons, the + a size up', () => {
+    const { container } = bar();
+
+    expect(more(container)!.classList.contains('he-icon-btn--bare')).toBe(true);
+    expect(add(container).classList.contains('he-icon-btn--bare')).toBe(true);
+    expect(add(container).classList.contains('he-icon-btn--wide')).toBe(true);
+  });
+});
+
+describe('ProfileBar - the file actions, named for what they move', () => {
+  it('exports and imports a profile, not a format', async () => {
+    const { container } = bar();
+    await openMore(container);
+    expect(action(container, 'export')!.textContent!.trim()).toBe('Export “Apex”…');
+    cleanup();
+
+    const again = bar();
+    await openAdd(again.container);
+    expect(again.container.querySelector('[data-menu]')!.textContent).toContain('Import profile…');
+    expect(again.container.querySelector('[data-menu]')!.textContent).not.toContain('JSON');
+  });
+});
+
+describe('ProfileBar - what the small things say on hover', () => {
+  it('titles each count with its unit', () => {
+    const { container } = bar({
+      names: ['Apex', 'Solo'],
+      keyCount: (n: string) => (n === 'Apex' ? 6 : 1),
+    });
+
+    expect(tab(container, 'Apex').querySelector('.count')!.getAttribute('title')).toBe('6 keys');
+    expect(tab(container, 'Solo').querySelector('.count')!.getAttribute('title')).toBe('1 key');
+  });
+
+  it('calls the + what it makes', () => {
+    const { container } = bar();
+
+    expect(add(container).getAttribute('title')).toBe('New profile');
+    expect(add(container).getAttribute('aria-label')).toBe('New profile');
   });
 });

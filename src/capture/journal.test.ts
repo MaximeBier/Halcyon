@@ -1,15 +1,33 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { createJournal, describeAnomaly, hexDump } from './journal';
+import {
+  clockTime,
+  createJournal,
+  describeAnomaly,
+  groupRuns,
+  hexDump,
+  type JournalEntry,
+} from './journal';
+
+/** 14:32:05 on 6 November 2026, local time: what the wall clock says. */
+const AT_1432 = new Date(2026, 10, 6, 14, 32, 5).getTime();
 
 describe('what the journal keeps', () => {
-  it('timestamps and classifies an entry', () => {
-    const journal = createJournal();
+  it('timestamps and classifies an entry, by the session and by the wall clock', () => {
+    const journal = createJournal(200, () => AT_1432);
     journal.add('user', 'Keyboard unplugged', 1000);
 
     expect(journal.entries()).toEqual([
-      { id: 0, at: 1000, kind: 'user', message: 'Keyboard unplugged' },
+      { id: 0, at: 1000, time: AT_1432, kind: 'user', message: 'Keyboard unplugged' },
     ]);
+  });
+
+  it('keeps the last 200 events by default, however long the page stays open', () => {
+    const journal = createJournal();
+    for (let i = 0; i < 250; i++) journal.add('user', `event ${i}`, i);
+
+    expect(journal.entries()).toHaveLength(200);
+    expect(journal.entries()[0]!.message).toBe('event 50');
   });
 
   // The panel keys its `{#each}` on this (task 16): a journal that rotates at
@@ -159,5 +177,61 @@ describe('the raw snapshot', () => {
 
   it('says so rather than rendering nothing at all', () => {
     expect(hexDump(new Uint8Array())).toMatch(/empty|no data/i);
+  });
+});
+
+describe('the text one pastes into a bug report, by the clock', () => {
+  it('gives each line its full wall-clock time', () => {
+    const journal = createJournal(200, () => AT_1432);
+    journal.add('user', 'OBS connected', 0);
+
+    expect(journal.asText()).toContain('2026-11-06 14:32:05');
+  });
+});
+
+describe('the activity list', () => {
+  const entry = (
+    id: number,
+    message: string,
+    time: number,
+    kind: 'user' | 'bug' = 'user',
+  ): JournalEntry => ({
+    id,
+    at: id,
+    time,
+    kind,
+    message,
+  });
+
+  it('reads the newest first', () => {
+    const runs = groupRuns([entry(0, 'a', 1), entry(1, 'b', 2)]);
+
+    expect(runs.map((run) => run.message)).toEqual(['b', 'a']);
+  });
+
+  it('folds identical events in a row into one line, counted, at the time of the last', () => {
+    const runs = groupRuns([entry(0, 'tick', 1), entry(1, 'tick', 2), entry(2, 'tick', 3)]);
+
+    expect(runs).toHaveLength(1);
+    expect(runs[0]).toMatchObject({ message: 'tick', count: 3, time: 3, id: 2 });
+  });
+
+  it('keeps apart the same event when something happened in between', () => {
+    const runs = groupRuns([entry(0, 'tick', 1), entry(1, 'tock', 2), entry(2, 'tick', 3)]);
+
+    expect(runs.map((run) => [run.message, run.count])).toEqual([
+      ['tick', 1],
+      ['tock', 1],
+      ['tick', 1],
+    ]);
+  });
+
+  it('keeps apart two kinds that happen to say the same thing', () => {
+    expect(groupRuns([entry(0, 'same', 1, 'user'), entry(1, 'same', 2, 'bug')])).toHaveLength(2);
+  });
+
+  it('writes the time as hours and minutes', () => {
+    expect(clockTime(AT_1432)).toBe('14:32');
+    expect(clockTime(new Date(2026, 0, 1, 7, 5).getTime())).toBe('07:05');
   });
 });

@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, cleanup } from '@testing-library/svelte';
 import Toast from './Toast.svelte';
+import toastSource from './Toast.svelte?raw';
 import type { Notice } from './notice';
 
 afterEach(cleanup);
@@ -24,6 +25,19 @@ describe('Toast', () => {
 
     expect(shown(container)!.dataset.tone).toBe('warning');
     expect(shown(container)!.textContent).toContain('2 keys skipped');
+  });
+
+  it('centres on the stage it is given, the side panel left out', () => {
+    const onDismiss = vi.fn();
+    const { container } = render(Toast, {
+      props: { notice: { tone: 'success', message: 'Saved' }, onDismiss, center: 412 },
+    });
+    expect(shown(container)!.style.left).toBe('412px');
+  });
+
+  it('centres on the window when there is no stage to centre on', () => {
+    const { container } = toast({ tone: 'success', message: 'Saved' });
+    expect(shown(container)!.style.left).toBe('');
   });
 
   it('announces itself without becoming something to reach', () => {
@@ -76,6 +90,20 @@ describe('Toast', () => {
 });
 
 describe('a toast carrying a way back', () => {
+  it('draws its action as the tertiary button, plain accent text (board Toasts)', () => {
+    const { container } = toast({
+      tone: 'success',
+      message: '3 keys deleted',
+      action: { label: 'Undo', run: vi.fn() },
+    });
+    const button = container.querySelector<HTMLButtonElement>('button')!;
+    expect(button.classList).toContain('he-btn-tertiary');
+    // Nothing of its own but the 4 px it stands off the message.
+    const act = (/\.act \{([^}]*)\}/.exec(toastSource)?.[1] ?? '').replace(/\s+/g, ' ');
+    expect(act).toMatch(/margin-inline-start: 4px/);
+    expect(act).not.toMatch(/border|padding|font-weight/);
+  });
+
   it('offers the action as a real button and runs it on a click', async () => {
     const run = vi.fn();
     const { container, onDismiss } = toast({

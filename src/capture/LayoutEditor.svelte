@@ -16,7 +16,11 @@
     type Point,
     type Rect,
   } from './layout';
-  import { createGestures } from './gestures';
+  import { createGestures, escapeClosesPicker } from './gestures';
+  import { Gamepad2, Pencil, Plus, Trash2 } from './icons';
+  import { selectionBarPlacement, selectionBarShown } from './selection-bar';
+  import { popoverPlacement, type PopoverSide } from './popover-placement';
+  import CopyUrlButton from './CopyUrlButton.svelte';
   import type { OverlayConfig } from '../config/schema';
   import type { LayoutMapLike } from '../keyboard/labels';
   import type { FrameKey } from '../protocol/messages';
@@ -33,6 +37,7 @@
     onDismissSuggestion = () => {},
     learning = $bindable(false),
     learningBanner = false,
+    onCopyUrl,
   }: {
     config: OverlayConfig;
     frame: readonly FrameKey[];
@@ -81,6 +86,8 @@
      * stage again.
      */
     learningBanner?: boolean;
+    /** Copies the overlay URL and says whether it happened (App `copyUrl`). */
+    onCopyUrl: () => Promise<boolean>;
   } = $props();
 
   /**
@@ -256,7 +263,7 @@
    * appearing under the label. Neither is visible from this side, so the
    * anchor was computed against a height from before the fold opened, and the
    * panel ran off a stage that does not scroll — which is the exact failure
-   * `flipped()` exists to prevent.
+   * `popoverPlacement` exists to prevent.
    *
    * Zero when the panel is not on screen, which is also what jsdom reports:
    * both mean "no measurement", and the clamp below leaves the anchor alone.
@@ -268,57 +275,98 @@
       return;
     }
 
-    const read = () => (panelHeight = panel?.offsetHeight ?? 0);
+    // The panel inside, not the anchor: the anchor is what gets capped, and a
+    // capped box would hide the very growth it caps.
+    const content = (panel.firstElementChild as HTMLElement | null) ?? panel;
+    const read = () => (panelHeight = content.offsetHeight);
     read();
 
     const observer = new ResizeObserver(read);
-    observer.observe(panel);
+    observer.observe(content);
     return () => observer.disconnect();
   });
 
   /**
-   * Where the popover goes, in stage pixels: under the selection, and inside
-   * the stage on both axes.
+   * The side the open popover took, for as long as it stays open (spec §16.5).
    *
-   * Anchored to a key near an edge, the panel used to run outside the visible
-   * stage — and instead of moving, it grew a scrollbar and put half its
-   * controls off-screen. Clamped against the *visible* window rather than the
-   * content, so it still lands correctly if the stage ever is scrolled.
-   *
-   * The two axes do not get the same treatment. Sideways the panel slides,
-   * because sliding costs nothing. Downwards it **flips above** the selection
-   * instead, because sliding up means covering the keys being edited at the
-   * one moment they are being looked at (spec §16.5).
+   * Its height changes under the hand — Text to Icon, the Style fold — and
+   * re-choosing the side on every change made it jump across the key, or pin
+   * itself over it when it fitted nowhere. Taken once, on the first measured
+   * frame of an opening, and dropped with the opening.
    */
-  const anchor = $derived.by(() => {
-    const left = acrossX(Math.min(...selection.map((key) => key.x)));
-    const under = acrossY(Math.max(...selection.map((key) => key.y + key.h))) + gap;
-    const over = acrossY(Math.min(...selection.map((key) => key.y))) - gap - panelHeight;
+  let lockedSide = $state<{ opening: string; side: PopoverSide } | null>(null);
+  const opening = $derived(editingFor.join(','));
 
-    return { x: slid(left), y: flipped(under, over) };
+  /**
+   * Where the popover goes, in stage pixels: around the selection's cells,
+   * never over them (`popoverPlacement`).
+   */
+  const placement = $derived.by(() => {
+    const left = Math.min(...selection.map((key) => key.x));
+    const top = Math.min(...selection.map((key) => key.y));
+    const right = Math.max(...selection.map((key) => key.x + key.w));
+    const bottom = Math.max(...selection.map((key) => key.y + key.h));
+    return popoverPlacement(
+      { x: acrossX(left), y: acrossY(top), w: (right - left) * unit, h: (bottom - top) * unit },
+      { width: POPOVER_WIDTH, height: panelHeight },
+      stageBox,
+      gap,
+      lockedSide?.opening === opening ? lockedSide.side : null,
+    );
+  });
+  $effect(() => {
+    // Off screen — closed, or hidden for a drag that moves its keys — the side
+    // goes with it: the next showing chooses afresh, where the keys now are.
+    if (!placement.measured) lockedSide = null;
+    else if (lockedSide?.opening !== opening) {
+      lockedSide = { opening, side: placement.side };
+    }
   });
 
-  // The stage is `overflow: hidden` since task 31 — the work surface moved into
-  // the coordinates, and the element stopped scrolling. Both clamps used to add
-  // `scrollLeft` / `scrollTop`, which have read zero ever since: a dead branch,
-  // kept alive by a test that assigned `stage.scrollLeft` by hand, which jsdom
-  // accepts on a non-scrolling element and no browser ever produces.
-  function slid(left: number): number {
-    const room = stageBox.width;
-    if (room === 0) return left;
+  /**
+   * The selection's box in the stage's pixels: the frame the handles are drawn
+   * in, inset by the half gap each handle is.
+   */
+  const selectionBox = $derived.by(() => {
+    if (selection.length === 0) return null;
+    const left = Math.min(...selection.map((key) => key.x));
+    const top = Math.min(...selection.map((key) => key.y));
+    const right = Math.max(...selection.map((key) => key.x + key.w));
+    const bottom = Math.max(...selection.map((key) => key.y + key.h));
+    return {
+      x: acrossX(left) + gap / 2,
+      y: acrossY(top) + gap / 2,
+      w: Math.max(0, (right - left) * unit - gap),
+      h: Math.max(0, (bottom - top) * unit - gap),
+    };
+  });
 
-    return Math.min(left, Math.max(0, room - POPOVER_WIDTH - gap));
-  }
+  /**
+   * Edit · Delete over the selection (spec §16.14): the double click and the
+   * Delete key, for whoever has not met them. Out of the way whenever the
+   * hand is busy with something else — a drag, a lasso, the popover, a capture.
+   */
+  const barShown = $derived(
+    selectionBarShown({
+      selected: selection.length,
+      gesturing: draft !== null,
+      lasso: lassoRect !== null,
+      popover: popoverVisible,
+      learning,
+    }),
+  );
+  let barSize = $state({ width: 0, height: 0 });
+  const barAt = $derived(
+    selectionBox === null ? null : selectionBarPlacement(selectionBox, barSize, stageBox),
+  );
 
-  function flipped(under: number, over: number): number {
-    const room = stageBox.height;
-    if (room === 0 || panelHeight === 0) return under;
-
-    if (under + panelHeight <= room) return under;
-    // Above the selection when the panel fits there, and against the top edge
-    // when it fits neither way: a panel half on screen beats one entirely off
-    // it, and its header is the half worth keeping.
-    return over >= 0 ? over : Math.max(0, room - panelHeight);
+  async function deleteSelection() {
+    onChange(removeKeys(config, selectedIds));
+    selectedIds = [];
+    // The button that had the focus is gone with the selection; the stage
+    // takes it, as after the popover's own Delete, rather than the page.
+    await tick();
+    stage?.focus();
   }
 
   export function open(id: number) {
@@ -498,6 +546,8 @@
   }
 
   function onKeyDown(event: KeyboardEvent) {
+    // An Escape that closes a dropdown's list belongs to the list alone.
+    if (escapeClosesPicker(event)) return;
     // Learning claims Escape before anything else on the stage reads it, and
     // returns without falling through to the block below: a key pressed to
     // stop the capture must do exactly that, not also clear a selection or
@@ -531,10 +581,7 @@
         if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
       }
     }
-    if (!typing && event.key === 'Delete' && selectedIds.length > 0) {
-      onChange(removeKeys(config, selectedIds));
-      selectedIds = [];
-    }
+    if (!typing && event.key === 'Delete' && selectedIds.length > 0) deleteSelection();
   }
 
   /**
@@ -582,28 +629,26 @@
 <svelte:document onvisibilitychange={onVisibilityChange} />
 
 <div class="editor">
-  <!-- The one place the AXIS tag appears: the broadcast never shows it
-       (spec §16.3). A dashed outline used to come with it, gone 2026-08-23. -->
   <!-- The stage is a surface, not a control, and it needs no keyboard path of
        its own: Escape already clears the selection from anywhere. The -1 keeps
        it out of the Tab order; it only lets a closing popover park the focus
        somewhere real when the key it would return to has been deleted. -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="stage" tabindex="-1" bind:this={stage}>
-    {#if learningBanner}
-      <!-- The wizard's own third step (Wizard.svelte) draws this exact recipe
-           over the same flag while it walks someone through their first keys.
-           This is it again for every other moment learning is armed — manual
-           "+ Add key" most of all — so the stage never listens in silence. -->
+    {#if learningBanner && !showsEmptyStage}
+      <!-- Every moment learning is armed over a profile that already has keys —
+           Add key most of all — so the stage never listens in silence. An
+           empty profile says the same in its own empty state. -->
       <div class="learning" data-learning-banner role="status">
         <span class="beacon" aria-hidden="true"></span>
-        <strong>Listening · press any key — Esc stops</strong>
+        <strong>Press any key to add it</strong>
+        <span class="stop">Esc to stop</span>
       </div>
     {/if}
     <!-- The work surface. Its size comes from the stylesheet and never from a
          number: see `.canvas` below. -->
     <div class="canvas" onpointerdown={onStagePointerDown}>
-      <KeyboardView config={scene} {frame} decorations reveal />
+      <KeyboardView config={scene} {frame} reveal />
       {#each shown.keys as key (key.id)}
         <button
           class="handle"
@@ -626,7 +671,15 @@
           }}
           aria-label={`Select ${key.label}`}
           aria-pressed={selectedIds.includes(key.id)}
-        ></button>
+        >
+          {#if key.mode === 'axis'}
+            <!-- The editor's mark for a key bound to the gamepad in Wootility
+                 (spec §16.13). On the handle, never in the shared drawing: the
+                 broadcast must not show it, and an icon there would ride along
+                 into the bundle OBS keeps loaded. -->
+            <span class="gamepad" data-gamepad title="Gamepad"><Gamepad2 size={16} /></span>
+          {/if}
+        </button>
       {/each}
 
       {#if showsEmptyStage}
@@ -647,7 +700,10 @@
                  so the copy can say what happens next, not where to click. -->
             <p class="lead">No keys yet</p>
             <p class="hint">Add one, then press it on your keyboard</p>
-            <button class="add" type="button" onclick={() => (learning = true)}>+ Add key</button>
+            <button class="add he-btn-primary" type="button" onclick={() => (learning = true)}>
+              <Plus size={16} />
+              Add key
+            </button>
           {/if}
         </div>
       {/if}
@@ -688,11 +744,46 @@
         ></div>
       {/if}
 
+      {#if barShown && barAt}
+        <div
+          class="selection-bar"
+          data-selection-bar
+          data-below={barAt.below}
+          role="toolbar"
+          aria-label="Selection"
+          bind:offsetWidth={barSize.width}
+          bind:offsetHeight={barSize.height}
+          style:transform={`translate(${barAt.left}px, ${barAt.top}px)`}
+        >
+          <button
+            type="button"
+            class="he-menu-item"
+            data-bar-edit
+            onclick={() => open(selection[0]!.id)}
+          >
+            <Pencil size={16} />
+            {selection.length > 1 ? `Edit ${selection.length} keys` : 'Edit'}
+          </button>
+          <button
+            type="button"
+            class="delete he-menu-item he-menu-item--danger"
+            data-bar-delete
+            onclick={deleteSelection}
+          >
+            <Trash2 size={16} />
+            Delete
+          </button>
+        </div>
+      {/if}
+
       {#if popoverVisible}
         <div
           class="anchor"
           bind:this={panel}
-          style:transform={`translate(${anchor.x}px, ${anchor.y}px)`}
+          data-side={placement.side}
+          class:capped={placement.maxHeight !== null}
+          style:max-height={placement.maxHeight === null ? undefined : `${placement.maxHeight}px`}
+          style:transform={`translate(${placement.left}px, ${placement.top}px)`}
         >
           <KeyPopover
             {config}
@@ -710,30 +801,31 @@
     </div>
   </div>
 
+  <!-- One line (spec §16.14): the size to give the browser source in OBS. The
+       gestures' help line went — the selection bar and the tooltips carry it.
+       Then the URL to give it (board Main): the two things carried to OBS. -->
   <div class="foot">
     {#if shown.keys.length > 0}
       <p class="source">
-        Recommended OBS browser source · <code>{source.width} × {source.height} px</code>
+        OBS source size · <code>{source.width} × {source.height}</code>
+        <CopyUrlButton onCopy={onCopyUrl} />
       </p>
     {/if}
-
-    <p class="shortcuts">
-      Click to select · Shift+click to add · Drag the background to lasso · Double-click to edit ·
-      Ctrl+A for all · Delete to remove · Ctrl+Z to undo
-    </p>
   </div>
 </div>
 
 <style>
   /**
    * A column that fills whatever it is given: the stage takes the room, the
-   * shortcut bar sits at the bottom of the page.
+   * source size sits at the bottom of the page.
    *
    * The stage used to be as big as the keys were, which made the empty space
    * around them belong to nobody — a lasso could not start there, and a click
    * meant to clear the selection landed outside the editor entirely.
    */
   .editor {
+    /* What the source line floats over (`.foot`). */
+    position: relative;
     display: flex;
     flex-direction: column;
     block-size: 100%;
@@ -825,6 +917,49 @@
     cursor: nesw-resize;
   }
 
+  /* Above the handles, under the popover it opens (spec §16.14). */
+  .selection-bar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    gap: 2px;
+    padding: 3px;
+    background: var(--he-popover);
+    border: 1px solid var(--he-border-popover);
+    border-radius: var(--he-radius-panel);
+    box-shadow: var(--he-shadow-bar);
+    white-space: nowrap;
+  }
+  /* No `all: unset`: at this weight it would also wipe the transition the
+     menu-item family gives these two (spec §16.13). */
+  .selection-bar button {
+    box-sizing: border-box;
+    margin: 0;
+    border: 0;
+    background: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    block-size: 28px;
+    padding: 0 10px 0 8px;
+    border-radius: var(--he-radius);
+    font: var(--he-font);
+    font-size: var(--he-size-xs);
+    font-weight: 600;
+    color: var(--he-text);
+    cursor: pointer;
+  }
+  /* Red at rest too: the family keeps it under the pointer, but the rule above
+     outweighs its resting colour. */
+  .selection-bar .delete {
+    color: var(--he-danger);
+  }
+  .selection-bar button:focus-visible {
+    outline: 2px solid var(--he-accent);
+    outline-offset: -2px;
+  }
   .lasso {
     position: absolute;
     /* See `.handle` below: `transform` carries the whole offset, so the
@@ -879,6 +1014,8 @@
   /* The wizard's own banner recipe (Wizard.svelte `.banner`/`.beacon`),
      repeated here rather than shared: Svelte styles are scoped per component,
      and the two never render at once — `learningBanner` sees to that. */
+  /* Top of the stage, centred (spec §16.14): the accent dot breathes for as
+     long as the capture listens. */
   .learning {
     position: absolute;
     inset-block-start: 16px;
@@ -888,27 +1025,38 @@
     margin-inline: auto;
     display: flex;
     align-items: center;
-    gap: 13px;
-    padding: 13px 18px;
+    gap: 12px;
+    padding: 10px 16px;
     font: var(--he-font);
     color: var(--he-text);
     background: var(--he-popover);
     border: 1px solid var(--he-accent);
     border-radius: var(--he-radius-panel);
-    /* Informational only — unlike the wizard's, this banner carries no
-       button, and must not steal a click meant for the keys under it. */
+    white-space: nowrap;
+    /* It holds no control: a key, a drag or a lasso under it still reaches
+       the stage. */
     pointer-events: none;
   }
   .learning .beacon {
     flex: none;
-    inline-size: 9px;
-    block-size: 9px;
+    inline-size: 8px;
+    block-size: 8px;
     border-radius: 50%;
     background: var(--he-accent);
+    animation: he-pulse 1.6s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .learning .beacon {
+      animation: none;
+    }
   }
   .learning strong {
-    font-size: var(--he-size-lg);
-    font-weight: 700;
+    font-size: var(--he-size-sm);
+    font-weight: 600;
+  }
+  .learning .stop {
+    font-size: var(--he-size-xs);
+    color: var(--he-text-muted);
   }
   /**
    * Filled by the stylesheet, never sized from a measurement — and that is a
@@ -973,33 +1121,14 @@
   }
   .empty .hint {
     font-size: var(--he-size-xs);
-    color: var(--he-text-faint);
+    color: var(--he-text-muted);
   }
   /* The one thing inside `.empty` that takes the pointer back: everything
      around it stays inert so a lasso or a clearing click still reaches the
-     canvas. The look is KeyLearner's primary button, one for one, since it
-     is the same action. */
+     canvas. KeyLearner's primary button, one for one: the same action. */
   .empty .add {
     pointer-events: auto;
     margin-block-start: 8px;
-    padding: 7px 16px;
-    font: var(--he-font);
-    font-size: var(--he-size-xs);
-    font-weight: 700;
-    white-space: nowrap;
-    cursor: pointer;
-    color: var(--he-bg);
-    background: var(--he-accent);
-    border: 1px solid var(--he-accent);
-    border-radius: var(--he-radius-control);
-  }
-  .empty .add:hover {
-    background: var(--he-accent-hover);
-    border-color: var(--he-accent-hover);
-  }
-  .empty .add:focus-visible {
-    outline: 2px solid var(--he-accent);
-    outline-offset: 2px;
   }
   .handle {
     position: absolute;
@@ -1030,7 +1159,7 @@
     outline: none;
   }
   .handle:focus-visible {
-    outline: 2px solid var(--he-accent-hover);
+    outline: 2px solid var(--he-accent);
     outline-offset: 2px;
   }
   .handle.selected {
@@ -1040,7 +1169,7 @@
        and one of the two would always be hiding the other. */
     box-shadow: 0 0 0 1px var(--he-accent);
   }
-  /* The same amber the popover badge uses. One colour, one meaning: **this key
+  /* The accent the popover badge uses. One colour, one meaning: **this key
      was customized** — a style that differs from the global (spec §8.2), a
      label that is not the one its position produces, or both.
 
@@ -1051,18 +1180,26 @@
      drawn as a clean cluster, one of which is Right Ctrl, and nothing on
      screen to say which one.
 
-     Top *left*, because the AXIS tag the renderer draws sits top right and the
-     two were printing on top of each other. Temporary: the mockup has not
-     placed either of them yet, and when it does they move together. */
+     Top left, where board Main places it: the gamepad icon of a key bound to
+     the gamepad sits top right, and the two never print on each other. */
   .handle.customized::after {
     content: '';
     position: absolute;
-    top: 3px;
-    left: 3px;
-    inline-size: 6px;
-    block-size: 6px;
+    top: 5px;
+    left: 6px;
+    inline-size: 7px;
+    block-size: 7px;
     border-radius: 50%;
-    background: var(--he-override);
+    background: var(--he-accent);
+  }
+  /* Top right of the key, in the label's colour, a little quieter. */
+  .gamepad {
+    position: absolute;
+    top: 5px;
+    right: 6px;
+    display: grid;
+    color: var(--he-text);
+    opacity: 0.85;
   }
   .anchor {
     position: absolute;
@@ -1073,29 +1210,49 @@
        context here, so the popover cannot escape it and cover the sidebar. */
     z-index: 1;
   }
+  /* Taller than the room on its side: it scrolls inside rather than leave the
+     stage or come over the keys (spec §16.5). Only then — a scrolling box
+     would clip the font menu that hangs out of the panel. */
+  .anchor.capped {
+    overflow-y: auto;
+  }
+  /* Over the foot of the stage, with no ground of its own (board Main): the
+     dots run on behind the words, and the stage goes down to the bottom —
+     under it, the line was a plain band that cut a selection off above it.
+     A press on the line reaches the stage beneath, all but on the copy link. */
   .foot {
-    flex: none;
+    position: absolute;
+    inset-inline: 0;
+    inset-block-end: 0;
+    pointer-events: none;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 2px;
     padding: 9px 18px;
   }
-  /* Louder than the help text below it: this one is a value to carry to OBS,
-     not a reminder of what the mouse does. */
+  .foot :global(button) {
+    pointer-events: auto;
+  }
+  /* A value to carry to OBS: the figure in mono, the words muted. */
+  /* One line of text as tall as the copy button, which sits in it centred on
+     the lowercase (`vertical-align: middle`). As flex items, each piece was
+     centred on its own box instead, and the icon sat off the words. */
   .source {
     margin: 0;
-    font-size: var(--he-size-sm);
+    font-size: var(--he-size-xs);
+    line-height: 24px;
+    white-space: nowrap;
     color: var(--he-text-muted);
   }
   .source code {
     font: var(--he-font-mono);
+    /* The shorthand resets it; the line keeps one height. */
+    line-height: inherit;
     color: var(--he-text);
   }
-  .shortcuts {
-    margin: 0;
-    text-align: center;
-    font-size: var(--he-size-xs);
-    color: var(--he-text-faint);
+  .source :global([data-tooltip-host]) {
+    vertical-align: middle;
+    margin-inline-start: 2px;
   }
 </style>

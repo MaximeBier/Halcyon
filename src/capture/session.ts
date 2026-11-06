@@ -67,8 +67,6 @@ export interface CaptureSession {
    * on air that one frame removes.
    */
   rest(now: number): void;
-  /** Frames per second currently going out to OBS. */
-  rateAt(now: number): number;
 }
 
 export function createCaptureSession(options: CaptureSessionOptions): CaptureSession {
@@ -110,10 +108,6 @@ export function createCaptureSession(options: CaptureSessionOptions): CaptureSes
       // what the client spaces its retries out on.
       options.obs.ensureConnected(timestamp);
       emitter.push(current, timestamp, deliver);
-
-      // After the emission, not before: the preview and the rate are shown side
-      // by side, and reading the rate first would always show the previous
-      // frame's value — zero on the very first report.
       preview.push(current, timestamp, show);
     },
     resend(now) {
@@ -131,9 +125,6 @@ export function createCaptureSession(options: CaptureSessionOptions): CaptureSes
       emitter.push(current, now, deliver);
       // The editor learns of the unplug the same instant the air does.
       preview.push(current, now, show);
-    },
-    rateAt(now) {
-      return emitter.rateAt(now);
     },
   };
 }

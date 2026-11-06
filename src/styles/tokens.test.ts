@@ -46,6 +46,57 @@ describe('tokens', () => {
     expect(variables['--he-border-popover']).toBe(UI_TOKENS.borderPopover);
   });
 
+  it('gives the shared dropdown stylesheet the variables it reads', () => {
+    // controls.css is plain CSS: a token it names and nobody sets fails
+    // silently, as a menu with no background. The contract is the names.
+    const names = Object.keys(cssVariables());
+
+    for (const name of [
+      '--he-highlight',
+      '--he-shadow-menu',
+      '--he-dropdown-offset',
+      '--he-dropdown-min-width',
+      '--he-dropdown-scene-min-width',
+    ]) {
+      expect(names).toContain(name);
+    }
+  });
+
+  it('sets the stage apart from the page, and the fields apart from the stage', () => {
+    // The stage is the darkest surface (spec §16.13): a field drawn in the
+    // stage's colour would sink into it, so fields have a well of their own.
+    const luminance = (hex: string) =>
+      [1, 3, 5]
+        .map((at) => parseInt(hex.slice(at, at + 2), 16))
+        .reduce((sum, channel) => sum + channel, 0);
+
+    expect(luminance(UI_TOKENS.stage)).toBeLessThan(luminance(UI_TOKENS.bg));
+    expect(luminance(UI_TOKENS.stage)).toBeLessThan(luminance(UI_TOKENS.well));
+  });
+
+  it('names amber for what it means now: something to look at', () => {
+    // It used to be the colour of a customized key as well, so a key someone
+    // styled on purpose wore the same mark as a font the PC running OBS lacks.
+    // Own style is the accent's now (spec §16.13).
+    expect(UI_TOKENS.warn).toBe('#D9A05B');
+    expect(Object.keys(UI_TOKENS)).not.toContain('override');
+  });
+
+  it('keeps three radii: controls, surfaces, the setup card', () => {
+    // Spec §16.13: 4 for anything one presses or types in, 6 for what floats
+    // or groups, 10 for the one card the setup sits on. The 5 between them read
+    // as an accident next to the 4.
+    expect(UI_TOKENS.radius).toBe('4px');
+    expect(UI_TOKENS.radiusPanel).toBe('6px');
+    expect(UI_TOKENS.radiusCard).toBe('10px');
+    expect(Object.keys(UI_TOKENS)).not.toContain('radiusControl');
+  });
+
+  it('keeps no text colour under the muted floor', () => {
+    // #4A4F60 read at 2.2:1; nothing legible goes under muted any more.
+    expect(Object.keys(UI_TOKENS)).not.toContain('textGhost');
+  });
+
   it('derives no CSS variable from the broadcast tokens', () => {
     const names = Object.keys(cssVariables());
 

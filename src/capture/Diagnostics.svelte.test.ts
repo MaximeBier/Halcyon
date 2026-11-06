@@ -5,13 +5,20 @@ import Diagnostics from './Diagnostics.svelte';
 import type { JournalEntry } from './journal';
 import type { ObsProbeStatus } from './settings';
 import type { HalcyonSource } from './sources';
-import type { MissingFont } from '../protocol/messages';
+import type { AttentionItem } from './attention';
 
 afterEach(cleanup);
 
+const AT = (h: number, m: number) => new Date(2026, 10, 6, h, m).getTime();
 const ENTRIES: JournalEntry[] = [
-  { id: 0, at: 1_000, kind: 'user', message: 'OBS unreachable' },
-  { id: 1, at: 12_340, kind: 'bug', message: 'Key 30 reported undocumented low bits' },
+  { id: 0, at: 1_000, time: AT(14, 18), kind: 'user', message: 'OBS unreachable' },
+  {
+    id: 1,
+    at: 12_340,
+    time: AT(14, 20),
+    kind: 'bug',
+    message: 'Key 30 reported undocumented low bits',
+  },
 ];
 
 function panel(overrides: Record<string, unknown> = {}) {
@@ -20,6 +27,8 @@ function panel(overrides: Record<string, unknown> = {}) {
     onToggleProbe: vi.fn(),
     onTestObs: vi.fn(),
     onReloadSources: vi.fn(() => Promise.resolve(0)),
+    onUseAuto: vi.fn(),
+    onChangeFont: vi.fn(),
   };
   const props = {
     entries: ENTRIES,
@@ -31,7 +40,7 @@ function panel(overrides: Record<string, unknown> = {}) {
     probe: null,
     obsProbe: null,
     sources: null as HalcyonSource[] | null,
-    missingFonts: [] as MissingFont[],
+    attention: [] as AttentionItem[],
     ...handlers,
     ...overrides,
   };
@@ -42,13 +51,14 @@ const button = (c: HTMLElement, name: string) =>
   c.querySelector<HTMLButtonElement>(`[data-action="${name}"]`)!;
 
 describe('the journal', () => {
-  it('shows every entry under its kind', () => {
+  it('shows every entry under its kind, the newest first, at its time', () => {
     const { container } = panel();
     const lines = container.querySelectorAll('[data-kind]');
 
     expect(lines).toHaveLength(2);
-    expect(lines[1]!.getAttribute('data-kind')).toBe('bug');
-    expect(lines[1]!.textContent).toContain('undocumented low bits');
+    expect(lines[0]!.getAttribute('data-kind')).toBe('bug');
+    expect(lines[0]!.textContent).toContain('undocumented low bits');
+    expect(lines[0]!.textContent).toContain('14:20');
   });
 
   it('says it is empty rather than showing an empty box', () => {
@@ -310,28 +320,94 @@ describe('a copy button that cannot lie', () => {
   });
 });
 
-describe('Diagnostics - a font the overlay cannot draw', () => {
-  const lineFor = (keys: number, total = 30) =>
-    panel({ missingFonts: [{ family: 'Bahnschrift', keys, total }] })
-      .container.querySelector('[data-missing-font]')
-      ?.textContent?.replace(/\s+/g, ' ');
+describe('Diagnostics - what needs attention (spec §11)', () => {
+  const ITEMS: AttentionItem[] = [
+    {
+      id: 'font:Bahnschrift',
+      text: 'Bahnschrift is not installed on the PC running OBS · all keys drawn in Archivo',
+      action: 'change-font',
+    },
+    {
+      id: 'layout',
+      text: 'Keyboard layout forced to AZERTY — auto-detection is off.',
+      action: 'use-auto',
+    },
+  ];
 
-  it('says which, where, how many keys, and what is drawn instead', () => {
-    const line = lineFor(4);
-
-    expect(line).toContain('Bahnschrift is not installed on the PC running OBS');
-    expect(line).toContain('4 keys drawn in Archivo');
-  });
-
-  it('says one key in the singular, and all keys when every key depends on it', () => {
-    expect(lineFor(1)).toContain('· 1 key drawn in Archivo');
-    cleanup();
-    expect(lineFor(30)).toContain('· all keys drawn in Archivo');
-  });
-
-  it('says nothing while every overlay draws its font', () => {
+  it('says all is good when nothing needs a gesture', () => {
     const { container } = panel();
 
-    expect(container.querySelector('[data-missing-font]')).toBeNull();
+    expect(container.querySelector('[data-all-good]')!.textContent!.trim()).toBe('All good');
+  });
+
+  it('lists each line with its gesture, and runs it', () => {
+    const { container, onUseAuto, onChangeFont } = panel({ attention: ITEMS });
+
+    expect(container.querySelector('[data-all-good]')).toBeNull();
+    expect(container.querySelectorAll('[data-attention]')).toHaveLength(2);
+    button(container, 'change-font').click();
+    button(container, 'use-auto').click();
+
+    expect(button(container, 'change-font').textContent!.trim()).toBe('Change font');
+    expect(button(container, 'use-auto').textContent!.trim()).toBe('Use auto');
+    expect(onChangeFont).toHaveBeenCalledTimes(1);
+    expect(onUseAuto).toHaveBeenCalledTimes(1);
+  });
+
+  it('comes first, before the status and the activity', () => {
+    const { container } = panel({ sources: [] });
+    const heads = [...container.querySelectorAll('h3')].map((h) => h.textContent!.trim());
+
+    expect(heads.slice(0, 3)).toEqual(['Needs attention', 'Status', 'Activity']);
+  });
+});
+
+describe('Diagnostics - the activity list', () => {
+  const many = (n: number, message = (i: number) => `event ${i}`): JournalEntry[] =>
+    Array.from({ length: n }, (_, i) => ({
+      id: i,
+      at: i,
+      time: AT(14, i % 60),
+      kind: 'user' as const,
+      message: message(i),
+    }));
+
+  it('shows five lines, then offers the rest', async () => {
+    const { container } = panel({ entries: many(8) });
+
+    expect(container.querySelectorAll('[data-kind]')).toHaveLength(5);
+    button(container, 'show-all').click();
+    await tick();
+
+    expect(container.querySelectorAll('[data-kind]')).toHaveLength(8);
+    expect(container.querySelector('[data-action="show-all"]')).toBeNull();
+  });
+
+  it('counts the lines it would show in its Show all', () => {
+    expect(button(panel({ entries: many(8) }).container, 'show-all').textContent!.trim()).toBe(
+      'Show all (8)',
+    );
+  });
+
+  it('offers no Show all when everything is already in view', () => {
+    expect(
+      panel({ entries: many(5) }).container.querySelector('[data-action="show-all"]'),
+    ).toBeNull();
+  });
+
+  it('folds identical events in a row into one line with their count', () => {
+    const { container } = panel({ entries: many(12, () => 'OBS connected') });
+    const lines = container.querySelectorAll('[data-kind]');
+
+    expect(lines).toHaveLength(1);
+    expect(lines[0]!.querySelector('[data-count]')!.textContent).toBe('×12');
+  });
+});
+
+describe('Diagnostics - button words', () => {
+  it('says the raw capture is waiting without a detail after a dot', () => {
+    const { container } = panel({ capturing: true });
+
+    expect(button(container, 'capture').textContent!.trim()).toBe('Waiting for a key');
   });
 });

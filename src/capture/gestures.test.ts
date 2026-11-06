@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, vi } from 'vitest';
-import { createGestures, type GestureContext } from './gestures';
+import { createGestures, escapeClosesPicker, type GestureContext } from './gestures';
 import { surfaceOf } from './layout';
 import { DEFAULT_STYLE, defaultConfig, type OverlayConfig } from '../config/schema';
 
@@ -230,5 +230,52 @@ describe('cancelling', () => {
     expect(last(out.marquee)).toBeNull();
     gestures.release();
     expect(out.commit).not.toHaveBeenCalled();
+  });
+});
+
+describe('escapeClosesPicker', () => {
+  // Stand-ins for the DOM: jsdom knows no `:open` and throws on it, so the
+  // open picker is played by a `matches` that answers.
+  function select(open: boolean | 'throws') {
+    const element = {
+      matches: (selector: string) => {
+        if (open === 'throws') throw new SyntaxError(`unknown selector ${selector}`);
+        return selector === ':open' && open;
+      },
+      closest: (selector: string) => (selector === 'select' ? element : null),
+    };
+    return element;
+  }
+  function optionOf(parent: ReturnType<typeof select>) {
+    return { closest: (selector: string) => (selector === 'select' ? parent : null) };
+  }
+  const press = (key: string, target: unknown) =>
+    escapeClosesPicker({ key, target } as unknown as KeyboardEvent);
+
+  it('answers yes for Escape on an open select', () => {
+    expect(press('Escape', select(true))).toBe(true);
+  });
+
+  it('answers yes for Escape on an option of an open select', () => {
+    // Where the focus really is while the picker is open.
+    expect(press('Escape', optionOf(select(true)))).toBe(true);
+  });
+
+  it('answers no for another key', () => {
+    expect(press('Enter', select(true))).toBe(false);
+  });
+
+  it('answers no for a closed select', () => {
+    expect(press('Escape', select(false))).toBe(false);
+  });
+
+  it('answers no for a target outside any select', () => {
+    expect(press('Escape', { closest: () => null })).toBe(false);
+    expect(press('Escape', null)).toBe(false);
+    expect(press('Escape', {})).toBe(false);
+  });
+
+  it('answers no when the browser does not know :open', () => {
+    expect(press('Escape', select('throws'))).toBe(false);
   });
 });

@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, cleanup, fireEvent } from '@testing-library/svelte';
 import { tick } from 'svelte';
+import { openPicker } from '../test/picker';
 import SceneLinks from './SceneLinks.svelte';
 import type { ObsStatus } from '../transport/obs';
 import type { SceneRow } from './scenes';
@@ -13,12 +14,13 @@ const ROWS: SceneRow[] = [
   { uuid: 'u-chat', name: 'Just chatting', profile: 'Vholume', live: false, missing: true },
 ];
 
-function links(overrides: { obs?: ObsStatus; rows?: SceneRow[] } = {}) {
+function links(overrides: { obs?: ObsStatus; rows?: SceneRow[]; compact?: boolean } = {}) {
   const handlers = { onOpen: vi.fn(), onLink: vi.fn(), onUnlink: vi.fn() };
   const props = {
     obs: overrides.obs ?? ('identified' as ObsStatus),
     rows: overrides.rows ?? ROWS,
     profiles: ['Default', 'Apex ranked', 'Racing'],
+    compact: overrides.compact ?? false,
     ...handlers,
   };
   const rendered = render(SceneLinks, { props });
@@ -31,7 +33,32 @@ function links(overrides: { obs?: ObsStatus; rows?: SceneRow[] } = {}) {
   return { ...rendered, ...handlers, props, trigger, open };
 }
 
+const tip = (el: HTMLElement) =>
+  el.closest('[data-tooltip-host]')?.querySelector('[role="tooltip"]')?.textContent ?? null;
+
 describe('the header button', () => {
+  it('keeps only its icon at the header’s third step, its name on hover (board Editor-HeaderNarrow)', () => {
+    const { trigger } = links({ compact: true });
+    expect(trigger().textContent!.trim()).toBe('');
+    expect(trigger().querySelector('svg')).not.toBeNull();
+    expect(trigger().getAttribute('aria-label')).toBe('Link OBS scenes');
+    expect(trigger().classList).toContain('compact');
+    expect(tip(trigger())).toBe('Link OBS scenes');
+  });
+
+  it('keeps its accent outline as an icon while there is something to set up', () => {
+    const unlinked = ROWS.map((r) => ({ ...r, profile: null }));
+    const { trigger } = links({ rows: unlinked, compact: true });
+    expect(trigger().dataset.state).toBe('pitch');
+    expect(trigger().classList).not.toContain('he-btn-quiet');
+  });
+
+  it('says its name in full and needs no tooltip while it has room', () => {
+    const { trigger } = links();
+    expect(trigger().textContent!.trim()).toBe('Link OBS scenes');
+    expect(tip(trigger())).toBeNull();
+  });
+
   it('pitches while nothing is linked, goes quiet once something is', () => {
     const unlinked = ROWS.map((r) => ({ ...r, profile: null }));
     expect(links({ rows: unlinked }).trigger().dataset.state).toBe('pitch');
@@ -43,7 +70,9 @@ describe('the header button', () => {
     const { trigger, open, container, onOpen } = links({ obs: 'disconnected' });
     expect(trigger().dataset.state).toBe('inert');
     expect(trigger().disabled).toBe(true);
-    expect(trigger().title).toBe('Connect OBS first');
+    // The page's tooltip, not a title (board Editor-Tooltip).
+    expect(trigger().hasAttribute('title')).toBe(false);
+    expect(tip(trigger())).toBe('Connect OBS to link scenes');
     await open();
     expect(container.querySelector('[data-scenes-popover]')).toBeNull();
     expect(onOpen).not.toHaveBeenCalled();
@@ -57,6 +86,18 @@ describe('the header button', () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     await tick();
     expect(container.querySelector('[data-scenes-popover]')).toBeNull();
+  });
+
+  it('keeps the table open when Escape closes a dropdown', async () => {
+    const { container, open } = links();
+    await open();
+    const picker = openPicker();
+
+    picker.escape();
+    await tick();
+
+    expect(container.querySelector('[data-scenes-popover]')).not.toBeNull();
+    picker.remove();
   });
 
   it('closes the table under the cursor when OBS goes away', async () => {
@@ -131,5 +172,38 @@ describe('the rows', () => {
     expect(container.querySelector('[data-scenes-popover]')!.textContent).toContain(
       'No scene in OBS yet',
     );
+  });
+});
+
+describe('the dropdowns', () => {
+  it("open the page's own menu, a scene's at its narrower width", async () => {
+    // The class is the contract with controls.css (spec §16.10).
+    const { container, open } = links();
+    await open();
+    const selects = [...container.querySelectorAll<HTMLSelectElement>('select[data-profile]')];
+
+    expect(selects.length).toBeGreaterThan(0);
+    for (const select of selects) {
+      expect(select.classList.contains('he-select')).toBe(true);
+      expect(select.classList.contains('he-select--scene')).toBe(true);
+    }
+  });
+
+  it('says a scene has no profile while its value is empty', async () => {
+    const { container, open } = links({ rows: [{ ...ROWS[0]!, profile: null }] });
+    await open();
+
+    expect(container.querySelector('select[data-profile]')!.classList.contains('unset')).toBe(true);
+  });
+});
+
+describe('the trigger, once configured', () => {
+  it('turns into the quiet header button', () => {
+    expect(links().trigger().classList.contains('he-btn-quiet')).toBe(true);
+  });
+
+  it('keeps its accent outline while nothing is linked', () => {
+    const unlinked = ROWS.map((row) => ({ ...row, profile: null }));
+    expect(links({ rows: unlinked }).trigger().classList.contains('he-btn-quiet')).toBe(false);
   });
 });

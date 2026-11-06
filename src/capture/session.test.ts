@@ -181,22 +181,6 @@ describe('createCaptureSession — throughput', () => {
       k: [[174, 100, 0]],
     });
   });
-
-  it('reports the rate of the frame it has just sent, not the previous one', () => {
-    // The preview and the rate are drawn side by side. Reading the rate before
-    // the emission always showed the previous value — zero on the first report.
-    const rates: number[] = [];
-    const session = createCaptureSession({
-      obs: { broadcast: vi.fn(() => true), ensureConnected: vi.fn() },
-      from: 'me',
-      onKeys: () => rates.push(session.rateAt(0)),
-      onAnomaly: () => {},
-    });
-
-    session.handleReport(report(entry(174, 0x50, 400, 0x00)), 0);
-
-    expect(rates).toEqual([1]);
-  });
 });
 
 describe('createCaptureSession — an overlay announcing itself', () => {

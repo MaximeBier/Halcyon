@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { untrack } from 'svelte';
+  import { ListChecks, Redo2, Undo2 } from './icons';
+  import { fitHeader, type Fold } from './header-fold';
+  import { untrack, tick } from 'svelte';
   import { createKeyboardLink, type KeyboardStatus } from '../keyboard/device';
   import {
     createObsClient,
@@ -17,7 +19,6 @@
     saveSettings,
     overlayUrl,
     browserStorage,
-    keyboardHint,
     createObsProbe,
     type ObsProbeStatus,
   } from './settings';
@@ -27,20 +28,22 @@
   import { learnedByStopPress, learnKeys } from './learn';
   import { keysOutside, pickedFromList, removeKey, removeKeys, surfaceOf } from './layout';
   import { loadLayoutMap, resolveLayout, type LayoutMapLike } from '../keyboard/labels';
-  import { detectedLabelFor, setLayoutOverride } from '../config/edit';
+  import { setLayoutOverride } from '../config/edit';
   import { createAxisSuggester } from './suggest';
-  import { hasGlobalOverrides, hasOverrides, resolve } from '../config/resolve';
+  import { hasGlobalOverrides, resolve } from '../config/resolve';
   import { recommendedSize } from '../view/scene';
   import KeyLearner from './KeyLearner.svelte';
+  import Tooltip from './Tooltip.svelte';
   import LayoutEditor from './LayoutEditor.svelte';
   import StylePanel from './StylePanel.svelte';
+  import KeyList from './KeyList.svelte';
+  import { needsAttention } from './attention';
   import { provideInstalledFonts } from './installed-fonts-state.svelte';
   import { createProfileStore } from '../config/storage';
   import type { OverlayConfig } from '../config/schema';
   import StatusBar from './StatusBar.svelte';
   import Wizard from './Wizard.svelte';
   import Diagnostics from './Diagnostics.svelte';
-  import Collapsible from './Collapsible.svelte';
   import Unsupported from './Unsupported.svelte';
   import { copyToClipboard } from './clipboard';
   import { createJournal, describeAnomaly, hexDump, type JournalEntry } from './journal';
@@ -58,6 +61,7 @@
   } from './wizard';
   import ProfileBar from './ProfileBar.svelte';
   import SettingsMenu from './SettingsMenu.svelte';
+  import ObsPopover from './ObsPopover.svelte';
   import Sheet from './Sheet.svelte';
   import StartupPopover from './StartupPopover.svelte';
   import { runsStandalone, watchInstall, type InstallWatch } from './startup';
@@ -73,6 +77,8 @@
   import type { FrameKey, MissingFont } from '../protocol/messages';
 
   const storage = browserStorage();
+  /** The global panel, which Diagnostics' Change font opens at its Label group. */
+  let stylePanel = $state<{ reveal(group: 'label'): void } | null>(null);
 
   let settings = $state(loadSettings(storage));
   let keyboardStatus = $state<KeyboardStatus>('disconnected');
@@ -257,7 +263,6 @@
     return config.keys.map((key) => key.id).filter((id) => suggester.suggests(id));
   });
 
-  let rate = $state(0);
   /**
    * How many overlays are listening, and from where.
    *
@@ -305,12 +310,13 @@
    */
   const journal = createJournal();
   let log = $state<readonly JournalEntry[]>([]);
-  /** §9.3: a fold says in its header when what it hides is ours to fix. */
-  // A font the PC running OBS lacks counts as something to report: the overlay
-  // draws on, in Archivo, and nothing on air would ever say so.
-  const toReport = $derived(
-    log.filter((entry) => entry.kind === 'bug').length + missingFonts.length,
-  );
+  /**
+   * What Diagnostics asks someone to look at (spec §11): a font the PC running
+   * OBS lacks — the overlay draws on, in Archivo, and nothing on air would
+   * ever say so — and a layout forced by hand. These light the gear's dot;
+   * the journal, read under Activity, does not.
+   */
+  const attention = $derived(needsAttention(config.layoutOverride, missingFonts));
 
   function note(kind: 'user' | 'bug', message: string) {
     journal.add(kind, message, performance.now());
@@ -538,11 +544,6 @@
           // the first beat after reconnecting hears them again.
           broadcaster.onDisconnected();
           otherCapture = false;
-          // Same for the rate. Its window ages on keyboard reports, so with
-          // nobody typing the last good figure would stay on screen — a
-          // throughput advertised beside a dot saying the link is dead. No
-          // frame is leaving, and zero is simply the truth.
-          rate = 0;
         }
       },
       onForeignVersion: (version) => {
@@ -568,12 +569,6 @@
         // Presence and configuration are both driven by these three messages,
         // so one place reads them (spec §6).
         broadcaster.onOverlayMessage(message, performance.now());
-        // The rate ages here as well as on reports. The keyboard speaks only
-        // on change, so once someone stops typing nothing advances the window
-        // and the last figure stayed on screen for good. An overlay beats
-        // every two seconds; that is the clock this page is allowed to have,
-        // because it arrives as an event rather than from a timer.
-        rate = session.rateAt(performance.now());
         // The probe's figure ages on the same clock. With the preview capped,
         // a stream the configuration filters out entirely no longer calls
         // `onKeys`, and the reading would sit still while the probe runs.
@@ -792,6 +787,95 @@
    */
   const styled = $derived(hasGlobalOverrides(config.style));
 
+  /**
+   * How far the header folds to stay on one line (`header-fold.ts`, board
+   * Editor-HeaderNarrow): measured against the header as drawn, so the longer
+   * error pills fold it sooner. Refitted when the window changes the header's
+   * width (observed — the header's own size does not move with the fold, so
+   * the observer never feeds itself) and when what the pills say changes.
+   * A newer fit makes an older one stop where it stands.
+   */
+  /**
+   * The middle of the stage, in viewport pixels, for the toast to centre on
+   * (spec §16.6): where the keys are laid out, the side panel left out. Side
+   * by side that is left of the window's middle; stacked, the stage spans the
+   * window and the two agree. Observed, never a timer; `null` without a stage.
+   */
+  let stageEl = $state<HTMLElement | null>(null);
+  let toastCenter = $state<number | null>(null);
+  $effect(() => {
+    const el = stageEl;
+    if (!el) {
+      toastCenter = null;
+      return;
+    }
+    const measure = () => {
+      const box = el.getBoundingClientRect();
+      toastCenter = box.left + box.width / 2;
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    window.addEventListener('resize', measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  });
+
+  /**
+   * The OBS pill's popover, the whole OBS interface since board 3a, and what
+   * opened it: the pill, or Settings › OBS connection. One popover, two ways
+   * in, and it hangs from the one that was clicked (board Editor-Settings).
+   */
+  let obsOpen = $state<'pill' | 'settings' | null>(null);
+
+  let fold = $state<Fold>(1);
+  let bar = $state<HTMLElement | null>(null);
+  let lead = $state<HTMLElement | null>(null);
+  let fitting = 0;
+  async function refit() {
+    if (!bar || !lead) return;
+    const run = ++fitting;
+    await fitHeader(
+      async (next) => {
+        if (run !== fitting) return;
+        fold = next;
+        await tick();
+      },
+      () =>
+        run === fitting &&
+        !!bar &&
+        !!lead &&
+        (lead.scrollWidth > lead.clientWidth ||
+          bar.scrollWidth > bar.clientWidth ||
+          // The run of pills may shrink (to be cut at 5 and 7): squeezed, it
+          // spilled under Resume inside the left block, which itself did not
+          // overflow. A child spilling out of its own box is an overflow too.
+          [...lead.children].some((child) => child.scrollWidth > child.clientWidth + 1)),
+    );
+  }
+  $effect(() => {
+    if (!bar) return;
+    const observer = new ResizeObserver(() => void refit());
+    observer.observe(bar);
+    // A face that lands after the first measure changes the words' width, not
+    // the bar's: no resize announces it, and the header stayed folded for
+    // nothing, or spilled, until the window moved.
+    const onFonts = () => void refit();
+    document.fonts?.addEventListener('loadingdone', onFonts);
+    return () => {
+      observer.disconnect();
+      document.fonts?.removeEventListener('loadingdone', onFonts);
+    };
+  });
+  // What the pills say: "OBS disconnected" or a second capture page is wider
+  // than "OBS", and folds the header sooner.
+  $effect(() => {
+    void [keyboardStatus, keyboardName, obsStatus, otherCapture, canResume];
+    untrack(() => void refit());
+  });
+
   /** See `clipboard.ts`: the copy can silently not happen, and used to lie. */
   async function copyUrl(): Promise<boolean> {
     const copied = await copyToClipboard(navigator, url);
@@ -801,7 +885,7 @@
       'user',
       copied
         ? 'Overlay URL copied.'
-        : 'Overlay URL could not be copied — select the field and copy it by hand.',
+        : 'Overlay URL could not be copied. Select the URL and copy it by hand.',
     );
     return copied;
   }
@@ -854,9 +938,6 @@
     },
     onKeys: (k) => {
       frame = k;
-      // A synchronous reading, not a timer, and taken inside the report
-      // handler — so it is the report's own moment to within microseconds.
-      rate = session.rateAt(performance.now());
       // Refreshed here, not in the report handler: this runs at the emission
       // rate, which is bounded, and nothing about the figures needs to be
       // fresher than what the eye can read.
@@ -918,27 +999,30 @@
      Chrome — and the way back to the home page from a tab. Not a link inside
      the installed app: an app window has no home page to go back to, and a
      click there would swap the capture for a landing page mid-stream. -->
-{#snippet brand()}
+<!-- The word goes first when the header runs short (board Editor-HeaderNarrow);
+     the mark stays, and the setup's header, which has the page to itself,
+     keeps both. -->
+{#snippet brand(word: boolean)}
   {#if standalone}
     <span class="brand">
       <img class="mark" src="/logo/halcyon-logo.svg" width="22" height="22" alt="" />
-      <span class="wordmark">HALCYON</span>
+      {#if word}<span class="wordmark">HALCYON</span>{/if}
     </span>
   {:else}
     <a class="brand" href="/" title="Halcyon home page">
       <img class="mark" src="/logo/halcyon-logo.svg" width="22" height="22" alt="" />
-      <span class="wordmark">HALCYON</span>
+      {#if word}<span class="wordmark">HALCYON</span>{/if}
     </a>
   {/if}
 {/snippet}
 
-<div class="app">
+<div class="app" class:workspace={!wizardOpen}>
   {#if wizardOpen}
     <!-- The setup has the page to itself (board 4a): the mark, and the card.
          Nothing else is mounted — the stage cannot be worked on until the
          keyboard answers, and the setup exists to get it there. -->
     <header class="bar">
-      {@render brand()}
+      {@render brand(true)}
     </header>
 
     <!-- What cannot work here is the page, not one of its sections. It shows
@@ -954,84 +1038,152 @@
         overlaysInObs={listeners.inObs}
         {settings}
         {url}
+        size={config.keys.length > 0 ? size : null}
         onAllowKeyboard={() => link.requestPermission()}
         onReconnect={reconnect}
         onSkip={() => remember('skipped')}
       />
     </div>
   {:else}
-    <header class="bar">
-      <!-- The mark and the name, so the window is recognisable in a taskbar
+    <!-- Two blocks that never break inside (board Main, noteFluid): what the
+         page is and what it is connected to on the left, what one does with it
+         on the right. Too narrow for one line, the right block goes under,
+         whole, aligned right. -->
+    <header class="bar" data-fold={fold} bind:this={bar}>
+      <div class="lead" bind:this={lead}>
+        <!-- The mark and the name, so the window is recognisable in a taskbar
          full of Chrome. Decorative: the page's name is in the title. -->
-      {@render brand()}
+        {@render brand(fold === 1)}
 
-      <!-- The OBS pill is the whole OBS interface (board 3a): its popover
+        <!-- The OBS pill is the whole OBS interface (board 3a): its popover
          carries the URL, the recommended size and the two credentials the
          sidebar fold used to. The size is only quoted once there is a key to
          pack — an empty layout has no size worth giving a browser source. -->
-      <StatusBar
-        keyboard={keyboardStatus}
-        device={keyboardName}
-        obs={obsStatus}
-        {rate}
-        overlays={listeners}
-        {otherCapture}
-        {url}
-        size={config.keys.length > 0 ? size : null}
-        {settings}
-        sources={sources === null ? null : sources.length}
-        onPickDevice={() => link.requestPermission()}
-        onRetryObs={reconnect}
-        onCopyUrl={copyUrl}
-        onReloadSources={reloadObsSources}
-      />
+        <StatusBar
+          keyboard={keyboardStatus}
+          device={keyboardName}
+          obs={obsStatus}
+          overlays={listeners}
+          {otherCapture}
+          {url}
+          size={config.keys.length > 0 ? size : null}
+          {settings}
+          sources={sources === null ? null : sources.length}
+          onPickDevice={() => link.requestPermission()}
+          onRetryObs={reconnect}
+          onCopyUrl={copyUrl}
+          onReloadSources={reloadObsSources}
+          squeeze={fold >= 5}
+          squeezeObs={fold >= 5}
+          dots={fold >= 7}
+          bind:obsOpen
+        />
 
-      <!-- Document-level controls. In the header because it is the one zone
+        {#if canResume}
+          <!-- Amber, and in the header: findable long after the card was put
+           aside, from any screen (board 6f). With the pills, on the left, and
+           folding with the header (board Editor-HeaderNarrow): shorter at the
+           fourth step, an icon at the sixth — its full name on hover then. -->
+          <Tooltip
+            text={fold >= 6
+              ? `Resume setup · ${stepNumber(step)}/3`
+              : fold >= 4
+                ? 'Resume setup'
+                : null}
+          >
+            {#snippet children()}
+              <button
+                class="resume"
+                class:compact={fold >= 6}
+                aria-label={fold >= 6 ? `Resume setup · ${stepNumber(step)}/3` : undefined}
+                onclick={() => remember('open')}
+              >
+                {#if fold >= 6}
+                  <ListChecks size={16} aria-hidden="true" />
+                {:else if fold >= 4}
+                  Setup · {stepNumber(step)}/3
+                {:else}
+                  Resume setup · {stepNumber(step)}/3
+                {/if}
+              </button>
+            {/snippet}
+          </Tooltip>
+        {/if}
+      </div>
+
+      <div class="tools">
+        <!-- Document-level controls. In the header because it is the one zone
          visible in every state of the page: wizard up, folds shut, popover
          gone — and the first need for undo comes when the selection has just
          disappeared, so nothing anchored to it can carry the button. -->
-      <div class="edits">
-        <button aria-label="Undo" title="Undo · Ctrl+Z" disabled={!canUndo} onclick={undo}>↶</button
-        >
-        <button aria-label="Redo" title="Redo · Ctrl+Y" disabled={!canRedo} onclick={redo}>↷</button
-        >
-        <!-- The spoken half of the two buttons: it follows, it never interrupts. -->
-        <p class="sr" role="status">{announced}</p>
-      </div>
+        <div class="edits">
+          <!-- Icon buttons, named for a screen reader by their label and for
+             the eye by the tooltip of the board (Editor-Tooltip). -->
+          <Tooltip text="Undo">
+            {#snippet children()}
+              <button class="he-icon-btn" aria-label="Undo" disabled={!canUndo} onclick={undo}
+                ><Undo2 size={16} /></button
+              >
+            {/snippet}
+          </Tooltip>
+          <Tooltip text="Redo">
+            {#snippet children()}
+              <button class="he-icon-btn" aria-label="Redo" disabled={!canRedo} onclick={redo}
+                ><Redo2 size={16} /></button
+              >
+            {/snippet}
+          </Tooltip>
+          <!-- The spoken half of the two buttons: it follows, it never interrupts. -->
+          <p class="sr" role="status">{announced}</p>
+        </div>
 
-      <!-- Left of the startup guide (board 5e): the one setting someone comes
+        <!-- Left of the startup guide (board 5e): the one setting someone comes
          back to after adding a scene in OBS, findable without the gear. -->
-      <SceneLinks
-        obs={obsStatus}
-        rows={sceneRows(sceneState.scenes, sceneState.links, sceneState.live)}
-        profiles={profileNames}
-        onOpen={() => void sceneFollower.refresh()}
-        onLink={(uuid, name) => sceneFollower.link(uuid, name)}
-        onUnlink={(uuid) => sceneFollower.unlink(uuid)}
-      />
+        <SceneLinks
+          obs={obsStatus}
+          rows={sceneRows(sceneState.scenes, sceneState.links, sceneState.live)}
+          profiles={profileNames}
+          onOpen={() => void sceneFollower.refresh()}
+          onLink={(uuid, name) => sceneFollower.link(uuid, name)}
+          onUnlink={(uuid) => sceneFollower.unlink(uuid)}
+          compact={fold >= 3}
+        />
 
-      <!-- In the header for the same reason undo is: the guide must be findable
+        <!-- In the header for the same reason undo is: the guide must be findable
          from every state of the page, and it anchors to nothing on the stage. -->
-      <StartupPopover {standalone} {install} onInstall={installApp} />
+        <StartupPopover {standalone} {install} onInstall={installApp} compact={fold >= 3} />
 
-      {#if canResume}
-        <!-- Amber, and in the header: findable long after the card was put
-           aside, from any screen (board 6f). -->
-        <button class="resume" onclick={() => remember('open')}>
-          <span class="dot" aria-hidden="true"></span>
-          Resume setup · {stepNumber(step)}/3
-        </button>
-      {/if}
-
-      <!-- Last, and the rarest: the layout override, the device picker, the
+        <!-- Last, and the rarest: the layout override, the device picker, the
          door to Diagnostics and the build (board 3a). -->
-      <SettingsMenu
-        layout={config.layoutOverride}
-        {toReport}
-        onLayout={(value) => updateConfig(setLayoutOverride(config, value, layout))}
-        onPickDevice={() => link.requestPermission()}
-        onDiagnostics={() => (diagnosticsOpen = true)}
-      />
+        <SettingsMenu
+          layout={config.layoutOverride}
+          toCheck={attention.length}
+          onLayout={(value) => updateConfig(setLayoutOverride(config, value, layout))}
+          onPickDevice={() => link.requestPermission()}
+          onDiagnostics={() => (diagnosticsOpen = true)}
+          onCopyUrl={copyUrl}
+          obsConnected={obsStatus === 'identified'}
+          onObs={() => (obsOpen = 'settings')}
+          obsOpen={obsOpen === 'settings'}
+          onObsClose={() => (obsOpen = null)}
+        >
+          {#snippet obsPanel(close)}
+            <ObsPopover
+              obs={obsStatus}
+              overlays={listeners}
+              {url}
+              size={config.keys.length > 0 ? size : null}
+              {settings}
+              sources={sources === null ? null : sources.length}
+              onReconnect={reconnect}
+              onCopy={copyUrl}
+              onReload={reloadObsSources}
+              onClose={close}
+              align="end"
+            />
+          {/snippet}
+        </SettingsMenu>
+      </div>
     </header>
 
     <!-- A row of its own under the header (board 3a): every profile in view,
@@ -1056,7 +1208,6 @@
       <KeyLearner
         bind:learning
         disabled={keyboardStatus !== 'connected'}
-        reason={keyboardHint(keyboardStatus)}
         onCancel={() => (learning = false)}
       />
     </ProfileBar>
@@ -1066,9 +1217,9 @@
     <Unsupported keyboard={keyboardStatus} />
 
     <div class="split">
-      <main class="stage">
+      <main class="stage" bind:this={stageEl}>
         <!-- The same component OBS renders, from the same resolved shape — with
-           the editor decorations on, which the broadcast never gets. -->
+           the editor's handles over it, which the broadcast never gets. -->
         <LayoutEditor
           bind:this={editor}
           {config}
@@ -1087,157 +1238,108 @@
           }}
           bind:learning
           learningBanner={learning}
+          onCopyUrl={copyUrl}
         />
       </main>
 
       <aside class="panel">
         <!-- Global appearance. Per-key overrides live in the popover the editor
            anchors to the selection, never here (spec §16.4). -->
-        <section class="block">
-          <!-- Open on a first run, unlike the per-key block in the popover: this
-             fold shows the three group headers (board 3a), and the groups
-             themselves start shut — so open, it costs three lines. -->
-          <Collapsible id="style" title="Global style" modified={styled} defaultOpen {storage}>
-            <StylePanel {config} onChange={updateConfig} />
-          </Collapsible>
+        <!-- Neither block folds any more (board Main): each title stays put and
+             what is under it scrolls on its own, so the key list is never
+             pushed out of reach by an unfolded style group (spec §16.12). -->
+        <section class="block style-block" aria-labelledby="style-title">
+          <h2 class="block-title" id="style-title">
+            Global style
+            {#if styled}
+              <!-- Not a colour on the title: a dot survives being read by
+                   someone who cannot tell its colour from grey. -->
+              <span class="modified" data-modified title="Differs from the defaults"></span>
+            {/if}
+          </h2>
+          <div class="scroll">
+            <StylePanel bind:this={stylePanel} {config} onChange={updateConfig} />
+          </div>
         </section>
 
-        <section class="block keys-block">
-          <Collapsible
-            id="keys"
-            title="Keys"
-            note={String(config.keys.length)}
-            defaultOpen
-            {storage}
-          >
-            {#if config.keys.length === 0}
-              <p class="fine">No keys yet.</p>
-            {:else}
-              <ul class="keys">
-                {#each config.keys as key (key.id)}
-                  <li class:selected={selectedIds.includes(key.id)}>
-                    <!-- The row is the only thing that can reach an off-screen
-                       key (spec §16.5): its handle is clipped away with the
-                       stage overflow. So the row selects — plain, ctrl-toggle,
-                       shift-range — and a double click opens the popover,
-                       which already folds itself back inside the stage. -->
-                    <button
-                      class="pick"
-                      aria-pressed={selectedIds.includes(key.id)}
-                      onclick={(event) => pickKey(key.id, event)}
-                      ondblclick={() => editor?.open(key.id)}
-                    >
-                      <span class="label">{key.label}</span>
-                      <span class="mode">{key.mode}</span>
-                      {#if offscreen.includes(key.id)}
-                        <!-- Before the override tag: this one says the key cannot
-                           be seen at all, which outranks how it is painted. -->
-                        <span
-                          class="offscreen"
-                          title="Not on the work surface: widen the window, or lower the key size in the global style"
-                        >
-                          off screen
-                        </span>
-                      {/if}
-                      <!-- Same amber, same shape as the override tag beside it: at a
-                         glance the two say one thing — this key was customized. The
-                         words separate them for whoever reads on, because the ways
-                         back differ: "Reset to global" for a style, "Reset to
-                         detected" for a name.
-
-                         A typed label is the one customization that is invisible on
-                         the key itself. Four arrows drawn as a clean cluster, one of
-                         them Right Ctrl wearing a down arrow, and nothing on screen
-                         to say which. -->
-                      {#if detectedLabelFor(key, activeLayout) !== null}
-                        <span
-                          class="customized"
-                          title="Renamed by hand · this is not the name its position produces"
-                        >
-                          renamed
-                        </span>
-                      {/if}
-                      {#if hasOverrides(key)}<span class="customized">override</span>{/if}
-                    </button>
-                    <button
-                      class="trash"
-                      aria-label={'Delete ' + key.label}
-                      onclick={() => updateConfig(removeKey(config, key.id))}
-                    >
-                      <!-- Replaces the trash-can emoji this button used to hold —
-                         the one coloured glyph in an otherwise monochrome,
-                         tokenized UI, since Windows renders it in full colour
-                         regardless of theme. `currentColor` ties this one to the
-                         button's own text colour instead, and the name someone
-                         hears from a screen reader lives on the button above,
-                         not on this decoration. -->
-                      <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
-                        <path
-                          d="M3.5 4.5h9M6.5 4.5V3a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1.5M4.5 4.5l.6 8.6a1 1 0 0 0 1 .9h3.8a1 1 0 0 0 1-.9l.6-8.6M6.5 7.3v4M9.5 7.3v4"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="1.2"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                        />
-                      </svg>
-                    </button>
-                  </li>
-                {/each}
-              </ul>
-
-              {#if selectedIds.length > 1}
-                <button
-                  class="link"
-                  onclick={() => {
-                    updateConfig(removeKeys(config, selectedIds));
-                    selectedIds = [];
-                  }}
-                >
-                  Delete {selectedIds.length} selected keys
-                </button>
-              {/if}
-            {/if}
-          </Collapsible>
+        <section class="block keys-block" aria-labelledby="keys-title">
+          <h2 class="block-title" id="keys-title">
+            Keys
+            <span
+              class="count"
+              title={`${config.keys.length} key${config.keys.length === 1 ? '' : 's'}`}
+              >{config.keys.length}</span
+            >
+          </h2>
+          <div class="scroll">
+            <KeyList
+              keys={config.keys}
+              {selectedIds}
+              {offscreen}
+              onPick={pickKey}
+              onEdit={(id) => editor?.open(id)}
+              onDelete={(id) => {
+                updateConfig(removeKey(config, id));
+                selectedIds = selectedIds.filter((selected) => selected !== id);
+              }}
+              onDeleteSelected={() => {
+                updateConfig(removeKeys(config, selectedIds));
+                selectedIds = [];
+              }}
+            />
+          </div>
         </section>
       </aside>
     </div>
   {/if}
-
-  {#if diagnosticsOpen}
-    <!-- Over the stage, from the ⚙ menu (board 3a). Mounted only while open,
-         for the reason the footer fold used `{#if}`: a shut panel has to cost
-         nothing, and `readings()` walks every key on every frame. -->
-    <Sheet title="Diagnostics" onClose={() => (diagnosticsOpen = false)}>
-      <Diagnostics
-        entries={log}
-        logText={() => journal.asText()}
-        {readings}
-        {snapshot}
-        {capturing}
-        {probing}
-        probe={probeReading}
-        {obsProbe}
-        {sources}
-        {missingFonts}
-        onCaptureRaw={() => (capturing = true)}
-        onToggleProbe={toggleProbe}
-        onTestObs={testObs}
-        onReloadSources={reloadObsSources}
-      />
-    </Sheet>
-  {/if}
 </div>
 
-<Toast notice={toast} onDismiss={() => (toast = null)} />
+{#if diagnosticsOpen}
+  <!-- Over the stage, from the ⚙ menu (board 3a), and outside `.app`: a
+     fixed panel inside a container could be held to it rather than to the
+     window. Mounted only while open,
+       for the reason the footer fold used `{#if}`: a shut panel has to cost
+       nothing, and `readings()` walks every key on every frame. -->
+  <Sheet title="Diagnostics" onClose={() => (diagnosticsOpen = false)}>
+    <Diagnostics
+      entries={log}
+      logText={() => journal.asText()}
+      {readings}
+      {snapshot}
+      {capturing}
+      {probing}
+      probe={probeReading}
+      {obsProbe}
+      {sources}
+      {attention}
+      onCaptureRaw={() => (capturing = true)}
+      onUseAuto={() => updateConfig(setLayoutOverride(config, 'auto', layout))}
+      onChangeFont={async () => {
+        // Diagnostics first, out of the way, then the font choice itself.
+        diagnosticsOpen = false;
+        await tick();
+        stylePanel?.reveal('label');
+      }}
+      onToggleProbe={toggleProbe}
+      onTestObs={testObs}
+      onReloadSources={reloadObsSources}
+    />
+  </Sheet>
+{/if}
+
+<Toast notice={toast} onDismiss={() => (toast = null)} center={toastCenter} />
 
 <style>
   .app {
-    /* The Diagnostics sheet anchors to the page, under the header's edge. */
     position: relative;
     display: flex;
     flex-direction: column;
-    block-size: 100vh;
+    /* A floor, not a lock (spec §16.9): under ~940 px the panel drops below
+       the stage and the page scrolls down to it. The container the layout
+       measures itself against is the mount point around this (app.css), so
+       the page's own scrollbar never makes it guess wrong about which layout
+       it is in — and so this element can be styled by it. */
+    min-block-size: 100vh;
     font: var(--he-font);
     color: var(--he-text);
     background: var(--he-bg);
@@ -1246,17 +1348,39 @@
   .bar {
     flex: none;
     display: flex;
+    /* One line at every width (board Editor-HeaderNarrow): short of room it
+       folds by steps (`fold`), never onto a second line. */
+    flex-wrap: nowrap;
     align-items: center;
     gap: 18px;
-    /* A floor, not a lock: StatusBar's rival-capture alert forces its own line
-       (`.rival { flex-basis: 100% }`), and a run of pills wraps on a narrow
-       window the same way. Either would have overflowed or overlapped the
-       stage below under a fixed `block-size` — the one message meant to be
-       seen is the one that would have been unreadable. */
     min-block-size: var(--he-header-height);
-    padding: 0 20px;
+    box-sizing: border-box;
+    padding: 8px 20px;
     border-block-end: 1px solid var(--he-border);
   }
+  /* What the page is and what it talks to: the mark, the pills, Resume
+     setup. Never broken inside; it gives way first, the keyboard name cut
+     last (StatusBar). */
+  .lead {
+    flex: 1 1 auto;
+    min-inline-size: 0;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+  /* What one does here. Never broken inside either; short of room, it goes
+     under the lead, whole, and the auto margin keeps it on the right. */
+  .tools {
+    flex: none;
+    margin-inline-start: auto;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  /* Neither block sets `white-space`: it is inherited, and the popovers that
+     hang from the pills and the actions (OBS, Link OBS scenes, Start with
+     Windows, ⚙) would never wrap a sentence again. A flex row does not break
+     on its own; what holds words keeps them on one line itself. */
   .brand {
     flex: none;
     display: inline-flex;
@@ -1272,11 +1396,12 @@
   }
   a.brand:focus-visible {
     outline: 2px solid var(--he-accent);
-    outline-offset: 3px;
+    outline-offset: 2px;
     border-radius: var(--he-radius);
   }
   .mark {
     display: block;
+    flex: none;
   }
   .wordmark {
     font-size: var(--he-size-md);
@@ -1287,27 +1412,6 @@
     display: flex;
     align-items: center;
     gap: 6px;
-  }
-  .edits button {
-    inline-size: 28px;
-    block-size: 28px;
-    font: inherit;
-    font-size: var(--he-size-md);
-    color: var(--he-text);
-    background: none;
-    border: 1px solid var(--he-border-popover);
-    border-radius: var(--he-radius-control);
-    cursor: pointer;
-  }
-  .edits button:disabled {
-    /* The same figure the Add key button dims with: one vocabulary for "not
-       available". */
-    opacity: 0.4;
-    cursor: default;
-  }
-  .edits button:focus-visible {
-    outline: 2px solid var(--he-accent);
-    outline-offset: 2px;
   }
   /* The KeyLearner recipe: present for the reader, absent from the layout. */
   .sr {
@@ -1320,39 +1424,88 @@
     clip-path: inset(50%);
     white-space: nowrap;
   }
+  /* "To finish", on Link OBS scenes' gauge in its "to set up" state, in amber
+     (board Editor-HeaderNarrow): an unfinished setup is something to look at. */
   .resume {
+    flex: none;
+    white-space: nowrap;
     display: inline-flex;
     align-items: center;
-    gap: 7px;
-    font: inherit;
-    font-size: var(--he-size-md);
+    justify-content: center;
+    box-sizing: border-box;
+    block-size: 28px;
+    padding: 0 11px;
+    font: var(--he-font);
+    font-size: var(--he-size-xs);
     font-weight: 600;
-    color: var(--he-override);
+    color: var(--he-warn);
     background: none;
-    border: 1px solid var(--he-override);
-    border-radius: var(--he-radius-control);
-    padding: 5px 11px;
+    border: 1px solid var(--he-warn);
+    border-radius: var(--he-radius);
     cursor: pointer;
+    transition: background-color var(--he-state-transition);
   }
-  .resume .dot {
-    inline-size: 6px;
-    block-size: 6px;
-    border-radius: 50%;
-    background: var(--he-override);
+  .resume:hover {
+    background: color-mix(in srgb, var(--he-warn) 10%, transparent);
+  }
+  .resume:focus-visible {
+    outline: 2px solid var(--he-accent);
+    outline-offset: 2px;
+  }
+  /* The sixth step: the icon alone, a 28 px square — the text's width gone. */
+  .resume.compact {
+    inline-size: 28px;
+    padding: 0;
   }
 
+  /* Stage and panel side by side, the panel wrapping under the stage when
+     the window has less than the two of them (spec §16.9): the flex bases are
+     the breakpoint. */
   .split {
     flex: 1;
     display: flex;
+    flex-wrap: wrap;
     min-block-size: 0;
   }
 
   .stage {
-    flex: 1;
+    flex: 999 1 var(--he-stage-min-size);
+    /* A grid of one cell, so the editor's `block-size: 100%` resolves against
+       a real height even when only the floor below sets it (stacked layout).
+       `minmax(0, 1fr)` both ways, never `auto`: the drawing is an <svg> as
+       wide as the keys reach, and an `auto` track would not shrink below it —
+       on a narrowing window the stage spilled over the panel instead of
+       clipping its keys, which the Keys list then names as off the surface. */
+    display: grid;
+    grid-template: minmax(0, 1fr) / minmax(0, 1fr);
     position: relative;
     min-inline-size: 0;
+    /* Its floor, stacked or side by side: 560, where the popover unfolded
+       keeps its Reset and Delete. Stacked, never the window's height — the
+       panel shows under the stage at once, Global style readable without
+       scrolling (the board); the page scrolls from there. Side by side, the
+       row stretches it (below). */
+    min-block-size: var(--he-stage-min-size);
     background: var(--he-stage);
   }
+  /* Side by side, the page is exactly the window and the row takes what the
+     header and the tabs leave of it — on one line or two, with no height of
+     theirs written down (`100vh − 104px` was wrong the moment the header
+     wrapped). The panel scrolls inside the row; without a height here a long
+     panel stretched the whole page, the stage with it. Never under 560: past
+     that, the page scrolls. Stacked, the page scrolls instead. The editor
+     only: the setup card keeps the page it needs. After `.split` and every
+     rule it overrides: a container query does not outrank them. */
+  @container app (min-width: 940px) {
+    .app.workspace {
+      block-size: 100vh;
+    }
+    .split {
+      flex: 1 1 0;
+      min-block-size: var(--he-stage-min-size);
+    }
+  }
+
   /* The setup alone on the page (board 4a): the card centred on the same
      dotted ground the stage draws once it takes over (LayoutEditor.svelte). */
   .welcome {
@@ -1368,128 +1521,70 @@
   }
 
   .panel {
-    flex: none;
-    inline-size: var(--he-panel-width);
+    /* Border included in the 380, so 560 + 380 is exactly where it wraps. */
+    flex: 1 1 var(--he-panel-width);
+    box-sizing: border-box;
+    min-inline-size: 0;
+    max-block-size: 100%;
     display: flex;
     flex-direction: column;
-    overflow-y: auto;
     border-inline-start: 1px solid var(--he-border);
   }
+  /* 16 px on the left; on the right 6 px, plus the 10 px lane the scrollbar
+     keeps whether or not it shows — 16 again, and no jump when a group opens
+     far enough to need it. */
   .block {
     display: flex;
     flex-direction: column;
-    gap: 9px;
-    padding: 12px 16px;
-    border-block-end: 1px solid var(--he-border);
+    gap: 10px;
+    padding: 14px 6px 12px 16px;
   }
-  /* The one section worth the leftover room: folding the others is what this
-     is for. */
   .keys-block {
-    flex: 1;
+    padding-block-start: 12px;
+    border-block-start: 1px solid var(--he-border);
+  }
+  .block-title {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 10px 0 0;
+    font-size: var(--he-size-xs);
+    font-weight: 600;
+    color: var(--he-text);
+  }
+  .modified {
+    inline-size: 6px;
+    block-size: 6px;
+    border-radius: 50%;
+    background: var(--he-accent);
+  }
+  .count {
+    margin-inline-start: auto;
+    font-weight: 400;
+    color: var(--he-text-muted);
+  }
+  .scroll {
     min-block-size: 0;
     overflow-y: auto;
+    scrollbar-gutter: stable;
   }
-  .link {
-    all: unset;
-    cursor: pointer;
-    font-size: var(--he-size-sm);
-    font-weight: 600;
-    color: var(--he-accent);
-  }
-  .link:hover {
-    color: var(--he-accent-hover);
-  }
-  .link:focus-visible {
-    outline: 2px solid var(--he-accent);
-    outline-offset: 2px;
-  }
-
-  .fine {
-    margin: 0;
-    font-size: var(--he-size-xs);
-    color: var(--he-text-faint);
-    line-height: 1.45;
-  }
-
-  .keys {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .keys li {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 6px 8px;
-    border-radius: var(--he-radius);
-    font-size: var(--he-size-xs);
-  }
-  .keys li:hover {
-    background: var(--he-surface);
-  }
-  .keys li.selected {
-    background: var(--he-surface);
-  }
-  .pick {
-    all: unset;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex: 1;
-    min-inline-size: 0;
-    cursor: pointer;
-  }
-  .pick:focus-visible {
-    outline: 2px solid var(--he-accent);
-    outline-offset: 2px;
-  }
-  .label {
-    font-weight: 700;
-    color: var(--he-text);
-    min-inline-size: 24px;
-  }
-  .mode {
-    font-size: var(--he-size-xs);
-    color: var(--he-text-faint);
-  }
-  /* One class for both tags: they are the same mark, and the words are what
-     separate a style override from a name someone typed. */
-  .customized {
-    font-size: var(--he-size-xs);
-    color: var(--he-override);
-    white-space: nowrap;
-  }
-  /* Red where the override tag is amber: an override is a choice, and this is
-     a key nobody can see. */
-  .offscreen {
-    font-size: var(--he-size-xs);
-    font-weight: 600;
-    color: var(--he-danger);
-    white-space: nowrap;
-  }
-  .trash {
-    all: unset;
-    margin-left: auto;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    /* The glyph itself is 15px; this pads the hit target out to roughly 24px
-       square, which the bare emoji never had — a click a hair off the glyph
-       used to land on the row underneath it instead. */
-    padding: 4.5px;
-    color: var(--he-text-faint);
-    opacity: 0;
-  }
-  .keys li:hover .trash,
-  .trash:focus-visible {
-    opacity: 1;
-  }
-  .trash:focus-visible {
-    outline: 2px solid var(--he-accent);
-    outline-offset: 2px;
+  /* Side by side, the panel is as tall as the window allows and each block
+     scrolls under its own title. The key list keeps its floor (200 px): the style
+     groups give way first, being the ones folded most of the time. Stacked,
+     neither has a height to keep to, and the page scrolls. Its width is the
+     token, never more: the stage takes every pixel the window adds. */
+  @container app (min-width: 940px) {
+    .panel {
+      max-inline-size: var(--he-panel-width);
+    }
+    .style-block {
+      flex: 0 1 auto;
+      min-block-size: 0;
+    }
+    .keys-block {
+      flex: 1 1 0;
+      min-block-size: var(--he-panel-list-min-size);
+    }
   }
 </style>

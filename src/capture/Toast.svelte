@@ -16,14 +16,21 @@
   let {
     notice,
     onDismiss,
+    center = null,
   }: {
     notice: Notice | null;
     onDismiss: () => void;
+    /**
+     * The middle of the stage, in viewport pixels: the toast centres on where
+     * the keys are laid out, the side panel left out. `null` without a stage
+     * (the setup): the middle of the window.
+     */
+    center?: number | null;
   } = $props();
 
   const DOT: Record<Tone, string> = {
     success: UI_TOKENS.ok,
-    warning: UI_TOKENS.override,
+    warning: UI_TOKENS.warn,
     error: UI_TOKENS.danger,
   };
 
@@ -47,6 +54,7 @@
       role="status"
       data-tone={notice.tone}
       style:border-color={BORDER[notice.tone]}
+      style:left={center === null ? undefined : `${center}px`}
       onanimationend={onDismiss}
     >
       <span class="dot" style:background={DOT[notice.tone]}></span>
@@ -56,7 +64,7 @@
         <!-- Dismissed on use: waiting out the fade would leave "3 keys
              deleted" on screen after the keys came back. -->
         <button
-          class="act"
+          class="act he-btn-tertiary"
           onclick={() => {
             action.run();
             onDismiss();
@@ -97,19 +105,11 @@
     border-radius: 50%;
     flex: none;
   }
+  /* The tertiary button (board Toasts), as "Reset to global": accent text,
+     no frame — its face, hover and focus are the family's (controls.css).
+     Only its distance from the message is its own. */
   .act {
-    font: inherit;
-    font-weight: 600;
-    color: var(--he-accent);
-    background: none;
-    border: 1px solid var(--he-border-popover);
-    border-radius: var(--he-radius-control);
-    padding: 2px 10px;
-    cursor: pointer;
-  }
-  .act:focus-visible {
-    outline: 2px solid var(--he-accent);
-    outline-offset: 2px;
+    margin-inline-start: 4px;
   }
   @keyframes hold {
     0%,

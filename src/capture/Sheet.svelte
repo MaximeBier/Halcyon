@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { X } from './icons';
   import type { Snippet } from 'svelte';
 
   /**
@@ -48,7 +49,13 @@
 <div class="sheet" data-sheet role="dialog" aria-label={title} tabindex="-1" bind:this={root}>
   <header>
     <h2>{title}</h2>
-    <button type="button" class="close" data-close aria-label="Close" onclick={onClose}>✕</button>
+    <button
+      type="button"
+      class="close he-icon-btn he-icon-btn--bare"
+      data-close
+      aria-label="Close"
+      onclick={onClose}><X size={16} /></button
+    >
   </header>
   <div class="body">
     {@render children()}
@@ -57,29 +64,30 @@
 
 <style>
   .sheet {
-    position: absolute;
-    top: 8px;
+    /* Fixed, so it stays under the header while a stacked page scrolls. */
+    position: fixed;
+    /* Under the header's edge, 16 px off the bottom of the window: the title
+       and the ✕ stay put, the body scrolls (spec §16.12). */
+    top: calc(var(--he-header-height) + 6px);
     right: 8px;
     z-index: 8;
     inline-size: var(--he-sheet-width);
-    max-block-size: calc(100% - 16px);
+    max-block-size: calc(100vh - var(--he-header-height) - 22px);
     display: flex;
     flex-direction: column;
     background: var(--he-popover);
     border: 1px solid var(--he-border-popover);
     border-radius: var(--he-radius-panel);
+    box-shadow: var(--he-shadow-menu);
     font: var(--he-font);
     color: var(--he-text);
-  }
-  .sheet:focus {
-    outline: none;
   }
   header {
     flex: none;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 14px;
+    padding: 10px 10px 10px 14px;
     border-block-end: 1px solid var(--he-border);
   }
   h2 {
@@ -87,24 +95,8 @@
     font-size: var(--he-size-sm);
     font-weight: 600;
   }
-  .close {
-    all: unset;
-    cursor: pointer;
-    padding: 2px 6px;
-    font-size: var(--he-size-xs);
-    color: var(--he-text-muted);
-  }
-  .close:hover {
-    color: var(--he-text);
-  }
-  .close:focus-visible {
-    outline: 2px solid var(--he-accent);
-    outline-offset: 1px;
-    border-radius: 2px;
-  }
   .body {
     min-block-size: 0;
     overflow-y: auto;
-    padding: 4px 14px 14px;
   }
 </style>

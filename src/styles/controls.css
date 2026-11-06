@@ -1,0 +1,699 @@
+/*
+ * Shared controls of the capture page (spec §16.10). One sheet rather than a
+ * `<style>` block per component: every dropdown on the page must stay the
+ * same control, and `::picker(select)` / `::picker-icon` are pseudo-elements
+ * nothing guarantees through Svelte's scoped CSS. Imported by the capture
+ * entry only — never by the overlay, which check-bundle.sh keeps proving.
+ *
+ * The icons are Lucide's own paths (chevron-down, check) drawn as masks:
+ * a pseudo-element cannot hold a component, and a mask keeps `currentColor`.
+ */
+
+@supports (appearance: base-select) {
+  select.he-select,
+  select.he-select::picker(select) {
+    appearance: base-select;
+  }
+
+  /* The trigger is the value and its chevron, no box: a row reads
+     "At rest · Filled ⌄", not as a form. */
+  select.he-select {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-inline-size: 0;
+    padding: 0;
+    border: 0;
+    border-radius: var(--he-radius);
+    background: transparent;
+    font: var(--he-font);
+    font-size: var(--he-size-xs);
+    color: var(--he-text);
+    cursor: pointer;
+  }
+  select.he-select:focus-visible {
+    outline: 2px solid var(--he-accent);
+    outline-offset: 2px;
+  }
+
+  select.he-select::picker-icon {
+    content: '';
+    display: block;
+    inline-size: 14px;
+    block-size: 14px;
+    background-color: var(--he-text-muted);
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+    transition: none;
+    rotate: none;
+  }
+  select.he-select:open::picker-icon {
+    background-color: var(--he-accent);
+  }
+
+  /* Below the trigger, right edges aligned: the value sits at the right end
+     of its row, so the menu opens into the row rather than past the panel. */
+  select.he-select::picker(select) {
+    position-area: block-end span-inline-start;
+    margin: 0;
+    margin-block-start: var(--he-dropdown-offset);
+    min-inline-size: var(--he-dropdown-min-width);
+    padding: 6px;
+    border: 1px solid var(--he-border-popover);
+    border-radius: var(--he-radius-panel);
+    background: var(--he-popover);
+    box-shadow: var(--he-shadow-menu);
+  }
+  select.he-select--scene::picker(select) {
+    min-inline-size: var(--he-dropdown-scene-min-width);
+  }
+
+  select.he-select option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 10px;
+    border-radius: var(--he-radius);
+    font: var(--he-font);
+    font-size: var(--he-size-sm);
+    color: var(--he-text-muted);
+    cursor: pointer;
+  }
+  select.he-select option:hover,
+  select.he-select option:focus-visible,
+  select.he-select option:checked {
+    background: var(--he-highlight);
+    color: var(--he-text);
+    outline: none;
+  }
+  select.he-select option::checkmark {
+    content: '';
+    order: 1;
+    margin-inline-start: auto;
+    inline-size: 14px;
+    block-size: 14px;
+    background-color: var(--he-accent);
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+  }
+}
+
+/*
+ * A number field with its unit written inside (spec §16.13): the well is the
+ * wrapper — a `<label>`, so a click anywhere in it focuses the input, not only
+ * a click on the figure — and the input inside it is bare. The unit is set in the interface face,
+ * not the mono of the figure, so it reads as a label rather than a digit.
+ *
+ * The widths below are floors, never sizes: the input is as wide as what it
+ * holds (`field-sizing: content`) and the well grows with it, so "16.75" or
+ * a four-digit size is never cut (spec §16.13).
+ */
+.he-field {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  box-sizing: border-box;
+  block-size: 26px;
+  /* No padding on the right: the arrows run to the edge (NumberField), and
+     the frame's corners clip the hovered half. */
+  padding: 0 0 0 8px;
+  overflow: hidden;
+  border: 1px solid var(--he-border-control);
+  border-radius: var(--he-radius);
+  background: var(--he-well);
+  /* The well is the field: it is the input's label, so a click anywhere in it
+     puts the caret in, and the cursor says so. */
+  cursor: text;
+}
+/* The field's own input, not an arrow at its bound. */
+.he-field:has(.he-field-input:disabled) {
+  cursor: default;
+}
+.he-field:focus-within {
+  border-color: var(--he-accent);
+}
+/* The unit outside since the arrows came in (board Editor-NumberStepper). */
+.he-field--percent {
+  min-inline-size: 70px;
+}
+/* "px" after the figure, or the axis before it; 18 px wider for the arrows. */
+.he-field--px,
+.he-field--axis {
+  min-inline-size: 90px;
+}
+.he-field--axis {
+  justify-content: space-between;
+}
+.he-field-input {
+  flex: none;
+  field-sizing: content;
+  min-inline-size: 1ch;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: var(--he-font-mono);
+  font-size: var(--he-size-xs);
+  color: var(--he-text);
+  text-align: right;
+  appearance: textfield;
+}
+/* No native spinner on any number field: it cannot be styled. Ours are the
+   NumberField's arrows — and the OBS port, an identifier and not a quantity,
+   has none at all. */
+input[type='number'] {
+  appearance: textfield;
+}
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+/*
+ * The arrows of a number field (board Editor-NumberStepper): two halves
+ * stacked at the right end of the frame, 16 px wide, a 10 px chevron each,
+ * muted and always shown. A hovered half lifts; at its bound an arrow goes .4
+ * and inert.
+ */
+.he-steps {
+  align-self: stretch;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  margin-inline-start: 2px;
+}
+.he-step {
+  all: unset;
+  box-sizing: border-box;
+  flex: 1 1 0;
+  inline-size: 16px;
+  display: grid;
+  place-items: center;
+  color: var(--he-text-muted);
+  cursor: pointer;
+  transition:
+    background-color var(--he-state-transition),
+    color var(--he-state-transition);
+}
+.he-step:hover:not(:disabled) {
+  background: var(--he-highlight);
+  color: var(--he-text);
+}
+.he-step:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+/* Held: the beat of the repeat — 400 ms, then every 60 — is this animation's
+   own events (NumberField), never a timer (spec §2). It changes nothing seen. */
+.he-step.held {
+  animation: he-step-repeat 60ms linear 400ms infinite;
+}
+@keyframes he-step-repeat {
+  from,
+  to {
+    opacity: 1;
+  }
+}
+.he-field-unit {
+  flex: none;
+  font: var(--he-font);
+  font-size: var(--he-size-xs);
+  color: var(--he-text-muted);
+}
+
+/*
+ * The slider of a slider-and-field pair (spec §16.11). `--fill` is set by the
+ * component from the figure the field shows, so the accent part follows the
+ * thumb mid-gesture as the field does.
+ */
+input.he-range {
+  appearance: none;
+  block-size: 16px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+input.he-range::-webkit-slider-runnable-track {
+  block-size: 4px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    var(--he-accent) var(--fill, 0%),
+    var(--he-border-control) var(--fill, 0%)
+  );
+}
+input.he-range::-webkit-slider-thumb {
+  appearance: none;
+  inline-size: 14px;
+  block-size: 14px;
+  margin-block-start: -5px;
+  border: 2px solid var(--he-bg);
+  border-radius: 50%;
+  background: var(--he-text);
+  box-shadow: 0 0 0 1px var(--he-accent);
+}
+input.he-range:focus-visible {
+  outline: 2px solid var(--he-accent);
+  outline-offset: 2px;
+  border-radius: var(--he-radius);
+}
+
+/*
+ * A control and the help sentence that explains it (`HelpText`), 4 px apart
+ * whatever the gap of the layout around them (spec §16.13).
+ */
+.he-with-help {
+  display: grid;
+  gap: 4px;
+}
+/*
+ * The sentence itself (HelpText.svelte): a block of muted italic, never the
+ * look of a setting's name, aligned on the setting's left edge — no icon in
+ * front to push it off. Archivo's own italic (fonts-ui.css), not a slant.
+ */
+.he-help {
+  display: block;
+  font-size: var(--he-size-xs);
+  font-style: italic;
+  font-weight: 400;
+  line-height: 1.45;
+  letter-spacing: normal;
+  color: var(--he-text-muted);
+}
+
+/*
+ * Something is under way (spec §16.13): a muted dot that breathes. Never
+ * amber — amber is for what needs a look, and a search that is simply still
+ * running needs none.
+ */
+.he-pulse {
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: 50%;
+  background: var(--he-text-muted);
+  animation: he-pulse 1.6s ease-in-out infinite;
+}
+@keyframes he-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .he-pulse {
+    animation: none;
+  }
+}
+
+/*
+ * Buttons, four levels and no fifth (spec §16.13). One primary per screen;
+ * secondary for a second choice; tertiary, the accent-text link, for what a
+ * row offers in passing; destructive for what cannot be taken back without
+ * undo. An icon inside sits 6 px from its words.
+ */
+.he-btn-primary,
+.he-btn-secondary,
+.he-btn-danger {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  block-size: 32px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: var(--he-radius);
+  background: transparent;
+  font: var(--he-font);
+  font-size: var(--he-size-xs);
+  font-weight: 600;
+  color: var(--he-text);
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+}
+/* Optically centred: the icon's own side bearing already pads its left. */
+.he-btn-primary:has(> svg),
+.he-btn-secondary:has(> svg),
+.he-btn-danger:has(> svg) {
+  padding-inline-start: 10px;
+}
+.he-btn-primary {
+  border-color: var(--he-accent);
+  background: var(--he-accent);
+  font-weight: 700;
+  color: var(--he-bg);
+}
+.he-btn-primary:hover:not(:disabled) {
+  border-color: var(--he-accent-hover);
+  background: var(--he-accent-hover);
+}
+.he-btn-secondary {
+  border-color: var(--he-border-popover);
+}
+.he-btn-secondary:hover:not(:disabled) {
+  border-color: var(--he-border-hover);
+  background: var(--he-highlight);
+}
+.he-btn-danger {
+  border-color: var(--he-border-danger);
+  color: var(--he-danger);
+}
+.he-btn-danger:hover:not(:disabled) {
+  border-color: var(--he-danger);
+  background: color-mix(in srgb, var(--he-danger) 10%, transparent);
+}
+.he-btn-tertiary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  font: var(--he-font);
+  font-size: var(--he-size-xs);
+  color: var(--he-accent);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.he-btn-tertiary:hover:not(:disabled) {
+  color: var(--he-accent-hover);
+}
+/* The tertiary that declines rather than offers ("Keep Keyboard"): there, but
+   not the one proposed. Muted, and lit like any clickable text. */
+.he-btn-tertiary.he-btn-tertiary--muted {
+  color: var(--he-text-muted);
+}
+.he-btn-tertiary--muted:hover:not(:disabled) {
+  color: var(--he-text);
+}
+
+/*
+ * Icon buttons. Framed (28 px, the header's undo, redo and settings) or bare
+ * (24 px, inside a row or a title; 28 for the tab row's +). A bare one is
+ * quiet until the pointer or its own open menu says it is in use.
+ */
+.he-icon-btn {
+  position: relative;
+  box-sizing: border-box;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  inline-size: 28px;
+  block-size: 28px;
+  padding: 0;
+  border: 1px solid var(--he-border-popover);
+  border-radius: var(--he-radius);
+  background: transparent;
+  color: var(--he-text);
+  cursor: pointer;
+}
+.he-icon-btn:hover:not(:disabled) {
+  border-color: var(--he-border-hover);
+  background: var(--he-highlight);
+}
+.he-icon-btn--bare {
+  inline-size: 24px;
+  block-size: 24px;
+  border: 0;
+  color: var(--he-text-muted);
+}
+.he-icon-btn--bare.he-icon-btn--wide {
+  inline-size: 28px;
+  block-size: 28px;
+}
+.he-icon-btn--bare:hover:not(:disabled),
+.he-icon-btn--bare[aria-expanded='true'] {
+  background: var(--he-highlight);
+  color: var(--he-text);
+}
+
+/*
+ * A header button once there is nothing left to set up ("Link OBS scenes"
+ * configured, "Start with Windows" installed): plain muted words that still
+ * answer the pointer like a button, so they never read as a label.
+ */
+.he-btn-quiet {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  block-size: 28px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--he-radius);
+  background: transparent;
+  font: var(--he-font);
+  font-size: var(--he-size-xs);
+  color: var(--he-text-muted);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.he-btn-quiet:hover:not(:disabled),
+.he-btn-quiet[aria-expanded='true'] {
+  background: var(--he-highlight);
+  color: var(--he-text);
+}
+
+/*
+ * A row of a menu: the profile menu, the gear's, the installed fonts, the
+ * selection bar's actions. The destructive one keeps its red under the
+ * pointer; the highlight behind it says enough.
+ */
+/* Focus is the highlight itself, as on a dropdown option: an outline would
+   sit on the menu edge, clipped by it. */
+.he-menu-item:hover:not(:disabled),
+.he-menu-item:focus-visible {
+  background: var(--he-highlight);
+  color: var(--he-text);
+}
+.he-menu-item.he-menu-item--danger,
+.he-menu-item--danger:hover:not(:disabled) {
+  color: var(--he-danger);
+}
+
+/* A segment not chosen. The chosen one is already lit, and stays as it is. */
+.he-segment:not(.on):hover:not(:disabled) {
+  background: var(--he-highlight);
+  color: var(--he-text);
+}
+
+/*
+ * Words that answer a click without a frame: the status pills, a tab not
+ * shown, "Skip for now", a section heading. Muted at rest, clear under the
+ * pointer, and nothing else — no background, never an underline.
+ */
+.he-text-btn:hover:not(:disabled),
+.he-text-btn[aria-expanded='true'] {
+  color: var(--he-text);
+}
+
+/*
+ * A choice drawn as what it chooses: a preset, a font tile, a colour swatch,
+ * an icon. Its border lights; the chosen one keeps its accent outline.
+ */
+.he-tile:hover:not(:disabled) {
+  border-color: var(--he-border-hover);
+}
+
+/*
+ * An empty place to fill (board System › États): the panel's empty fourth
+ * Label tile, the "+ Installed font" of a key's font menu. Its dashed edge
+ * already wears the tiles' hover colour at rest, so it lifts by its ground:
+ * the highlight behind, text and icon brightened, the dashes unmoved.
+ */
+.he-slot {
+  cursor: pointer;
+}
+.he-slot:hover:not(:disabled) {
+  background: var(--he-highlight);
+  color: var(--he-text);
+}
+.he-slot:hover:not(:disabled) * {
+  color: var(--he-text);
+}
+/* A colour tile (boards Editor-GlobalStyle, Editor-KeyPopover): the colour
+   fills the square up to its 1 px edge. The native swatch sits inside a
+   padded wrapper with a grey border of its own, which read as a frame around
+   a smaller square. */
+input[type='color'].he-tile::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+input[type='color'].he-tile::-webkit-color-swatch {
+  border: none;
+  border-radius: calc(var(--he-radius) - 1px);
+}
+
+/* A row of the Keys list. The chosen row's own highlight, set where the list
+   is, outranks this one. */
+.he-list-row:hover {
+  background: var(--he-popover);
+}
+
+/*
+ * What every family shares (spec §16.13): the change eases, the keyboard's
+ * focus is the accent two pixels out, and "not available" is .4 and nothing
+ * else — no change under the pointer, which every hover rule above refuses
+ * with `:not(:disabled)`.
+ *
+ * `:not(:disabled)` here too, for its weight rather than its meaning: it
+ * matches a component rule that starts from `all: unset`, and the tie goes to
+ * this sheet, which the capture entry imports after the components.
+ */
+:is(
+  .he-btn-primary,
+  .he-btn-secondary,
+  .he-btn-tertiary,
+  .he-btn-danger,
+  .he-icon-btn,
+  .he-btn-quiet,
+  .he-menu-item,
+  .he-segment,
+  .he-text-btn,
+  .he-tile,
+  .he-slot,
+  .he-list-row
+):not(:disabled) {
+  transition:
+    background-color var(--he-state-transition),
+    color var(--he-state-transition),
+    border-color var(--he-state-transition);
+}
+.he-btn-primary:disabled,
+.he-btn-secondary:disabled,
+.he-btn-danger:disabled,
+.he-btn-tertiary:disabled,
+.he-icon-btn:disabled,
+.he-btn-quiet:disabled,
+.he-menu-item:disabled,
+.he-segment:disabled,
+.he-text-btn:disabled,
+.he-tile:disabled,
+.he-slot:disabled {
+  /* The page's one figure for "not available". */
+  opacity: 0.4;
+  cursor: default;
+}
+.he-btn-primary:focus-visible,
+.he-btn-secondary:focus-visible,
+.he-btn-danger:focus-visible,
+.he-btn-tertiary:focus-visible,
+.he-icon-btn:focus-visible,
+.he-btn-quiet:focus-visible,
+.he-segment:focus-visible,
+.he-text-btn:focus-visible,
+.he-tile:focus-visible,
+.he-slot:focus-visible {
+  outline: 2px solid var(--he-accent);
+  outline-offset: 2px;
+}
+
+/*
+ * Focus, one rule per family (board Editor-FocusStates, spec §16.13). The
+ * controls' ring is just above; what follows is the rest, here rather than
+ * in each component, which keeps only what places it.
+ */
+
+/* 1. A field — text, hex, number, search, password, port, read-only URL:
+   the accent border the moment it has the focus, from the mouse as from the
+   keyboard; no outline, no halo, the ground unchanged. A composed field's
+   frame lights by :focus-within instead (.he-field above, the wizard's
+   password), and a field in error keeps its red. */
+input:not([type='range'], [type='color'], [type='checkbox'], [type='radio'], [type='file'], [type='button'], [type='submit']):focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--he-accent);
+}
+
+/* 2. A choice that shows itself chosen with an accent ring — font tiles,
+   presets, icons: the ring is a shadow, 2 px of accent 1 px out on the ground
+   behind (--choice-ground), so the focus ring can stand 4 px out beside it.
+   Chosen and focused, both read. */
+.he-choice {
+  --choice-ground: var(--he-surface-low);
+}
+.he-choice[aria-pressed='true'],
+.he-choice.on {
+  outline: none;
+  box-shadow:
+    0 0 0 1px var(--choice-ground),
+    0 0 0 3px var(--he-accent);
+}
+.he-choice:focus-visible {
+  outline: 2px solid var(--he-accent);
+  outline-offset: 4px;
+}
+
+/* 3. Inside, where a ring outside would be cut by a parent that clips or
+   touch a neighbour: segments (and the profile tabs, the Keys rows, each in
+   its component). */
+.he-segment:focus-visible {
+  outline-offset: -2px;
+}
+
+/*
+ * A value to copy, not a field (the overlay URL: wizard, OBS popover): the
+ * well of a field, without its border — the border is for what can be typed
+ * into. One line cut with "…", the text cursor, and a click selects all of it,
+ * the hidden part too, ready for Ctrl+C. No caret, no focus of its own: Tab
+ * goes straight to the Copy button beside it.
+ */
+.he-copy-value {
+  display: block;
+  flex: 1;
+  min-inline-size: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font: var(--he-font-mono);
+  font-size: var(--he-size-xs);
+  color: var(--he-text-muted);
+  background: var(--he-well);
+  border: none;
+  border-radius: var(--he-radius);
+  cursor: text;
+  user-select: all;
+}
+
+/* 5. A container focused by script — popover, menu, sheet, stage — so the
+   keyboard has somewhere to land: nothing to see. */
+[tabindex='-1']:focus {
+  outline: none;
+}
+/*
+ * A row out of use (board Editor-Tooltip): everything in it at .4, inert, the
+ * arrow cursor throughout — and set on the row, never on the tooltip's host,
+ * so the sentence explaining it stays opaque. What is disabled inside it is
+ * not dimmed a second time.
+ */
+.he-inert {
+  opacity: 0.4;
+  cursor: default;
+}
+.he-inert :disabled {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(
+    .he-btn-primary,
+    .he-btn-secondary,
+    .he-btn-tertiary,
+    .he-btn-danger,
+    .he-icon-btn,
+    .he-btn-quiet,
+    .he-menu-item,
+    .he-segment,
+    .he-text-btn,
+    .he-tile,
+    .he-slot,
+    .he-list-row
+  ):not(:disabled) {
+    transition: none;
+  }
+}

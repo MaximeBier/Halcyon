@@ -17,13 +17,25 @@ import type {
  * once, so the change would be persisted, invisible to the comparison, and
  * never broadcast — the overlay would keep the previous style until something
  * else happened to be published.
+ *
+ * The other way round, a write that changes nothing hands the same object
+ * back: the page tells "nothing changed" by identity, and a new object there
+ * is an undo step that undoes nothing, a save and a broadcast. A patch returns
+ * the key itself when it has nothing to change.
  */
 function patchKeys(
   config: OverlayConfig,
   ids: readonly number[],
   patch: (key: KeyConfig) => KeyConfig,
 ): OverlayConfig {
-  return { ...config, keys: config.keys.map((key) => (ids.includes(key.id) ? patch(key) : key)) };
+  let changed = false;
+  const keys = config.keys.map((key) => {
+    if (!ids.includes(key.id)) return key;
+    const next = patch(key);
+    if (next !== key) changed = true;
+    return next;
+  });
+  return changed ? { ...config, keys } : config;
 }
 
 export function setGlobalStyle<K extends keyof GlobalStyle>(
@@ -43,26 +55,55 @@ export function setFont(config: OverlayConfig, family: string, weight: number): 
   return { ...config, style: { ...config.style, fontFamily: family, fontWeight: weight } };
 }
 
+/**
+ * Whether a key's value is the global one. Colours are compared whatever
+ * their case: the colour picker writes `#aabbcc`, a profile may hold
+ * `#AABBCC`, and the two paint the same key.
+ */
+function sameAsGlobal(value: unknown, global: unknown): boolean {
+  if (typeof value === 'string' && typeof global === 'string') {
+    return value.toLowerCase() === global.toLowerCase();
+  }
+  return value === global;
+}
+
+/**
+ * A key's style with one property set — or handed back to inheritance when
+ * the value is the global one. A key set back to where it started must not
+ * keep an override that changes nothing: the popover would go on offering
+ * to reset a line that is already the global style.
+ */
 export function setKeyStyle<K extends keyof KeyStyle>(
   config: OverlayConfig,
   ids: readonly number[],
   property: K,
   value: KeyStyle[K],
 ): OverlayConfig {
-  return patchKeys(config, ids, (key) => ({ ...key, style: { ...key.style, [property]: value } }));
+  if (sameAsGlobal(value, config.style[property])) return clearKeyStyle(config, ids, property);
+  return patchKeys(config, ids, (key) =>
+    key.style?.[property] === value ? key : { ...key, style: { ...key.style, [property]: value } },
+  );
 }
 
-/** `setFont` for a selection of keys: family and weight, in one write. */
+/**
+ * `setFont` for a selection of keys: family and weight, in one write. The
+ * global family at the global weight is no override at all; the global
+ * family at another weight still is.
+ */
 export function setKeyFont(
   config: OverlayConfig,
   ids: readonly number[],
   family: string,
   weight: number,
 ): OverlayConfig {
-  return patchKeys(config, ids, (key) => ({
-    ...key,
-    style: { ...key.style, fontFamily: family, fontWeight: weight },
-  }));
+  if (family === config.style.fontFamily && weight === config.style.fontWeight) {
+    return clearKeyStyle(config, ids, 'fontFamily');
+  }
+  return patchKeys(config, ids, (key) =>
+    key.style?.fontFamily === family && key.style.fontWeight === weight
+      ? key
+      : { ...key, style: { ...key.style, fontFamily: family, fontWeight: weight } },
+  );
 }
 
 /**
@@ -81,6 +122,10 @@ export function clearKeyStyle(
   property: keyof KeyStyle,
 ): OverlayConfig {
   return patchKeys(config, ids, (key) => {
+    const held =
+      key.style?.[property] !== undefined ||
+      (property === 'fontFamily' && key.style?.fontWeight !== undefined);
+    if (!held) return key;
     const rest: Partial<KeyStyle> = { ...key.style };
     delete rest[property];
     if (property === 'fontFamily') delete rest.fontWeight;

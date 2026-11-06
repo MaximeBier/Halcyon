@@ -1,4 +1,8 @@
 <script lang="ts">
+  import type { Snippet } from 'svelte';
+  import { Settings } from './icons';
+  import { escapeClosesPicker } from './gestures';
+  import { Copy } from './icons';
   import type { OverlayConfig } from '../config/schema';
 
   /**
@@ -13,14 +17,20 @@
    */
   let {
     layout,
-    toReport,
+    toCheck,
     onLayout,
     onPickDevice,
     onDiagnostics,
+    onCopyUrl,
+    obsConnected,
+    onObs,
+    obsOpen = false,
+    onObsClose,
+    obsPanel,
   }: {
     layout: OverlayConfig['layoutOverride'];
-    /** Journal entries that are ours to fix — §9.3: a fold says when it hides one. */
-    toReport: number;
+    /** The Needs attention lines of Diagnostics (`needsAttention`), counted. */
+    toCheck: number;
     onLayout: (layout: OverlayConfig['layoutOverride']) => void;
     /**
      * Opens Chrome's HID picker. Called straight from the click, never through
@@ -29,6 +39,24 @@
      */
     onPickDevice: () => void;
     onDiagnostics: () => void;
+    /** Copies the overlay URL, and says whether the browser let it. */
+    onCopyUrl: () => Promise<boolean>;
+    /** Whether OBS answers, for the state on the OBS connection row. */
+    obsConnected: boolean;
+    /**
+     * Opens the OBS pill's popover, under the pill — up or down, and never a
+     * retry: down, the pill's own click retries, and the port and password
+     * were a right click away, just when they need fixing.
+     */
+    onObs: () => void;
+    /** Whether the OBS popover hangs here, opened from OBS connection. */
+    obsOpen?: boolean;
+    onObsClose?: () => void;
+    /**
+     * The OBS popover itself, the very one the pill hangs, handed over by the
+     * page with the way to close it: here it hangs under the gear.
+     */
+    obsPanel?: Snippet<[close: () => void]>;
   } = $props();
 
   let open = $state(false);
@@ -37,14 +65,44 @@
   let menu = $state<HTMLElement | null>(null);
 
   /**
-   * §9.3 on a trigger rather than a fold header: the gear says when what it
-   * hides departs from the defaults (a layout forced by hand) or is ours to
-   * fix (a bug in the journal). One dot for both — the menu says which.
+   * §9.3 on a trigger rather than a fold header: the gear says when
+   * Diagnostics has something that asks for a gesture (spec §11) — a forced
+   * layout, a font missing on the PC running OBS. The journal never lights it.
    */
-  const flagged = $derived(layout !== 'auto' || toReport > 0);
+  const flagged = $derived(toCheck > 0);
+  const title = $derived(
+    toCheck === 0 ? 'Settings' : `Settings · ${toCheck} thing${toCheck === 1 ? '' : 's'} to check`,
+  );
+
+  /**
+   * The overlay URL without going through the OBS pill (board Editor-Settings):
+   * the menu stays open and the row says what happened, for two seconds. The
+   * two seconds are a CSS animation that ends the message, not a timer: spec
+   * §2 keeps timers off this page (the Toast recipe). Reset on close too, or a
+   * menu shut mid-message would reopen still saying it — and a clipboard that
+   * answers after the close is not heard: `attempt` has moved on.
+   */
+  let copied = $state<'idle' | 'done' | 'failed'>('idle');
+  let attempt = 0;
+  async function copyUrl() {
+    const mine = ++attempt;
+    const done = await onCopyUrl();
+    if (mine === attempt) copied = done ? 'done' : 'failed';
+  }
+
+  /**
+   * The OBS popover hung here goes the way the menu does: the gear's click,
+   * Escape or a click outside (the popover's own), the focus back on the gear.
+   */
+  function closeObs() {
+    onObsClose?.();
+    trigger?.focus();
+  }
 
   function close() {
     open = false;
+    attempt += 1;
+    copied = 'idle';
     trigger?.focus();
   }
 
@@ -66,7 +124,7 @@
     if (!open) return;
 
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') close();
+      if (event.key === 'Escape' && !escapeClosesPicker(event)) close();
     };
     const onPointer = (event: PointerEvent) => {
       if (!root?.contains(event.target as Node)) close();
@@ -84,21 +142,18 @@
 <div class="settings" bind:this={root}>
   <button
     type="button"
-    class="trigger"
+    class="trigger he-icon-btn"
     data-settings-trigger
-    aria-label="Settings"
+    aria-label={title}
+    {title}
     aria-expanded={open}
     aria-haspopup="dialog"
     bind:this={trigger}
-    onclick={() => (open ? close() : (open = true))}
+    onclick={() => (obsOpen ? closeObs() : open ? close() : (open = true))}
   >
-    <span aria-hidden="true">⚙</span>
+    <Settings size={16} />
     {#if flagged}
-      <span
-        class="dot"
-        data-flagged
-        title={toReport > 0 ? 'Something to report in Diagnostics' : 'Keyboard layout set by hand'}
-      ></span>
+      <span class="dot" data-flagged></span>
     {/if}
   </button>
 
@@ -109,9 +164,10 @@
       <!-- Deliberately first and quiet: an edge case that matters only when
            detection got it wrong (spec §8.6). Only the labels follow it;
            capture is layout-independent. -->
-      <label class="row">
+      <label class="row he-menu-item">
         <span>Keyboard layout</span>
         <select
+          class="he-select"
           aria-label="Keyboard layout"
           value={layout}
           onchange={(event) =>
@@ -130,18 +186,49 @@
            opens Chrome's HID picker, and nothing here performs an automatic
            look. A label that promised one was how someone pressed it four
            times (the App's own note on the gate's action). -->
-      <button class="row" data-action="device" type="button" onclick={() => act(onPickDevice)}>
+      <button
+        class="row he-menu-item"
+        data-action="device"
+        type="button"
+        onclick={() => act(onPickDevice)}
+      >
         Choose device…
       </button>
+      <button class="row he-menu-item" data-action="obs" type="button" onclick={() => act(onObs)}>
+        <span>OBS connection</span>
+        <span class="state" class:down={!obsConnected} data-obs-state>
+          {#if !obsConnected}<span class="state-dot" aria-hidden="true"></span>{/if}
+          {obsConnected ? 'Connected' : 'Disconnected'}
+        </span>
+      </button>
+      <button class="row he-menu-item" data-action="copy-url" type="button" onclick={copyUrl}>
+        {#if copied === 'idle'}
+          <span>Copy overlay URL</span>
+        {:else}
+          <!-- The title carries the way out of a failure: the OBS pill's popover
+               has the URL in a field to select by hand. -->
+          <span
+            class="said"
+            data-copy-label
+            title={copied === 'failed'
+              ? 'Select the URL in the OBS pill’s popover instead'
+              : undefined}
+            onanimationend={() => (copied = 'idle')}
+          >
+            {copied === 'done' ? 'Overlay URL copied' : 'Copy failed'}
+          </span>
+        {/if}
+        <span class="icon" aria-hidden="true"><Copy size={16} /></span>
+      </button>
       <button
-        class="row"
+        class="row he-menu-item"
         data-action="diagnostics"
         type="button"
         onclick={() => act(onDiagnostics)}
       >
         <span>Diagnostics</span>
-        {#if toReport > 0}
-          <span class="note" data-to-report>{toReport} to report</span>
+        {#if toCheck > 0}
+          <span class="note" data-to-report>{toCheck} to check</span>
         {/if}
       </button>
 
@@ -153,6 +240,10 @@
       <p class="build" data-build>Halcyon {__BUILD__}</p>
     </div>
   {/if}
+
+  {#if obsOpen && obsPanel}
+    {@render obsPanel(closeObs)}
+  {/if}
 </div>
 
 <style>
@@ -162,31 +253,18 @@
     align-items: center;
     font: var(--he-font);
   }
-  .trigger {
-    all: unset;
-    position: relative;
-    cursor: pointer;
-    padding: 4px 6px;
-    font-size: var(--he-size-sm);
-    color: var(--he-text-muted);
-  }
-  .trigger:hover,
-  .trigger[aria-expanded='true'] {
-    color: var(--he-text);
-  }
-  .trigger:focus-visible {
-    outline: 2px solid var(--he-accent);
-    outline-offset: 1px;
-    border-radius: var(--he-radius);
-  }
+  /* Over the corner of the frame, ringed in the page colour so it reads as
+     a mark on the button rather than a dot inside it. */
   .dot {
     position: absolute;
-    top: 3px;
-    right: 2px;
-    inline-size: 6px;
-    block-size: 6px;
+    top: -3px;
+    right: -3px;
+    inline-size: 7px;
+    block-size: 7px;
+    box-sizing: content-box;
+    border: 2px solid var(--he-bg);
     border-radius: 50%;
-    background: var(--he-override);
+    background: var(--he-warn);
   }
 
   .menu {
@@ -201,6 +279,7 @@
     background: var(--he-popover);
     border: 1px solid var(--he-border-popover);
     border-radius: var(--he-radius-panel);
+    box-shadow: var(--he-shadow-menu);
     font-size: var(--he-size-sm);
     color: var(--he-text-muted);
   }
@@ -218,33 +297,52 @@
     font-size: var(--he-size-sm);
     color: var(--he-text-muted);
   }
-  .row:hover,
-  .row:focus-visible,
   .row:focus-within {
-    background: var(--he-surface);
+    background: var(--he-highlight);
     color: var(--he-text);
+  }
+  /* The keyboard layout list sits in a row that already lights up with the
+     focus, as a menu's options do: no ring of its own on top. */
+  .row select:focus-visible {
+    outline: none;
   }
   .note {
     font-size: var(--he-size-xs);
-    color: var(--he-override);
+    color: var(--he-warn);
   }
-
-  /* Bare, so the row reads "Keyboard layout · Auto ▾" and not as a form. */
-  select {
-    font: inherit;
+  /* OBS connection's state, like the Diagnostics count: muted when OBS
+     answers, red with its dot when it does not (board Editor-Settings). */
+  .state {
+    display: flex;
+    align-items: center;
+    gap: 7px;
     font-size: var(--he-size-xs);
-    color: var(--he-text);
-    background: none;
-    border: none;
-    padding: 0;
-    cursor: pointer;
+    color: var(--he-text-muted);
   }
-  select:focus-visible {
-    outline: 2px solid var(--he-accent);
-    outline-offset: 2px;
-    border-radius: 2px;
+  .state.down {
+    color: var(--he-danger);
+  }
+  .state-dot {
+    flex: none;
+    inline-size: 8px;
+    block-size: 8px;
+    border-radius: 50%;
+    background: var(--he-danger);
   }
 
+  /* Holds the message two seconds, then ends it (animationend). */
+  .said {
+    animation: said 2s linear forwards;
+  }
+  @keyframes said {
+    to {
+      opacity: 1;
+    }
+  }
+  .icon {
+    display: inline-grid;
+    color: var(--he-text-muted);
+  }
   hr {
     inline-size: auto;
     block-size: 1px;
@@ -257,6 +355,6 @@
     margin: 0;
     padding: 8px 10px;
     font-size: var(--he-size-xs);
-    color: var(--he-text-faint);
+    color: var(--he-text-muted);
   }
 </style>
