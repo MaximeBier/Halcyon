@@ -361,6 +361,11 @@ export function createProfileStore(storage: ProfileStorage): ProfileStore {
       // `suffixed` — the only surviving copy of the imported keys — must stay
       // put rather than vanish into a name that is no longer there.
       if (!names().includes(target)) return false;
+      // Put aside first, as a cleanup does: the profile being replaced may be
+      // one a newer version wrote, shown here as the defaults, and Replace is
+      // the one write the newer-version guard of `save` does not stand in.
+      const previous = storage.getItem(profileKey(target));
+      if (previous !== null) write(storage, backupKey(profileKey(target)), previous);
       if (!write(storage, profileKey(target), exportConfig(config))) return false;
 
       // Only reached once `target` safely carries the new configuration:

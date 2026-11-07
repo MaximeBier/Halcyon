@@ -508,6 +508,19 @@ describe('a profile written by a newer version', () => {
     expect(storage.map.get('halcyon:profile:Default')).toBe(newer);
   });
 
+  it('is put aside before a Replace writes over it', () => {
+    const storage = profileStorage({
+      'halcyon:profiles': JSON.stringify(['Default', 'Default 2']),
+      'halcyon:profile:Default': newer,
+      'halcyon:profile:Default 2': exportConfig(defaultConfig()),
+    });
+    const store = createProfileStore(storage);
+
+    store.replaceFrom('Default', 'Default 2', withKeys(aKey));
+
+    expect(storage.map.get('halcyon:backup:halcyon:profile:Default')).toBe(newer);
+  });
+
   it('does not stop a profile of this version from being saved', () => {
     const storage = withNewer();
     const store = createProfileStore(storage);
