@@ -113,7 +113,7 @@ export function loadToast(problem: 'unreadable' | 'too-new' | null): Notice | nu
     return {
       tone: 'error',
       message:
-        'Saved profile written by a newer version of Halcyon. Started from the defaults. It is left untouched: changes here are not saved.',
+        'Your profiles were saved by a newer version of Halcyon, so they are left untouched. You’re seeing the defaults; changes here won’t be saved.',
     };
   }
   return {
