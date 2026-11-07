@@ -247,6 +247,12 @@ describe('status bar wording', () => {
     expect(obsHint('auth-failed')).toMatch(/password/i);
   });
 
+  it('puts what it names in OBS or Chrome in quotes, a menu path in one pair', () => {
+    expect(obsHint('auth-failed')).toContain('“Tools → WebSocket Server Settings”');
+    expect(obsHint('unreachable')).toContain('“Tools”');
+    expect(obsHint('unreachable')).toContain('“Site settings”');
+  });
+
   it('names the firmware first when no analog interface is found', () => {
     // Observed 2026-08-24: same keyboard model, an out-of-date firmware, and
     // the 0xFF53 usage page simply absent. Wootility is the fix, and it is the

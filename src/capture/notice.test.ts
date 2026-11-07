@@ -16,14 +16,14 @@ describe('what an import says, once', () => {
     // and the only way to know which one is to be told.
     expect(importedToast('Valorant', 0)).toEqual({
       tone: 'success',
-      message: 'Profile imported as "Valorant"',
+      message: 'Profile imported as “Valorant”',
     });
   });
 
   it('names the profile it actually landed in, not the one it asked for', () => {
     // `freeName` deduplicates in silence. Saying "Valorant" while the keys are
     // in "Valorant 2" sends someone looking in the wrong profile.
-    expect(importedToast('Valorant 2', 0).message).toContain('"Valorant 2"');
+    expect(importedToast('Valorant 2', 0).message).toContain('“Valorant 2”');
   });
 
   it('warns, rather than confirms, when keys were skipped', () => {
@@ -32,7 +32,7 @@ describe('what an import says, once', () => {
     // keyboard (spec §16.6).
     expect(importedToast('Valorant', 2)).toEqual({
       tone: 'warning',
-      message: 'Profile imported as "Valorant" · 2 keys skipped (not on this keyboard)',
+      message: 'Profile imported as “Valorant” · 2 keys skipped (not on this keyboard)',
     });
   });
 

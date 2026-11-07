@@ -80,7 +80,7 @@ export function importedToast(
   dropped: number,
   replace?: { name: string; run: () => void },
 ): Notice {
-  const landed = `Profile imported as "${profile}"`;
+  const landed = `Profile imported as “${profile}”`;
   const action = replace ? { label: `Replace “${replace.name}”`, run: replace.run } : undefined;
 
   // A warning, never an error: the import worked. Calling it a failure is how

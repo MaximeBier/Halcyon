@@ -240,7 +240,7 @@ export function obsHint(status: ObsStatus): string {
     case 'connecting':
       return 'Connecting to OBS…';
     case 'auth-failed':
-      return 'OBS refused the password. Check Tools → WebSocket Server Settings.';
+      return 'OBS refused the password. Check “Tools → WebSocket Server Settings”.';
     case 'unreachable':
       // Two dead ends hide behind this status, and neither announces itself:
       // the WebSocket server is off, or Chrome's local network access was
@@ -255,7 +255,7 @@ export function obsHint(status: ObsStatus): string {
       // push the four other pills apart. Anyone using a keyboard overlay
       // presses a key within seconds, and the wizard's OBS row still spells it
       // out where a beginner is actually looking (`obsNote`).
-      return 'OBS is not answering. Enable its WebSocket server in Tools, and allow local network access. Re-allow it in site settings if you refused.';
+      return 'OBS is not answering. Enable its WebSocket server in “Tools”, and allow local network access. Re-allow it in “Site settings” if refused.';
     case 'disconnected':
       // Retrying rides on keyboard reports, never on a timer (spec §2.2), so
       // the way back is a keystroke — and saying so beats looking stuck.

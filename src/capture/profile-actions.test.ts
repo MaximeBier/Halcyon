@@ -328,7 +328,7 @@ describe('createProfileActions', () => {
         ...openDoors('Valorant'),
         'setToast(success)',
       ]);
-      expect(toasts.at(-1)?.message).toBe('Profile imported as "Valorant"');
+      expect(toasts.at(-1)?.message).toBe('Profile imported as “Valorant”');
     });
 
     it('offers to replace on a name collision, and Replace writes through replaceFrom then reopens the target', async () => {
