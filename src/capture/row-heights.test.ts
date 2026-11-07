@@ -141,10 +141,10 @@ describe('the header, on one line at every width (board Editor-HeaderNarrow)', (
     expect(source).toContain("from './header-fold'");
     expect(source).toMatch(/fitHeader\(/);
     expect(header).toMatch(/data-fold=\{fold\}/);
-    // The pills can shrink (to be cut at 5 and 7), so they could spill under
-    // Resume inside the left block without the block itself overflowing: a
-    // child spilling out of its own box counts as an overflow too.
-    expect(source).toMatch(/\[\.\.\.lead\.children\]\.some\(/);
+    // Measured on the header's own items, a child of the left block spilling
+    // out of its box included, and never a popover hanging from a pill
+    // (`header-fold.test.ts`).
+    expect(source).toMatch(/headerSpills\(bar, lead\)/);
     expect(header).toMatch(/brand\(fold === 1\)/);
     const element = (name: string) => {
       const at = header.indexOf(`<${name}`);

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { ListChecks, Redo2, Undo2 } from './icons';
-  import { fitHeader, type Fold } from './header-fold';
+  import { fitHeader, headerSpills, type Fold } from './header-fold';
   import { untrack, tick } from 'svelte';
   import { createKeyboardLink, type KeyboardStatus } from '../keyboard/device';
   import {
@@ -852,16 +852,10 @@
         fold = next;
         await tick();
       },
-      () =>
-        run === fitting &&
-        !!bar &&
-        !!lead &&
-        (lead.scrollWidth > lead.clientWidth ||
-          bar.scrollWidth > bar.clientWidth ||
-          // The run of pills may shrink (to be cut at 5 and 7): squeezed, it
-          // spilled under Resume inside the left block, which itself did not
-          // overflow. A child spilling out of its own box is an overflow too.
-          [...lead.children].some((child) => child.scrollWidth > child.clientWidth + 1)),
+      // The header's own items, never a popover hanging from one: an OBS
+      // popover open under its pill, wider than the run of pills, folded
+      // the header to its dots at full width (`headerSpills`).
+      () => run === fitting && !!bar && !!lead && headerSpills(bar, lead),
     );
   }
   $effect(() => {
