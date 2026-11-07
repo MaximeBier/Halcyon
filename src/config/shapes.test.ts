@@ -4,6 +4,7 @@ import { migrate } from './migrate';
 import { resolve } from './resolve';
 import { CONFIG_VERSION, type OverlayConfig, type ResolvedConfig } from './schema';
 import { buildScene } from '../view/scene';
+import { exportConfig } from './storage';
 
 /**
  * Every shape a released version stored, loaded by today's code.
@@ -315,7 +316,7 @@ describe('v3.7 to v3.8.0: the shape every real profile has', () => {
     ],
   };
 
-  it('comes back exactly as it was stored, its version aside', () => {
+  it('comes back exactly as it was stored', () => {
     const result = migrate(structuredClone(stored));
 
     expect(result).toEqual({
@@ -323,5 +324,23 @@ describe('v3.7 to v3.8.0: the shape every real profile has', () => {
       dropped: 0,
       config: { ...stored, version: CONFIG_VERSION } as unknown as OverlayConfig,
     });
+  });
+});
+
+describe('the version stays 1', () => {
+  // A version 2 file would be refused by every page older than 3.8.1, and
+  // 3.8.0 has no guard against writing over it: a tab left open across the
+  // deployment would load the defaults and bury the profile at the first
+  // edit. Content tells the old shapes apart; the number does not have to.
+  it('writes version 1, a legacy shape included', () => {
+    const result = migrate({
+      version: 1,
+      layout: 'iso',
+      style: { restFilled: false, borderWidth: 1 },
+      keys: [Q],
+    });
+
+    expect(CONFIG_VERSION).toBe(1);
+    expect(result.ok && exportConfig(result.config)).toContain('"version": 1');
   });
 });

@@ -4,24 +4,26 @@ import type { LayoutOverride } from '../keyboard/labels';
 /**
  * The version of the stored shape.
  *
- * **The rule: a profile someone has must never be lost, nor change appearance,
- * at an update.** Whatever a released version stored — in the browser or in an
+ * **The rule: a stored profile is never lost, and never changes look, at an
+ * update.** Whatever a released version stored — in the browser or in an
  * exported file — loads into the same keys, drawn the same way. A field added
- * with a default that draws what was drawn before needs nothing. A field that
- * is renamed, moved, removed or narrowed does: the version goes up, and
- * `MIGRATIONS` in `migrate.ts` gains the step that maps the old shape onto
- * the new one, faithfully, with a test holding a literal file of the old shape
- * (`shapes.test.ts`). What the new shape cannot represent is named in that
- * step, so that the loss is a decision rather than an oversight.
+ * with a default that draws what was drawn before needs nothing.
  *
- * The version is also what an older build reads to refuse a file it cannot
- * draw, as written by a newer version, instead of guessing at it (spec §8.8).
+ * **Version 1 covers every shape from v0.3 on**, and the number never told
+ * them apart. The few that today's fields would read differently —
+ * `restFilled`, the border that followed the key before v0.7, a radius per
+ * key — are recognised by what they carry and mapped back to the look they
+ * were saved with (`fromLegacyShapes` in `migrate.ts`, a literal file of each
+ * in `shapes.test.ts`). What today's shape cannot represent is named there.
  *
- * Version 2 (v3.8.1): version 1 had covered every shape from v0.3 to v3.8.0,
- * among them three that loaded with another look — `restFilled`, the border
- * that followed the key before v0.7, and a radius per key. See `fromVersion1`.
+ * **Bump it only for a change content cannot disambiguate**: a field that
+ * changes meaning under the same name, or a shape an older build would load
+ * into something else without a word. The step then goes into `MIGRATIONS`.
+ * An older build refuses a file of a newer version, and from v3.8.1 on it
+ * also refuses to write over one (`ProfileStore.save`): every page that can
+ * meet a version 2 file already carries that guard.
  */
-export const CONFIG_VERSION = 2;
+export const CONFIG_VERSION = 1;
 
 export type KeyMode = 'key' | 'axis';
 

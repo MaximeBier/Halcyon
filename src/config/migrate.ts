@@ -29,10 +29,11 @@ function isLoose(value: unknown): value is Loose {
 }
 
 /**
- * Version 1 is every shape written from v0.3 to v3.8.0: they all said
- * `version: 1`, so what a file carries is the only witness of when it was
- * written. Three of those shapes drew something today's fields read
- * differently, and this step gives each back the look it was saved with.
+ * Version 1 is every shape written from v0.3 on: they all say `version: 1`,
+ * so what a file carries is the only witness of when it was written. Three of
+ * those shapes drew something today's fields read differently, and this gives
+ * each back the look it was saved with — recognised by content, so it leaves
+ * every shape written since v3.0 exactly as it is.
  *
  * - **`restFilled`** (v0.7 to v1.0, global). `false` drew a transparent
  *   resting key with its border, which is `restVisibility: 'outline'`.
@@ -48,8 +49,8 @@ function isLoose(value: unknown): value is Loose {
  *   on a tie the global stays. The keys drawn with another radius cannot keep
  *   it.
  */
-function fromVersion1(config: Loose): Loose {
-  if (!isLoose(config.style)) return { ...config, version: 2 };
+function fromLegacyShapes(config: Loose): Loose {
+  if (!isLoose(config.style)) return config;
 
   const style: Loose = { ...config.style };
   let keys = config.keys;
@@ -93,7 +94,7 @@ function fromVersion1(config: Loose): Loose {
     if (chosen !== global) style.radius = chosen;
   }
 
-  return { ...config, version: 2, style, keys };
+  return { ...config, style, keys };
 }
 
 /**
@@ -102,7 +103,6 @@ function fromVersion1(config: Loose): Loose {
  */
 const MIGRATIONS: Record<number, (config: Loose) => Loose> = {
   0: (config) => ({ ...config, version: 1, layout: config.layout ?? 'iso' }),
-  1: fromVersion1,
 };
 
 const LAYOUT_OVERRIDES: readonly string[] = ['auto', 'azerty', 'qwerty', 'qwertz'];
@@ -166,7 +166,7 @@ function knownKeyStyle(raw: unknown): Partial<KeyStyle> {
   // them: precisely the "stored by the editor, ignored by the renderer" the
   // comment above says this exists to prevent. Derived from the inheritable set
   // itself, the mistake has nowhere left to happen. A key's own `radius` is
-  // dropped here since 2026-09-05, when it went global; `fromVersion1` has
+  // dropped here since 2026-09-05, when it went global; `fromLegacyShapes` has
   // already moved what it could of it onto the global style.
   return pickStyle(withFamilyName(raw), STYLE_KEYS) as Partial<KeyStyle>;
 }
@@ -201,6 +201,10 @@ export function migrate(raw: unknown): MigrationResult {
   const version = typeof config.version === 'number' ? config.version : 0;
 
   if (version > CONFIG_VERSION) return { ok: false, reason: 'too-new' };
+
+  // Before the chain: the shapes it repairs all say version 1 or nothing, and
+  // a later step must receive them already in today's version-1 shape.
+  if (version <= 1) config = fromLegacyShapes(config);
 
   for (let from = version; from < CONFIG_VERSION; from++) {
     const step = MIGRATIONS[from];
