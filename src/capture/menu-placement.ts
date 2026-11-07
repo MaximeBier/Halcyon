@@ -8,6 +8,7 @@
  * room there and not enough below; slid sideways to stay on screen; never
  * taller than the room on its side, the list inside scrolling instead.
  */
+import { UI_TOKENS } from '../styles/ui-tokens';
 import type { PixelBox, Size } from './selection-bar';
 
 export interface MenuPlacement {
@@ -18,8 +19,9 @@ export interface MenuPlacement {
   above: boolean;
 }
 
-/** From the anchor; and from every edge of the window. */
-const GAP = 4;
+/** From the anchor: the dropdowns' own offset (6 px), read from the token so the two never part. */
+const GAP = Number.parseFloat(UI_TOKENS.dropdownOffset);
+/** From every edge of the window. */
 const MARGIN = 8;
 
 export function menuPlacement(anchor: PixelBox, menu: Size, view: Size): MenuPlacement {
