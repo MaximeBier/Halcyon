@@ -184,7 +184,15 @@ export interface ProfileStore {
    */
   importFrom(name: string, config: OverlayConfig): string;
   duplicate(from: string): string;
-  remove(name: string): void;
+  /**
+   * Removes a profile and hands back the text it was stored as, or `null`
+   * when nothing was removed (the last profile stays). The text is what an
+   * Undo writes back: the configuration on screen may not be the profile —
+   * one written by a newer version is shown as the defaults.
+   */
+  remove(name: string): string | null;
+  /** Lands stored text back as a profile, as is, under a free name. */
+  restore(name: string, raw: string): string;
   /** False when the name was empty or already belonged to another profile. */
   rename(from: string, to: string): boolean;
   /**
@@ -279,19 +287,21 @@ export function createProfileStore(storage: ProfileStorage): ProfileStore {
    * can drop the suffixed copy through the exact same path `remove` uses —
    * one deletion rule, not two that could quietly drift apart.
    */
-  function dropProfile(name: string): void {
+  function dropProfile(name: string): string | null {
     const remaining = names().filter((entry) => entry !== name);
     // Removing the last profile would leave the application without a
     // configuration, and nothing to switch to.
-    if (remaining.length === 0) return;
+    if (remaining.length === 0) return null;
 
     // The list first, and only delete if it took: a shortened list that
     // never landed alongside a deletion that did leaves a name pointing at
     // nothing, for good.
-    if (!writeNames(remaining)) return;
+    if (!writeNames(remaining)) return null;
+    const raw = storage.getItem(profileKey(name));
     storage.removeItem(profileKey(name));
     storage.removeItem(backupKey(profileKey(name)));
     if (activeName() === name) write(storage, ACTIVE_KEY, remaining[0]!);
+    return raw;
   }
 
   return {
@@ -340,6 +350,10 @@ export function createProfileStore(storage: ProfileStorage): ProfileStore {
     },
 
     remove: dropProfile,
+
+    restore(name, raw) {
+      return add(name, raw);
+    },
 
     replaceFrom(target, suffixed, config) {
       // The toast can outlive `target`: it may have been renamed or removed

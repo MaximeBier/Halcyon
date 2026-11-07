@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createProfileActions } from './profile-actions';
 import { defaultConfig, type OverlayConfig } from '../config/schema';
-import { exportProfile } from '../config/storage';
+import { createProfileStore, exportProfile } from '../config/storage';
 import { profileFileName } from './profile-file';
 import { loadToast, type Notice } from './notice';
 
@@ -29,6 +29,8 @@ function setup(
     replaces?: boolean;
     onRenamed?: (from: string, to: string) => void;
     onRemoved?: (name: string) => void;
+    /** What the store hands back on removal: the stored text, or nothing. */
+    removed?: string | null;
   } = {},
 ) {
   const calls: string[] = [];
@@ -71,8 +73,13 @@ function setup(
       calls.push(`store.rename(${from},${to})`);
       return options.renames ?? true;
     }),
-    remove: vi.fn((name: string): void => {
+    remove: vi.fn((name: string): string | null => {
       calls.push(`store.remove(${name})`);
+      return options.removed ?? null;
+    }),
+    restore: vi.fn((name: string, _raw: string): string => {
+      calls.push(`store.restore(${name})`);
+      return name;
     }),
     importFrom: vi.fn((name: string, _config: OverlayConfig): string => {
       calls.push(`store.importFrom(${name})`);
@@ -383,6 +390,60 @@ describe('createProfileActions', () => {
       const { actions } = setup({ profile: 'Apex', renames: false, onRenamed });
       actions.renameProfile('Valorant');
       expect(onRenamed).not.toHaveBeenCalled();
+    });
+
+    it('Undo writes back the stored text itself, never the configuration on screen', () => {
+      const { actions, calls, toasts, store, openDoors } = setup({
+        profile: 'Apex',
+        names: ['Valorant'],
+        removed: '{"version":1}',
+      });
+
+      actions.removeProfile();
+      calls.length = 0;
+      toasts.at(-1)!.action!.run();
+
+      expect(calls).toEqual(['store.restore(Apex)', ...openDoors('Apex')]);
+      expect(store.restore).toHaveBeenCalledWith('Apex', '{"version":1}');
+      expect(store.importFrom).not.toHaveBeenCalled();
+    });
+
+    it('gives a profile from a newer version back intact after Delete and Undo', () => {
+      // On screen it was the defaults shown in its place: an Undo that wrote
+      // those back would have destroyed it.
+      const newer = JSON.stringify({ version: 2, layout: 'iso', style: {}, keys: [] });
+      const map = new Map([
+        ['halcyon:profiles', JSON.stringify(['Future', 'Default'])],
+        ['halcyon:profile:Future', newer],
+        ['halcyon:profile:Default', JSON.stringify(defaultConfig())],
+        ['halcyon:active-profile', 'Future'],
+      ]);
+      const store = createProfileStore({
+        getItem: (key) => map.get(key) ?? null,
+        setItem: (key, value) => void map.set(key, value),
+        removeItem: (key) => void map.delete(key),
+      });
+      let profile = store.active();
+      let config = store.load(profile).config;
+      let toast: Notice | null = null;
+      const actions = createProfileActions({
+        store,
+        broadcaster: { publish: () => {} },
+        current: () => ({ profile, config }),
+        setProfile: (name) => (profile = name),
+        setConfig: (next) => (config = next),
+        setProfileNames: () => {},
+        setToast: (notice) => (toast = notice),
+        resetSelection: () => {},
+        clearHistory: () => {},
+        download: () => {},
+      });
+
+      actions.removeProfile();
+      expect(map.has('halcyon:profile:Future')).toBe(false);
+      (toast as Notice | null)!.action!.run();
+
+      expect(map.get('halcyon:profile:Future')).toBe(newer);
     });
 
     it('reports a removal by the name that left', () => {

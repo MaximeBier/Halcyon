@@ -32,6 +32,7 @@ export interface ProfileActionsDeps {
     | 'duplicate'
     | 'rename'
     | 'remove'
+    | 'restore'
     | 'importFrom'
     | 'replaceFrom'
   >;
@@ -146,18 +147,22 @@ export function createProfileActions(deps: ProfileActionsDeps): ProfileActions {
     // later — would hand back today's profile instead of the one that just
     // left.
     const { profile: gone, config: deletedConfig } = deps.current();
-    deps.store.remove(gone);
+    const stored = deps.store.remove(gone);
     deps.onRemoved?.(gone);
     openProfile(deps.store.active());
     deps.setToast(
       profileDeletedToast(gone, () => {
-        // `importFrom` is the store's own door for landing a configuration
-        // beside the others without overwriting one — the exact collision
-        // handling `freeName` gives every import, reused rather than
-        // reimplemented: a same-named profile created between the delete and
-        // this click gets the resurrection suffixed onto it instead of
-        // erased.
-        openProfile(deps.store.importFrom(gone, deletedConfig));
+        // The text it was stored as, never the configuration on screen: a
+        // profile written by a newer version is shown as the defaults, and
+        // writing those back would destroy it. Both doors land beside the
+        // others without overwriting one — `freeName` suffixes the
+        // resurrection onto a same-named profile created in the meantime.
+        // `importFrom` only when the store kept no text to hand back.
+        openProfile(
+          stored !== null
+            ? deps.store.restore(gone, stored)
+            : deps.store.importFrom(gone, deletedConfig),
+        );
       }),
     );
   }

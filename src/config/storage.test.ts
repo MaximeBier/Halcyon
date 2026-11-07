@@ -252,6 +252,16 @@ describe('named profiles', () => {
     expect(store.load('Main').config.keys).toHaveLength(1);
   });
 
+  it('hands back what it removed, and nothing when it removed nothing', () => {
+    const store = createProfileStore(profileStorage());
+    store.save('Default', withKeys(aKey));
+    const other = store.create('Other');
+    const raw = exportConfig(withKeys(aKey));
+
+    expect(store.remove('Default')).toBe(raw);
+    expect(store.remove(other)).toBeNull();
+  });
+
   it('refuses to remove the last profile', () => {
     const store = createProfileStore(profileStorage());
     store.save('Default', withKeys(aKey));
@@ -479,6 +489,22 @@ describe('a profile written by a newer version', () => {
 
     store.save('Default', withKeys(aKey));
 
+    expect(storage.map.get('halcyon:profile:Default')).toBe(newer);
+  });
+
+  it('comes back byte for byte after a removal is undone', () => {
+    const storage = profileStorage({
+      'halcyon:profiles': JSON.stringify(['Default', 'Other']),
+      'halcyon:profile:Default': newer,
+      'halcyon:profile:Other': exportConfig(defaultConfig()),
+    });
+    const store = createProfileStore(storage);
+    store.load('Default');
+
+    const removed = store.remove('Default');
+    const back = store.restore('Default', removed!);
+
+    expect(back).toBe('Default');
     expect(storage.map.get('halcyon:profile:Default')).toBe(newer);
   });
 
