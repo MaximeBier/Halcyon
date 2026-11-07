@@ -1,6 +1,6 @@
 import type { AnalogEntry } from '../keyboard/decode';
 import { geometryFor, placeNewKey } from '../keyboard/geometry';
-import { iconFor, labelFor, type LayoutMapLike } from '../keyboard/labels';
+import { learnedLabelFor, type LayoutMapLike } from '../keyboard/labels';
 import { ontoSurface, type Rect } from './layout';
 import type { KeyConfig, OverlayConfig } from '../config/schema';
 
@@ -74,7 +74,7 @@ export function addLearnedKey(
     // The glyph wins where there is one (board 6e). Learning is the one moment
     // when nobody has yet decided anything about this key's name, so it is the
     // only moment a default may be chosen without overruling somebody.
-    label: iconFor(entry.usage) ?? labelFor(entry.usage, layout),
+    label: learnedLabelFor(entry.usage, layout),
     x: placed.x,
     y: placed.y,
     w,

@@ -468,6 +468,12 @@ describe('LayoutEditor - a customized key says so', () => {
     expect(handles[0]!.classList.contains('customized')).toBe(false);
   });
 
+  it('leaves Enter alone when it wears the glyph learning gave it', () => {
+    const { handles } = editor(withKey('⏎', 0x28), STAGE, [], qwerty);
+
+    expect(handles[0]!.classList.contains('customized')).toBe(false);
+  });
+
   it('marks nothing as renamed when no layout was detected', () => {
     // `labelFor` would answer the position name, and every key on the board
     // would report itself renamed against a debugging string.

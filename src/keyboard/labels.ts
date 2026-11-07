@@ -165,6 +165,16 @@ export function iconFor(usage: number): string | null {
   return KEYCAP_ICONS[geometry.code] ?? null;
 }
 
+/**
+ * The label a key gets when it is learned: its glyph where there is one
+ * (board 6e), the layout's name otherwise. Learning, "back to the key name"
+ * and the question "was this key renamed?" all answer with this one function,
+ * so a key just learned can never look renamed.
+ */
+export function learnedLabelFor(usage: number, layout: LayoutMapLike | null): string {
+  return iconFor(usage) ?? labelFor(usage, layout);
+}
+
 export function labelFor(usage: number, layout: LayoutMapLike | null): string {
   const geometry = geometryFor(usage);
   if (!geometry) return `HID 0x${usage.toString(16)}`;

@@ -1,4 +1,4 @@
-import { iconFor, labelFor, resolveLayout, type LayoutMapLike } from '../keyboard/labels';
+import { labelFor, learnedLabelFor, resolveLayout, type LayoutMapLike } from '../keyboard/labels';
 import type {
   GlobalStyle,
   KeyConfig,
@@ -177,16 +177,22 @@ export function recomputeLabels(
     ...config,
     keys: config.keys.map((key) => ({
       ...key,
-      label: iconFor(key.usage) ?? labelFor(key.usage, layout),
+      label: learnedLabelFor(key.usage, layout),
     })),
   };
 }
 
 /**
- * The name the layout gives this position, when the key no longer wears it.
+ * The name learning gives this position, when the key no longer wears it.
  *
- * `null` means "nobody typed this label" — either it still equals what the
- * layout produces, or there is no layout to compare against.
+ * `null` means "nobody typed this label" — either it still equals what
+ * learning produces, or there is no layout to compare against.
+ *
+ * What learning produces is `learnedLabelFor`: the glyph for Enter, Shift,
+ * Space and the others, the layout's name for the rest. Compared against the
+ * name alone, every glyph key lit the editor's own-style dot the moment it was
+ * learned. The plain name is not a rename either: it is what those keys wore
+ * when learned before the glyphs existed, and it is what the layout calls them.
  *
  * The rule is `setLayoutOverride`'s, and the reasoning below it applies here
  * word for word: nothing in the stored shape separates "↓ because the layout
@@ -202,8 +208,9 @@ export function recomputeLabels(
 export function detectedLabelFor(key: KeyConfig, layout: LayoutMapLike | null): string | null {
   if (layout === null) return null;
 
-  const detected = labelFor(key.usage, layout);
-  return detected === key.label ? null : detected;
+  if (key.label === labelFor(key.usage, layout)) return null;
+  const learned = learnedLabelFor(key.usage, layout);
+  return learned === key.label ? null : learned;
 }
 
 /**
@@ -246,7 +253,8 @@ export function setLayoutOverride(
     ...next,
     keys: next.keys.map((key) =>
       // A label still equal to what the layout in force produces was never
-      // touched, so it follows. Anything else is a name someone typed.
+      // touched, so it follows. A glyph learning gave belongs to no layout and
+      // stays as it is. Anything else is a name someone typed.
       key.label === labelFor(key.usage, before)
         ? { ...key, label: labelFor(key.usage, after) }
         : key,

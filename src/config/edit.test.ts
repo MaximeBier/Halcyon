@@ -347,6 +347,29 @@ describe('telling a name someone typed from the one the layout gave', () => {
     expect(detectedLabelFor(down, qwerty)).toBe(null);
   });
 
+  it.each([
+    ['Enter', 0x28, '⏎'],
+    ['Backspace', 0x2a, '⌫'],
+    ['Space', 0x2c, '␣'],
+    ['Shift', 0xe1, '⇧'],
+    ['Tab', 0x2b, '⇥'],
+    ['Escape', 0x29, '⎋'],
+    ['Delete', 0x4c, '⌦'],
+    ['Win', 0xe3, '⊞'],
+  ] as const)('leaves %s learned with its glyph %s alone', (_name, usage, glyph) => {
+    // Learning gives these keys a glyph rather than the layout's word: the
+    // glyph is not a rename, and neither is the word an older capture wrote.
+    const learned = { ...keyQ, usage, label: glyph };
+
+    expect(detectedLabelFor(learned, qwerty)).toBe(null);
+    expect(detectedLabelFor({ ...learned, label: labelFor(usage, qwerty) }, qwerty)).toBe(null);
+  });
+
+  it('hands back the glyph learning gives, for an icon key renamed by hand', () => {
+    // "Back to the key name" puts the key where a fresh capture would.
+    expect(detectedLabelFor({ ...keyQ, usage: 0x28, label: 'Go' }, qwerty)).toBe('⏎');
+  });
+
   it('reports the key this whole feature exists for', () => {
     // Right Ctrl worn as the down arrow, so the cluster draws as a clean set of
     // four. It is the one key of the four that does not answer to its own
