@@ -1130,15 +1130,16 @@
          disappeared, so nothing anchored to it can carry the button. -->
         <div class="edits">
           <!-- Icon buttons, named for a screen reader by their label and for
-             the eye by the tooltip of the board (Editor-Tooltip). -->
-          <Tooltip text="Undo">
+             the eye by the tooltip (board Editor-Tooltip), with the shortcut
+             `onHistoryKey` binds (board OBS-5e-Header). -->
+          <Tooltip text="Undo · Ctrl+Z">
             {#snippet children()}
               <button class="he-icon-btn" aria-label="Undo" disabled={!canUndo} onclick={undo}
                 ><Undo2 size={16} /></button
               >
             {/snippet}
           </Tooltip>
-          <Tooltip text="Redo">
+          <Tooltip text="Redo · Ctrl+Y">
             {#snippet children()}
               <button class="he-icon-btn" aria-label="Redo" disabled={!canRedo} onclick={redo}
                 ><Redo2 size={16} /></button

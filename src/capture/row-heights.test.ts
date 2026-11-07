@@ -103,6 +103,14 @@ describe('the header, on one line at every width (board Editor-HeaderNarrow)', (
     }
   });
 
+  it('tells the shortcuts undo and redo answer to, on their tooltips (board OBS-5e-Header)', () => {
+    // The keys the page binds, and the ones the tooltips name: never apart.
+    expect(source).toContain("const wantsUndo = key === 'z' && !event.shiftKey;");
+    expect(source).toContain("const wantsRedo = key === 'y' ||");
+    expect(source).toContain('<Tooltip text="Undo · Ctrl+Z">');
+    expect(source).toContain('<Tooltip text="Redo · Ctrl+Y">');
+  });
+
   it('measures the header again once its fonts arrive, which no resize announces', () => {
     // Measured in the fallback face, then Archivo lands wider or narrower:
     // the bar keeps its width, so the observer stays silent and the header
