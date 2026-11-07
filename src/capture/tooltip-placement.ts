@@ -3,10 +3,12 @@
  * in viewport pixels — the tooltip lives in the top layer, positioned fixed.
  *
  * Above by default, 8 px away; under when the top of the window would cut it
- * (the header). Centred on the element — unless that would take it past the
- * window's right edge, or the element is a whole row: then its right edge sits
- * on the element's, the arrow 14 px in, over the end of the row where its
- * field is ("Add key", a disabled Background row). Never off screen either way.
+ * (the header). Centred on the element — unless the element ends near the
+ * window's right edge, closer than the tooltip is wide: then the tooltip's
+ * right edge sits on the element's, the arrow 14 px in ("Add key", the gear, a
+ * disabled row of the panel, over its field). A row anywhere else — a menu
+ * opened under a tab on the left — keeps its tooltip centred. Never off screen
+ * either way.
  */
 import type { PixelBox, Size } from './selection-bar';
 
@@ -19,8 +21,6 @@ export interface TooltipPlacement {
 }
 
 export interface TooltipOptions {
-  /** The host is a whole row (a disabled panel row), not a control. */
-  row?: boolean;
   gap?: number;
 }
 
@@ -34,12 +34,12 @@ export function tooltipPlacement(
   host: PixelBox,
   tip: Size,
   view: Size,
-  { row = false, gap = TOOLTIP_GAP }: TooltipOptions = {},
+  { gap = TOOLTIP_GAP }: TooltipOptions = {},
 ): TooltipPlacement {
   const centre = host.x + host.w / 2;
   const end = host.x + host.w;
   const centred = centre - tip.width / 2;
-  const rightAligned = row || centred + tip.width > view.width;
+  const rightAligned = end > view.width - tip.width;
   const wanted = rightAligned ? end - tip.width : centred;
   const left = Math.max(0, Math.min(wanted, view.width - tip.width));
   // Right-aligned, the arrow points at the row's end — or at a small

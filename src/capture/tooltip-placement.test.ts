@@ -33,13 +33,21 @@ describe('where a tooltip goes (board Editor-Tooltip)', () => {
     expect(at.left + at.arrow).toBe(host.x + host.w / 2);
   });
 
-  it('aligns on the right of a whole row, over its field, wherever the row sits', () => {
-    // A disabled row of the panel (Background in "Outline only"): the row is the host.
-    const row = { x: 300, y: 400, w: 330, h: 26 };
-    const at = tooltipPlacement(row, TIP, VIEW, { row: true });
+  it('aligns on the right of a row that ends near the window’s right edge — the panel', () => {
+    // A disabled row of the panel (Background in "Outline only"), 22 px from the edge.
+    const row = { x: 828, y: 400, w: 350, h: 26 };
+    const at = tooltipPlacement(row, TIP, VIEW);
     expect(at.left + TIP.width).toBe(row.x + row.w);
     expect(at.arrow).toBe(TIP.width - 14);
     expect(at.below).toBe(false);
+  });
+
+  it('centres on a row far from the right edge — a menu opened under a tab on the left', () => {
+    // "Delete" of the last profile: the menu opens under its tab, on the left.
+    const row = { x: 40, y: 120, w: 268, h: 32 };
+    const at = tooltipPlacement(row, TIP, VIEW);
+    expect(at.left + TIP.width / 2).toBe(row.x + row.w / 2);
+    expect(at.arrow).toBe(TIP.width / 2);
   });
 
   it('centres on an element with room on both sides, whatever its size', () => {
@@ -54,7 +62,7 @@ describe('where a tooltip goes (board Editor-Tooltip)', () => {
   });
 
   it('never leaves the window, even right-aligned on a row wider than it', () => {
-    const at = tooltipPlacement({ x: 0, y: 400, w: 1250, h: 26 }, TIP, VIEW, { row: true });
+    const at = tooltipPlacement({ x: 0, y: 400, w: 1250, h: 26 }, TIP, VIEW);
     expect(at.left).toBeGreaterThanOrEqual(0);
     expect(at.left + TIP.width).toBeLessThanOrEqual(VIEW.width);
   });
