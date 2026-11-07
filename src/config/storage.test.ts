@@ -324,6 +324,26 @@ describe('profiles that must not eat one another', () => {
     expect(store.load('Default').config.keys).toHaveLength(2);
   });
 
+  it('places a duplicate right after the profile it copies, not at the end', () => {
+    const store = createProfileStore(profileStorage());
+    store.create('Stream');
+    store.create('Practice');
+
+    const copy = store.duplicate('Default');
+
+    expect(store.list()).toEqual(['Default', copy, 'Stream', 'Practice']);
+  });
+
+  it('still places new and imported profiles at the end', () => {
+    const store = createProfileStore(profileStorage());
+    store.create('Stream');
+    store.duplicate('Default');
+
+    store.importFrom('Imported', defaultConfig());
+
+    expect(store.list().at(-1)).toBe('Imported');
+  });
+
   it('refuses a rename onto a name already taken, and says so', () => {
     // Uniquifying would be wrong here, unlike on create: someone typing an
     // existing name over a profile means one of the two, and silently landing

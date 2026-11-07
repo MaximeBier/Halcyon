@@ -252,10 +252,17 @@ export function createProfileStore(storage: ProfileStorage): ProfileStore {
     return current !== null && list.includes(current) ? current : list[0]!;
   }
 
-  function add(name: string, raw: string): string {
+  /**
+   * `after` places the new name right behind that profile, as a duplicate sits
+   * beside what it copies; without it, or once it is gone, the name goes last.
+   */
+  function add(name: string, raw: string, after?: string): string {
     const list = names();
     const chosen = freeName(list, name);
-    writeNames([...list, chosen]);
+    const at = after === undefined ? -1 : list.indexOf(after);
+    writeNames(
+      at === -1 ? [...list, chosen] : [...list.slice(0, at + 1), chosen, ...list.slice(at + 1)],
+    );
     write(storage, profileKey(chosen), raw);
     write(storage, ACTIVE_KEY, chosen);
     return chosen;
@@ -318,6 +325,7 @@ export function createProfileStore(storage: ProfileStorage): ProfileStore {
       return add(
         `${from} copy`,
         storage.getItem(profileKey(from)) ?? exportConfig(defaultConfig()),
+        from,
       );
     },
 
