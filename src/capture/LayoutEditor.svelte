@@ -370,6 +370,14 @@
     stage?.focus();
   }
 
+  /**
+   * Gives the stage the focus: where it waits while a capture listens, so a
+   * key pressed to be learned activates no button on the way (Add key).
+   */
+  export function focusStage() {
+    stage?.focus({ preventScroll: true });
+  }
+
   export function open(id: number) {
     if (!selectedIds.includes(id)) selectedIds = [id];
     editingFor = [...selectedIds];

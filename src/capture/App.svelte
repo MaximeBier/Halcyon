@@ -1220,6 +1220,7 @@
         bind:learning
         disabled={keyboardStatus !== 'connected'}
         onCancel={() => (learning = false)}
+        onArm={() => editor?.focusStage()}
       />
     </ProfileBar>
 

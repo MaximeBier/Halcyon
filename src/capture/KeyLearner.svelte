@@ -5,6 +5,7 @@
     learning = $bindable(false),
     disabled = false,
     onCancel,
+    onArm,
   }: {
     learning: boolean;
     /**
@@ -14,7 +15,25 @@
      */
     disabled?: boolean;
     onCancel: () => void;
+    /** Where the focus waits once armed: the stage, given by the page. */
+    onArm?: () => void;
   } = $props();
+
+  /**
+   * Armed, the button lets go of the focus. Kept, it turned the next Enter or
+   * Space into a click on Stop capture, and the key the stream had just
+   * learned was taken back with it (`learnedByStopPress`). Escape and this
+   * same button, clicked, still stop the capture.
+   */
+  function toggle(event: MouseEvent & { currentTarget: HTMLButtonElement }) {
+    if (learning) {
+      onCancel();
+      return;
+    }
+    learning = true;
+    event.currentTarget.blur();
+    onArm?.();
+  }
 </script>
 
 <!--
@@ -41,7 +60,7 @@
       aria-pressed={learning}
       aria-describedby={describedBy}
       {disabled}
-      onclick={() => (learning ? onCancel() : (learning = true))}
+      onclick={toggle}
     >
       {#if learning}
         <Square size={12} fill="currentColor" />

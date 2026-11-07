@@ -1571,6 +1571,21 @@ describe('LayoutEditor - learning shows itself and lets go of the stream', () =>
     expect(container.querySelector('.handle[aria-pressed="true"]')).not.toBeNull();
   });
 
+  it('holds the focus while Add key listens, and Escape still stops it from there', async () => {
+    // Add key hands the focus over once armed: on the button, Enter or Space
+    // would click Stop capture instead of being learned.
+    const { component, container, isLearning } = armed();
+    const stage = container.querySelector<HTMLElement>('.stage')!;
+
+    component.focusStage();
+
+    expect(document.activeElement).toBe(stage);
+    expect(isLearning()).toBe(true);
+    stage.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await tick();
+    expect(isLearning()).toBe(false);
+  });
+
   it('gives learning the escape before a popover open underneath it', async () => {
     const { handles, container, isLearning } = armed();
 
