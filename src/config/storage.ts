@@ -1,5 +1,5 @@
 import { migrate, type MigrationResult } from './migrate';
-import { defaultConfig, type OverlayConfig } from './schema';
+import { CONFIG_VERSION, defaultConfig, type OverlayConfig } from './schema';
 
 const KEY = 'halcyon:config';
 const PROFILES_KEY = 'halcyon:profiles';
@@ -141,10 +141,20 @@ export function readProfileName(json: string): string | null {
   }
 }
 
+/**
+ * The version alone, never a whole migration: `save` asks this on every
+ * change, drags and sliders included.
+ */
 function writtenByNewer(raw: string | null): boolean {
   if (raw === null) return false;
-  const result = importConfig(raw);
-  return !result.ok && result.reason === 'too-new';
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null) return false;
+    const version = (parsed as Record<string, unknown>).version;
+    return typeof version === 'number' && version > CONFIG_VERSION;
+  } catch {
+    return false;
+  }
 }
 
 export function importConfig(json: string): MigrationResult {
