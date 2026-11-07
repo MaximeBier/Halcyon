@@ -1404,12 +1404,12 @@
   }
   /* The quiet words ("Link OBS scenes", "Start with Windows") sit 18 px from
      their neighbours (board OBS-5e-Header): their padding and transparent
-     border (10 + 1 px a side, controls.css) are for the hover
+     border (`--he-quiet-pad` and `--he-quiet-border`, controls.css) are for the hover
      face alone, which spills past the words (board OBS-5e-ButtonStates)
      instead of pushing them apart. The 28 px icon of a folded header keeps
      its own box. */
   .tools :global(.he-btn-quiet:not(.compact)) {
-    margin-inline: -11px;
+    margin-inline: calc(-1 * (var(--he-quiet-pad) + var(--he-quiet-border)));
   }
   /* Neither block sets `white-space`: it is inherited, and the popovers that
      hang from the pills and the actions (OBS, Link OBS scenes, Start with
