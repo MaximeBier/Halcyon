@@ -1,4 +1,6 @@
 import type { DecodeAnomaly } from '../keyboard/decode';
+import type { KeyboardStatus } from '../keyboard/device';
+import type { ObsStatus } from '../transport/obs';
 
 /**
  * Who a line is for.
@@ -135,6 +137,58 @@ function fullTime(time: number): string {
     `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} ` +
     `${two(d.getHours())}:${two(d.getMinutes())}:${two(d.getSeconds())}`
   );
+}
+
+/**
+ * An OBS connection change as the Activity list writes it (board
+ * OBS-Diagnostics): a short sentence, never the client's state name — "OBS:
+ * identified." told a streamer nothing they could use.
+ */
+export function obsLine(status: ObsStatus): string {
+  switch (status) {
+    case 'identified':
+      return 'OBS connected.';
+    case 'connecting':
+      return 'Connecting to OBS…';
+    case 'auth-failed':
+      return 'Wrong OBS password.';
+    case 'unreachable':
+      return 'OBS not answering.';
+    case 'disconnected':
+      return 'OBS disconnected.';
+    case 'idle':
+      // Only ever the page's own doing: the client is closed to be rebuilt
+      // with new credentials (`reconnect` in App.svelte).
+      return 'OBS connection closed.';
+  }
+}
+
+/**
+ * A keyboard change, named after the keyboard when there is one. `previous` is
+ * the name the page knew before: the link has already forgotten the device by
+ * the time it says it is gone, and "Keyboard disconnected" is the less useful
+ * line. Lent to that one case only — a device that would not open may well be
+ * a different one.
+ */
+export function keyboardLine(
+  status: KeyboardStatus,
+  name: string | null,
+  previous: string | null,
+): string {
+  switch (status) {
+    case 'connected':
+      return `${name ?? 'Keyboard'} connected.`;
+    case 'disconnected':
+      return `${name ?? previous ?? 'Keyboard'} disconnected.`;
+    case 'no-permission':
+      return 'No keyboard allowed yet.';
+    case 'no-analog-interface':
+      return `${name ?? 'This keyboard'} has no analog interface.`;
+    case 'open-failed':
+      return `${name ?? 'Keyboard'} refused to open.`;
+    case 'unsupported':
+      return 'This browser cannot read keyboards.';
+  }
 }
 
 export function describeAnomaly(anomaly: DecodeAnomaly): string {

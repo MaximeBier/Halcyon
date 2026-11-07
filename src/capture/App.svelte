@@ -46,7 +46,14 @@
   import Diagnostics from './Diagnostics.svelte';
   import Unsupported from './Unsupported.svelte';
   import { copyToClipboard } from './clipboard';
-  import { createJournal, describeAnomaly, hexDump, type JournalEntry } from './journal';
+  import {
+    createJournal,
+    describeAnomaly,
+    hexDump,
+    keyboardLine,
+    obsLine,
+    type JournalEntry,
+  } from './journal';
   import { createStreamProbe, type StreamReading } from './probe';
   import {
     completesSetup,
@@ -525,7 +532,7 @@
       onEvent: (type, data) => sceneFollower.onEvent(type, data),
       onStatus: (s) => {
         obsStatus = s;
-        note('user', `OBS: ${s}.`);
+        note('user', obsLine(s));
         // Nothing left while the socket was down, and an overlay on the other
         // side may have been waiting the whole time.
         if (s === 'identified') {
@@ -971,9 +978,10 @@
       // — without it the overlay draws the key pressed until the freshness
       // watch times the whole capture out.
       if (keyboardStatus === 'connected' && status !== 'connected') session.rest(performance.now());
+      const previous = keyboardName;
       keyboardStatus = status;
       keyboardName = name;
-      note('user', name === null ? `Keyboard: ${status}.` : `Keyboard: ${status} (${name}).`);
+      note('user', keyboardLine(status, name, previous));
     },
   });
 

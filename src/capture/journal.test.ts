@@ -6,8 +6,12 @@ import {
   describeAnomaly,
   groupRuns,
   hexDump,
+  keyboardLine,
+  obsLine,
   type JournalEntry,
 } from './journal';
+import type { ObsStatus } from '../transport/obs';
+import type { KeyboardStatus } from '../keyboard/device';
 
 /** 14:32:05 on 6 November 2026, local time: what the wall clock says. */
 const AT_1432 = new Date(2026, 10, 6, 14, 32, 5).getTime();
@@ -233,5 +237,61 @@ describe('the activity list', () => {
   it('writes the time as hours and minutes', () => {
     expect(clockTime(AT_1432)).toBe('14:32');
     expect(clockTime(new Date(2026, 0, 1, 7, 5).getTime())).toBe('07:05');
+  });
+});
+
+describe('a connection change, in words', () => {
+  const OBS: ObsStatus[] = [
+    'idle',
+    'connecting',
+    'identified',
+    'auth-failed',
+    'unreachable',
+    'disconnected',
+  ];
+  const KEYBOARD: KeyboardStatus[] = [
+    'unsupported',
+    'no-permission',
+    'disconnected',
+    'connected',
+    'no-analog-interface',
+    'open-failed',
+  ];
+
+  it('writes the OBS states as the board Diagnostics does', () => {
+    expect(obsLine('identified')).toBe('OBS connected.');
+    expect(obsLine('auth-failed')).toBe('Wrong OBS password.');
+    expect(obsLine('unreachable')).toBe('OBS not answering.');
+    expect(obsLine('disconnected')).toBe('OBS disconnected.');
+  });
+
+  it('names the keyboard when it is known', () => {
+    expect(keyboardLine('connected', 'Wooting 60HE+', null)).toBe('Wooting 60HE+ connected.');
+    expect(keyboardLine('connected', null, null)).toBe('Keyboard connected.');
+  });
+
+  it('names the keyboard that left, which the link no longer knows', () => {
+    expect(keyboardLine('disconnected', null, 'Wooting 60HE+')).toBe('Wooting 60HE+ disconnected.');
+    expect(keyboardLine('disconnected', null, null)).toBe('Keyboard disconnected.');
+  });
+
+  it('never lends the last keyboard’s name to a device that failed to open', () => {
+    expect(keyboardLine('open-failed', null, 'Wooting 60HE+')).not.toContain('60HE+');
+  });
+
+  it('never shows an internal state name, and every line is a sentence', () => {
+    const lines = [
+      ...OBS.map(obsLine),
+      ...KEYBOARD.map((s) => keyboardLine(s, 'Wooting 60HE+', null)),
+      ...KEYBOARD.map((s) => keyboardLine(s, null, null)),
+    ];
+    for (const line of lines) {
+      expect(line).toMatch(/^[A-Z].*[.…]$/);
+      expect(line).not.toMatch(
+        /identified|auth-failed|unreachable|no-permission|analog-interface|open-failed|unsupported|idle|:/,
+      );
+    }
+    expect(new Set(OBS.map(obsLine)).size).toBe(OBS.length);
+    expect(new Set(KEYBOARD.map((s) => keyboardLine(s, null, null))).size).toBe(KEYBOARD.length);
   });
 });
