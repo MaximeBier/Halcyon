@@ -89,6 +89,12 @@
 
   let settings = $state(loadSettings(storage));
   let keyboardStatus = $state<KeyboardStatus>('disconnected');
+  /**
+   * Whether the first look for an allowed keyboard has answered. Until then
+   * `disconnected` is only where the status starts, and the wizard says it is
+   * looking rather than asking for a keyboard that may well be plugged in.
+   */
+  let keyboardAnswered = $state(false);
   /** The product name of the keyboard that answered: the keyboard pill, and the wizard's first step. */
   let keyboardName = $state<string | null>(null);
   let obsStatus = $state<ObsStatus>('idle');
@@ -981,6 +987,7 @@
       const previous = keyboardName;
       keyboardStatus = status;
       keyboardName = name;
+      keyboardAnswered = true;
       note('user', keyboardLine(status, name, previous));
     },
   });
@@ -988,7 +995,7 @@
   // Nothing to do on switching the machine on (spec §10): a keyboard already
   // authorised resumes without a gesture, and the credentials come from the
   // previous session.
-  void link.resume();
+  void link.resume().finally(() => (keyboardAnswered = true));
   obs.connect();
 </script>
 
@@ -1045,6 +1052,7 @@
       <Wizard
         {step}
         keyboard={keyboardStatus}
+        searching={!keyboardAnswered}
         device={keyboardName}
         obs={obsStatus}
         overlaysInObs={listeners.inObs}

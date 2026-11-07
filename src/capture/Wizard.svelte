@@ -34,6 +34,7 @@
     settings,
     url,
     size = null,
+    searching = false,
     onAllowKeyboard,
     onReconnect,
     onSkip,
@@ -54,6 +55,12 @@
      * into OBS.
      */
     size?: { width: number; height: number } | null;
+    /**
+     * The first look for an allowed keyboard (`getDevices()`) has not answered
+     * yet. `keyboard` reads `disconnected` meanwhile, which is where the
+     * status starts, not something that was found.
+     */
+    searching?: boolean;
     /**
      * Opens Chrome's HID picker. Called straight from the click, never through
      * an await or a timer: WebHID grants the picker to a user gesture and to
@@ -86,10 +93,14 @@
   /**
    * The keyboard's own failures, which never resolve into a device on their
    * own: old firmware, nothing plugged in, or something else already holding
-   * it. `no-permission` is left out — nothing has failed yet there.
+   * it. `no-permission` is left out — nothing has failed yet there — and so
+   * is `disconnected` before the first search has answered: the box opens on
+   * the search the board draws (noteStep1), not on "plug it in".
    */
   const keyboardFailed = $derived(
-    keyboard === 'no-analog-interface' || keyboard === 'disconnected' || keyboard === 'open-failed',
+    keyboard === 'no-analog-interface' ||
+      (keyboard === 'disconnected' && !searching) ||
+      keyboard === 'open-failed',
   );
 
   /**

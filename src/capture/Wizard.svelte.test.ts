@@ -163,6 +163,26 @@ describe('step 1 · the keyboard', () => {
     expect(container.querySelector('[data-status]')!.textContent).toMatch(/plug/i);
   });
 
+  it('looks for the keyboard at opening, before the first search has answered', () => {
+    // The status starts at `disconnected` until `getDevices()` answers: the
+    // box used to open on a red dot and "plug it in" for a keyboard that was
+    // plugged in all along. The board draws the search (noteStep1).
+    const { container } = wizard('keyboard', { keyboard: 'disconnected', searching: true });
+    const status = container.querySelector('[data-status]')!;
+
+    expect(status.textContent).toContain('Looking for a keyboard you’ve already allowed…');
+    expect(status.getAttribute('data-failed')).toBe('false');
+    expect(status.querySelector('.dot')!.classList).toContain('he-pulse');
+    expect(row(container, 'keyboard').textContent).toContain('searching…');
+  });
+
+  it('says to plug it in once the search has answered with nothing plugged', () => {
+    const { container } = wizard('keyboard', { keyboard: 'disconnected', searching: false });
+
+    expect(container.querySelector('[data-status]')!.textContent).toMatch(/plug/i);
+    expect(container.querySelector('[data-status]')!.getAttribute('data-failed')).toBe('true');
+  });
+
   it('turns the box red only for a keyboard that refused to open', () => {
     // `disconnected` is where the status starts, before `getDevices()` has
     // answered: a red box there flashed at every opening of the wizard, and
