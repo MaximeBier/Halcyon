@@ -181,12 +181,33 @@ describe('buildScene', () => {
     expect(buildScene(config(key()), []).keys[0]?.border.color).toBe(DEFAULT_STYLE.borderColor);
   });
 
-  it('sizes the label to the key height, not in fixed pixels', () => {
-    const small = buildScene(config(key()), []);
+  it('sizes the label to a 1u key, not in fixed pixels', () => {
+    // unit 100, gap 10: a 1u face is 90 px tall, whatever the scale.
+    expect(buildScene(config(key()), []).keys[0]?.fontSize).toBeCloseTo(90 * 0.4, 5);
+    expect(buildScene({ ...config(key()), unit: 50, gap: 4 }, []).keys[0]?.fontSize).toBeCloseTo(
+      46 * 0.4,
+      5,
+    );
+  });
+
+  it('gives a tall key the label of a 1u key, not a bigger one', () => {
+    // An ISO Enter, a numpad + or Enter: two units tall, one label size.
     const tall = buildScene(config(key({ h: 2 })), []);
 
-    expect(small.keys[0]?.fontSize).toBeCloseTo(90 * 0.4, 5);
-    expect(tall.keys[0]?.fontSize).toBeCloseTo(190 * 0.4, 5);
+    expect(tall.keys[0]?.fontSize).toBeCloseTo(90 * 0.4, 5);
+  });
+
+  it('shrinks the label on a key shorter than 1u, so it still fits', () => {
+    // Half a unit: a 40 px face, under the 90 px of a 1u key.
+    const short = buildScene(config(key({ h: 0.5 })), []);
+
+    expect(short.keys[0]?.fontSize).toBeCloseTo(40 * 0.4, 5);
+  });
+
+  it('keeps a wide key to the label of a 1u key', () => {
+    const wide = buildScene(config(key({ w: 6.25 })), []);
+
+    expect(wide.keys[0]?.fontSize).toBeCloseTo(90 * 0.4, 5);
   });
 
   it('draws a small and a large text either side of the medium one', () => {
@@ -582,13 +603,16 @@ describe('the label keeps one colour, whatever moves behind it', () => {
   });
 
   it('scales the outline with the label, not in fixed pixels', () => {
-    const small = buildScene(config(key()), []);
+    const normal = buildScene(config(key()), []);
+    const short = buildScene(config(key({ h: 0.5 })), []);
     const tall = buildScene(config(key({ h: 2 })), []);
 
-    expect(tall.keys[0]!.labelOutlineWidth).toBeCloseTo(
-      small.keys[0]!.labelOutlineWidth * (190 / 90),
+    expect(short.keys[0]!.labelOutlineWidth).toBeCloseTo(
+      normal.keys[0]!.labelOutlineWidth * (40 / 90),
       5,
     );
+    // A tall key's label is a 1u key's, and so is its outline.
+    expect(tall.keys[0]!.labelOutlineWidth).toBeCloseTo(normal.keys[0]!.labelOutlineWidth, 5);
   });
 
   it('draws the outline in four steps of the text size, the third being the old one', () => {

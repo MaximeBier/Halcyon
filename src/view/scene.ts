@@ -5,10 +5,11 @@ import type { FillDirection, LabelOutline, LabelSize, ResolvedConfig } from '../
 import type { FrameKey } from '../protocol/messages';
 
 /**
- * Label height, as a fraction of the key height. `m` is the size every label
- * had before it could be chosen.
+ * Label height, as a fraction of the face of a 1u key (`unit - gap`), or of
+ * the key's own face when that is shorter: a tall key keeps the label of the
+ * others. `m` is the size every label had before it could be chosen.
  *
- * Not past 45 %: the size follows the height alone, so a long label on a
+ * Not past 45 %: the size follows a height alone, so a long label on a
  * narrow key would spill onto its neighbour. Not under 35 % either — on a
  * 26 px key at 1080p, that is about where a label stops surviving video
  * compression.
@@ -189,6 +190,8 @@ export function buildScene(
   { pack = false, reveal = false }: SceneOptions = {},
 ): Scene {
   const { unit, gap, radius, borderWidth } = config;
+  // The face of a 1u key: what every label is sized to (`LABEL_SIZE_RATIOS`).
+  const oneUnitFace = Math.max(0, unit - gap);
   const states = new Map(frame.map(([id, travel, active]) => [id, { travel, active }]));
 
   let width = 0;
@@ -236,7 +239,9 @@ export function buildScene(
     // negative width is an SVG error rather than a small key.
     const w = Math.max(0, key.w * unit - gap);
     const h = Math.max(0, key.h * unit - gap);
-    const fontSize = h * LABEL_SIZE_RATIOS[config.labelSize];
+    // One size for every key: an ISO Enter or a numpad + drew a label twice
+    // the others'. Smaller only on a key too short to hold it (half a unit).
+    const fontSize = Math.min(oneUnitFace, h) * LABEL_SIZE_RATIOS[config.labelSize];
 
     // Axis mode never switches its background (spec 7.4): its active color
     // serves as the fill color, and nothing about it changes on actuation.
