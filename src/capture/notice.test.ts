@@ -107,6 +107,14 @@ describe('what a profile says when it will not open', () => {
   it('separates a profile ahead of this build from a broken one', () => {
     expect(loadToast('too-new')!.message).toContain('newer version');
   });
+
+  it('says a profile ahead of this build is left untouched, and changes are not kept', () => {
+    // The store never writes over it: an edit made on the defaults shown in
+    // its place is gone at the next reload, and has to be said beforehand.
+    expect(loadToast('too-new')!.message).toBe(
+      'Saved profile written by a newer version of Halcyon. Started from the defaults. It is left untouched: changes here are not saved.',
+    );
+  });
 });
 
 describe('what a deletion is recognised by', () => {

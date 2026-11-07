@@ -24,12 +24,85 @@ export type MigrationResult =
 
 type Loose = Record<string, unknown>;
 
+function isLoose(value: unknown): value is Loose {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Version 1 is every shape written from v0.3 to v3.8.0: they all said
+ * `version: 1`, so what a file carries is the only witness of when it was
+ * written. Three of those shapes drew something today's fields read
+ * differently, and this step gives each back the look it was saved with.
+ *
+ * - **`restFilled`** (v0.7 to v1.0, global). `false` drew a transparent
+ *   resting key with its border, which is `restVisibility: 'outline'`.
+ * - **The border that followed the key** (v0.4 to v0.6). Those files carry
+ *   `borderColor`, `radius` and `fontFamily` on their style, and none of the
+ *   fields v0.7 added. A key's border took its active colour when it fired,
+ *   which is `activeBorder: 'active'`; an axis key's border never moved, so
+ *   each axis key keeps `'fixed'` of its own. v0.3 drew a fixed border for
+ *   one day in the same shape, and cannot be told apart.
+ * - **A corner radius of its own** (up to v2.7, per key). The radius is
+ *   global now, and a per-key one has no field to land in. The global takes
+ *   the radius most keys were drawn with, so the most keys keep their corners;
+ *   on a tie the global stays. The keys drawn with another radius cannot keep
+ *   it.
+ */
+function fromVersion1(config: Loose): Loose {
+  if (!isLoose(config.style)) return { ...config, version: 2 };
+
+  const style: Loose = { ...config.style };
+  let keys = config.keys;
+
+  if (typeof style.restFilled === 'boolean' && style.restVisibility === undefined) {
+    style.restVisibility = style.restFilled ? 'filled' : 'outline';
+  }
+
+  const beforeBorderWidth =
+    'borderColor' in style &&
+    'radius' in style &&
+    'fontFamily' in style &&
+    !('borderWidth' in style) &&
+    !('restFilled' in style) &&
+    !('restVisibility' in style) &&
+    !('activeBorder' in style);
+  if (beforeBorderWidth && Array.isArray(keys)) {
+    style.activeBorder = 'active';
+    keys = keys.map((key: unknown) =>
+      isKeyConfig(key) && key.mode === 'axis'
+        ? { ...key, style: { ...(isLoose(key.style) ? key.style : {}), activeBorder: 'fixed' } }
+        : key,
+    );
+  }
+
+  if (Array.isArray(keys)) {
+    const global = isStyleValue('radius', style.radius)
+      ? (style.radius as number)
+      : DEFAULT_STYLE.radius;
+    // A key's own radius is no field of today's `KeyStyle`: read loosely.
+    const drawn = keys.filter(isKeyConfig).map((key) => {
+      const own: unknown = (key.style as Loose | undefined)?.radius;
+      return isStyleValue('radius', own) ? (own as number) : global;
+    });
+    const counts = new Map<number, number>();
+    for (const radius of drawn) counts.set(radius, (counts.get(radius) ?? 0) + 1);
+    let chosen = global;
+    for (const [radius, count] of counts) {
+      if (count > (counts.get(chosen) ?? 0)) chosen = radius;
+    }
+    if (chosen !== global) style.radius = chosen;
+  }
+
+  return { ...config, version: 2, style, keys };
+}
+
 /**
  * One entry per source version. Version 0 is the one for configurations
  * written before the `version` field existed.
  */
 const MIGRATIONS: Record<number, (config: Loose) => Loose> = {
   0: (config) => ({ ...config, version: 1, layout: config.layout ?? 'iso' }),
+  1: fromVersion1,
 };
 
 const LAYOUT_OVERRIDES: readonly string[] = ['auto', 'azerty', 'qwerty', 'qwertz'];
@@ -92,9 +165,9 @@ function knownKeyStyle(raw: unknown): Partial<KeyStyle> {
   // by `resolve()`. Invisible to `overriddenKeys`, so no reset could remove
   // them: precisely the "stored by the editor, ignored by the renderer" the
   // comment above says this exists to prevent. Derived from the inheritable set
-  // itself, the mistake has nowhere left to happen — which is also what makes
-  // `radius` fall off a key since 2026-09-05, when it went global, with no
-  // line written here for it.
+  // itself, the mistake has nowhere left to happen. A key's own `radius` is
+  // dropped here since 2026-09-05, when it went global; `fromVersion1` has
+  // already moved what it could of it onto the global style.
   return pickStyle(withFamilyName(raw), STYLE_KEYS) as Partial<KeyStyle>;
 }
 

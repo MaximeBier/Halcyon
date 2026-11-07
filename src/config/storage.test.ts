@@ -451,6 +451,49 @@ describe('what a profile says about itself', () => {
   });
 });
 
+describe('a profile written by a newer version', () => {
+  // An older build — a tab left open across a deployment — must not bury what
+  // a newer one saved. Refused, it stays exactly where the newer version will
+  // look for it, whatever is done in the meantime.
+  const newer = JSON.stringify({ version: CONFIG_VERSION + 1, layout: 'iso', style: {}, keys: [] });
+  const withNewer = () =>
+    profileStorage({
+      'halcyon:profiles': JSON.stringify(['Default']),
+      'halcyon:profile:Default': newer,
+    });
+
+  it('is refused, and left as it is', () => {
+    const storage = withNewer();
+
+    const loaded = createProfileStore(storage).load('Default');
+
+    expect(loaded.problem).toBe('too-new');
+    expect(loaded.config).toEqual(defaultConfig());
+    expect(storage.map.get('halcyon:profile:Default')).toBe(newer);
+  });
+
+  it('is not overwritten by the changes made on the defaults shown in its place', () => {
+    const storage = withNewer();
+    const store = createProfileStore(storage);
+    store.load('Default');
+
+    store.save('Default', withKeys(aKey));
+
+    expect(storage.map.get('halcyon:profile:Default')).toBe(newer);
+  });
+
+  it('does not stop a profile of this version from being saved', () => {
+    const storage = withNewer();
+    const store = createProfileStore(storage);
+    store.save('Default', withKeys(aKey));
+    const other = store.create('Other');
+
+    store.save(other, withKeys(aKey));
+
+    expect(store.load(other).config.keys).toHaveLength(1);
+  });
+});
+
 describe('a storage that refuses to write must not destroy anything', () => {
   /** Reads work, writes fail. A full quota, or a browser that took storage away. */
   function readOnly(initial: Record<string, string>) {

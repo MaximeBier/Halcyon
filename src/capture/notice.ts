@@ -101,15 +101,24 @@ export function importedToast(
  * It says where we landed, not merely what failed: the stored copy is put
  * aside by the store, and a message that omits that reads as "your layout is
  * gone" — which is the one thing that did not happen.
+ *
+ * A profile from a newer version is never written over (the store refuses),
+ * so what is changed on the defaults shown in its place is not kept, and the
+ * toast says so before anyone spends an evening on it.
  */
 export function loadToast(problem: 'unreadable' | 'too-new' | null): Notice | null {
   if (problem === null) return null;
 
-  const cause =
-    problem === 'too-new' ? 'written by a newer version of Halcyon' : 'could not be read';
+  if (problem === 'too-new') {
+    return {
+      tone: 'error',
+      message:
+        'Saved profile written by a newer version of Halcyon. Started from the defaults. It is left untouched: changes here are not saved.',
+    };
+  }
   return {
     tone: 'error',
-    message: `Saved profile ${cause}. Started from the defaults. The copy is kept aside.`,
+    message: 'Saved profile could not be read. Started from the defaults. The copy is kept aside.',
   };
 }
 

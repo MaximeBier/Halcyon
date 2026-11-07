@@ -141,6 +141,12 @@ export function readProfileName(json: string): string | null {
   }
 }
 
+function writtenByNewer(raw: string | null): boolean {
+  if (raw === null) return false;
+  const result = importConfig(raw);
+  return !result.ok && result.reason === 'too-new';
+}
+
 export function importConfig(json: string): MigrationResult {
   try {
     return migrate(JSON.parse(json));
@@ -308,6 +314,10 @@ export function createProfileStore(storage: ProfileStorage): ProfileStore {
     },
 
     save(name, config) {
+      // A profile a newer version wrote is shown as the defaults and never
+      // written over: the newer version must find it where it left it. The
+      // changes made meanwhile are not kept, and the load toast says so.
+      if (writtenByNewer(storage.getItem(profileKey(name)))) return;
       write(storage, profileKey(name), exportConfig(config));
     },
 

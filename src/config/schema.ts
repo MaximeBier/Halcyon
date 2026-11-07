@@ -2,29 +2,26 @@ import { OVERLAY_TOKENS } from '../styles/tokens';
 import type { LayoutOverride } from '../keyboard/labels';
 
 /**
- * Bumped when the stored shape changes in a way a migration has to repair —
- * and **not** otherwise.
+ * The version of the stored shape.
  *
- * Task 31 widened what a coordinate may be, which was very nearly a bump: an
- * older build handed a negative coordinate drops the key as malformed and
- * reports only a count, where a version it did not know would have told it the
- * truth (spec §8.8). It stayed at 1 all the same, under global constraint 18 —
- * there are no older builds in anyone's hands, so the message had no reader,
- * and the only thing shipped would have been a migration that rewrites a
- * number into itself.
+ * **The rule: a profile someone has must never be lost, nor change appearance,
+ * at an update.** Whatever a released version stored — in the browser or in an
+ * exported file — loads into the same keys, drawn the same way. A field added
+ * with a default that draws what was drawn before needs nothing. A field that
+ * is renamed, moved, removed or narrowed does: the version goes up, and
+ * `MIGRATIONS` in `migrate.ts` gains the step that maps the old shape onto
+ * the new one, faithfully, with a test holding a literal file of the old shape
+ * (`shapes.test.ts`). What the new shape cannot represent is named in that
+ * step, so that the loss is a decision rather than an oversight.
  *
- * The 2026-08-24 rename of `restFilled` to `restVisibility` is the same call
- * made a second time, and this one is not a no-op: a stored profile carrying
- * the old field loses it in `pickStyle`, `{ ...DEFAULT_STYLE }` fills the new
- * one with `'filled'`, and an outline overlay comes back solid without a word
- * — `dropped` counts keys, never settings. A `MIGRATIONS[1]` mapping the
- * boolean onto the keyword would cost three lines and would spare exactly the
- * profiles that do not exist. It stays at 1, deliberately, and the cost is
- * written here so that it is a decision rather than an oversight.
+ * The version is also what an older build reads to refuse a file it cannot
+ * draw, as written by a newer version, instead of guessing at it (spec §8.8).
  *
- * Re-read at the first user. Until then, structure wins over compatibility.
+ * Version 2 (v3.8.1): version 1 had covered every shape from v0.3 to v3.8.0,
+ * among them three that loaded with another look — `restFilled`, the border
+ * that followed the key before v0.7, and a radius per key. See `fromVersion1`.
  */
-export const CONFIG_VERSION = 1;
+export const CONFIG_VERSION = 2;
 
 export type KeyMode = 'key' | 'axis';
 
