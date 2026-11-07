@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
   clearKeyStyle,
-  recomputeLabels,
   resetKeyFonts,
   setFont,
   setKeyFont,
@@ -166,43 +165,6 @@ describe('labels and modes', () => {
     const next = setKeyMode(config(), [1], 'axis');
 
     expect(next.keys[1]?.mode).toBe('key');
-  });
-
-  it('renames every key when the recompute is asked for', () => {
-    const azerty = new Map([['KeyQ', 'a']]);
-    const renamed = setKeyLabel(config(), 1, 'Sprint');
-
-    // Explicit, and destructive by design: a manual rename is overwritten.
-    // Nothing calls this on its own — changing the layout must never silently
-    // undo a rename (spec §8.6), which is why it is a function and not an
-    // effect of `layoutOverride`.
-    expect(recomputeLabels(renamed, azerty).keys[0]?.label).toBe('A');
-  });
-
-  it('gives a key the layout ignores exactly what a fresh learn would give it', () => {
-    // The S key is absent from that map, so it falls through to the position
-    // name — no keycap entry covers letters. That is the point: recomputing
-    // produces the same labels learning would, so the two can never disagree.
-    // A real `getLayoutMap()` covers every letter; only a hand-built map, or
-    // none at all, reaches this branch.
-    const next = recomputeLabels(config(), new Map([['KeyQ', 'a']]));
-
-    expect(next.keys[1]?.label).toBe('KeyS');
-    expect(next.keys[1]?.label).toBe(labelFor(0x16, null));
-  });
-
-  // The same invariant as the test above, now that learning prefers a glyph for
-  // the twelve special positions: recomputing has to reach for the glyph too,
-  // or the button quietly turns every icon back into a word.
-  it('restores the glyph on a special key, as a fresh learn would', () => {
-    const base = config();
-    const withEnter = setKeyLabel(
-      { ...base, keys: [...base.keys, { ...base.keys[0]!, id: 9, usage: 0x28 }] },
-      9,
-      'Enter',
-    );
-
-    expect(recomputeLabels(withEnter, new Map([['KeyQ', 'a']])).keys.at(-1)?.label).toBe('⏎');
   });
 });
 

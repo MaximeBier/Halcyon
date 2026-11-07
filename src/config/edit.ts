@@ -156,33 +156,6 @@ export function setKeyLabel(config: OverlayConfig, id: number, label: string): O
 }
 
 /**
- * Rewrites every label from the current layout — destructively, on request.
- *
- * Nothing calls this on its own. Labels are frozen at learning time, and a
- * layout change must never rename a key behind the user's back: someone who
- * renamed a key "Sprint" would lose it to a keyboard being replugged
- * (spec §8.6). Making it a function rather than a reaction to `layoutOverride`
- * is what keeps that impossible.
- *
- * It produces exactly what learning produces (`learnedLabelFor`), glyph
- * included: it puts every key back where a fresh capture would have put it.
- * No control calls it today; its tests hold that contract for the day one
- * does.
- */
-export function recomputeLabels(
-  config: OverlayConfig,
-  layout: LayoutMapLike | null,
-): OverlayConfig {
-  return {
-    ...config,
-    keys: config.keys.map((key) => ({
-      ...key,
-      label: learnedLabelFor(key.usage, layout),
-    })),
-  };
-}
-
-/**
  * The name learning gives this position, when the key no longer wears it.
  *
  * `null` means "nobody typed this label" — either it still equals what
