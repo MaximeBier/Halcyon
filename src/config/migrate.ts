@@ -46,7 +46,7 @@ function isLoose(value: unknown): value is Loose {
  * - **A corner radius of its own** (up to v2.7, per key). The radius is
  *   global now, and a per-key one has no field to land in. The global takes
  *   the radius most keys were drawn with, so the most keys keep their corners;
- *   on a tie the global stays. The keys drawn with another radius cannot keep
+ *   on any tie at the top the global stays. The keys drawn with another radius cannot keep
  *   it.
  */
 function fromLegacyShapes(config: Loose): Loose {
@@ -87,11 +87,11 @@ function fromLegacyShapes(config: Loose): Loose {
     });
     const counts = new Map<number, number>();
     for (const radius of drawn) counts.set(radius, (counts.get(radius) ?? 0) + 1);
-    let chosen = global;
-    for (const [radius, count] of counts) {
-      if (count > (counts.get(chosen) ?? 0)) chosen = radius;
-    }
-    if (chosen !== global) style.radius = chosen;
+    // One value alone at the top wins; any tie there keeps the global, whether
+    // or not the global is among the tied values.
+    const most = Math.max(0, ...counts.values());
+    const top = [...counts].filter(([, count]) => count === most);
+    if (top.length === 1 && top[0]![0] !== global) style.radius = top[0]![0];
   }
 
   return { ...config, style, keys };

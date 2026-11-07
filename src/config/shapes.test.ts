@@ -158,6 +158,21 @@ describe('v0.7 to v1.0: a resting key with no background', () => {
     expect(config.radius).toBe(5);
   });
 
+  it('keeps the global radius on a tie it is not part of', () => {
+    const config = load({
+      version: 1,
+      layout: 'iso',
+      layoutOverride: 'auto',
+      style,
+      keys: [
+        { ...Q, style: { radius: 12 } },
+        { ...W, style: { radius: 8 } },
+      ],
+    });
+
+    expect(config.radius).toBe(5);
+  });
+
   it('keeps the global radius on a tie', () => {
     const config = load({
       version: 1,
