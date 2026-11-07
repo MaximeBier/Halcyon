@@ -488,6 +488,12 @@
   .dot.he-pulse {
     background: var(--he-text-muted);
   }
+  /* A failure is told by the whole box, not the dot alone (board Wizard-Step1):
+     the sentence in red, the border a deep red. */
+  .status[data-failed='true'] {
+    color: var(--he-danger);
+    border-color: var(--he-border-danger);
+  }
   .status[data-failed='true'] .dot {
     background: var(--he-danger);
   }
