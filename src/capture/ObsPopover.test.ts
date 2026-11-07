@@ -67,7 +67,9 @@ describe('what the popover says about the connection', () => {
     // opened to check the overlay is an overlay too (spec §16.7).
     const { container } = popover({ overlays: { inObs: 0, inBrowser: 1 } });
 
-    expect(container.textContent).toContain('no source in OBS yet');
+    expect(container.textContent).toContain(
+      'Only a browser tab is listening. No source in OBS yet.',
+    );
   });
 
   it('gives the full sentence, with what to do, while OBS is down', () => {

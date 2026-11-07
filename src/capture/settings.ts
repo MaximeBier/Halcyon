@@ -447,6 +447,6 @@ export function captureWarning(another: boolean): string | null {
  */
 export function sourceState(counts: { inObs: number; inBrowser: number }): string {
   if (counts.inObs > 0) return 'Overlay connected in OBS';
-  if (counts.inBrowser > 0) return 'Only a browser tab is listening · no source in OBS yet';
+  if (counts.inBrowser > 0) return 'Only a browser tab is listening. No source in OBS yet.';
   return 'No overlay has reported in yet';
 }

@@ -33,11 +33,11 @@ export interface Notice {
 export const keysLabel = (count: number) => `${count} key${count === 1 ? '' : 's'}`;
 
 /** Nothing was imported, so nothing was lost — and that is the part to say. */
-const KEPT = 'current profile kept';
+const KEPT = 'Current profile kept.';
 
 export const READ_FAILED: Notice = {
   tone: 'error',
-  message: `Import failed · the file could not be read · ${KEPT}`,
+  message: `Import failed. The file could not be read. ${KEPT}`,
 };
 
 /**
@@ -56,8 +56,8 @@ export function importFailedToast(
     tone: 'error',
     message:
       reason === 'too-new'
-        ? `Import failed · written by a newer version of Halcyon · ${KEPT}`
-        : `Import failed · unreadable file · ${KEPT}`,
+        ? `Import failed. Written by a newer version of Halcyon. ${KEPT}`
+        : `Import failed. Unreadable file. ${KEPT}`,
   };
 }
 
@@ -89,7 +89,7 @@ export function importedToast(
   return dropped > 0
     ? {
         tone: 'warning',
-        message: `${landed} · ${keysLabel(dropped)} skipped (not on this keyboard)`,
+        message: `${landed}. ${keysLabel(dropped)} skipped (not on this keyboard).`,
         action,
       }
     : { tone: 'success', message: landed, action };
@@ -109,7 +109,7 @@ export function loadToast(problem: 'unreadable' | 'too-new' | null): Notice | nu
     problem === 'too-new' ? 'written by a newer version of Halcyon' : 'could not be read';
   return {
     tone: 'error',
-    message: `Saved profile ${cause} · started from the defaults · the copy is kept aside`,
+    message: `Saved profile ${cause}. Started from the defaults. The copy is kept aside.`,
   };
 }
 

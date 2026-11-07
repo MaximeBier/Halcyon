@@ -464,7 +464,9 @@ describe('sourceState', () => {
   // The step exists to prove the URL reached OBS, and this is the state that
   // used to read as success: a tab opened to check the overlay works.
   it('says which half is missing when only a tab answers', () => {
-    expect(sourceState({ inObs: 0, inBrowser: 1 })).toMatch(/no source in OBS yet/);
+    expect(sourceState({ inObs: 0, inBrowser: 1 })).toBe(
+      'Only a browser tab is listening. No source in OBS yet.',
+    );
   });
 
   it('says nothing has reported in when nothing has', () => {

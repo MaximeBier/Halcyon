@@ -567,7 +567,7 @@
           note(
             'user',
             reloaded > 0
-              ? `An overlay ran protocol v${version} · sources reloaded`
+              ? `An overlay ran protocol v${version}. Sources reloaded.`
               : `An overlay is running protocol v${version}; reload it.`,
           );
         });
@@ -611,7 +611,7 @@
         'user',
         present
           ? 'Another capture page was heard broadcasting.'
-          : 'The other capture pages are gone · configuration resent.',
+          : 'The other capture pages are gone. Configuration resent.',
       );
     },
   });

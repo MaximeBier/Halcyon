@@ -21,7 +21,7 @@ describe('Toast', () => {
   });
 
   it('shows the message under its tone', () => {
-    const { container } = toast({ tone: 'warning', message: 'Profile imported · 2 keys skipped' });
+    const { container } = toast({ tone: 'warning', message: 'Profile imported. 2 keys skipped.' });
 
     expect(shown(container)!.dataset.tone).toBe('warning');
     expect(shown(container)!.textContent).toContain('2 keys skipped');

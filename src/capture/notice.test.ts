@@ -32,7 +32,7 @@ describe('what an import says, once', () => {
     // keyboard (spec §16.6).
     expect(importedToast('Valorant', 2)).toEqual({
       tone: 'warning',
-      message: 'Profile imported as “Valorant” · 2 keys skipped (not on this keyboard)',
+      message: 'Profile imported as “Valorant”. 2 keys skipped (not on this keyboard).',
     });
   });
 
@@ -69,7 +69,7 @@ describe('what an import says, once', () => {
     // failed" leaves people reloading to check they still have their layout.
     expect(importFailedToast('unreadable')).toEqual({
       tone: 'error',
-      message: 'Import failed · unreadable file · current profile kept',
+      message: 'Import failed. Unreadable file. Current profile kept.',
     });
   });
 
@@ -77,11 +77,14 @@ describe('what an import says, once', () => {
     const message = importFailedToast('too-new').message;
 
     expect(message).toContain('newer version');
-    expect(message).toContain('current profile kept');
+    expect(message).toContain('Current profile kept.');
   });
 
   it('has an error to show for a file the browser could not even read', () => {
     expect(READ_FAILED.tone).toBe('error');
+    expect(READ_FAILED.message).toBe(
+      'Import failed. The file could not be read. Current profile kept.',
+    );
   });
 });
 
@@ -96,7 +99,9 @@ describe('what a profile says when it will not open', () => {
     const notice = loadToast('unreadable')!;
 
     expect(notice.tone).toBe('error');
-    expect(notice.message).toContain('kept aside');
+    expect(notice.message).toBe(
+      'Saved profile could not be read. Started from the defaults. The copy is kept aside.',
+    );
   });
 
   it('separates a profile ahead of this build from a broken one', () => {
