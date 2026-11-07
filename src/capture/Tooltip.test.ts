@@ -59,6 +59,28 @@ describe('the tooltip (board Editor-Tooltip)', () => {
     expect(tip(container)).toBeNull();
   });
 
+  it('shows a sentence that arrives while the pointer is already there', async () => {
+    // A copy that fails under the pointer: the reason appears with the failure,
+    // as a native title set mid-hover would.
+    const { container, rerender } = render(Harness, { props: { text: null } });
+    host(container).dispatchEvent(new PointerEvent('pointerenter'));
+    await tick();
+    expect(tip(container)).toBeNull();
+
+    await rerender({ text: 'Select the URL and copy it by hand' });
+    await tick();
+    expect(tip(container)!.dataset.open).toBe('true');
+  });
+
+  it('stays shut for a sentence that arrives once the pointer has left', async () => {
+    const { container, rerender } = render(Harness, { props: { text: null } });
+    host(container).dispatchEvent(new PointerEvent('pointerenter'));
+    host(container).dispatchEvent(new PointerEvent('pointerleave'));
+    await rerender({ text: 'Select the URL and copy it by hand' });
+    await tick();
+    expect(tip(container)!.dataset.open).toBe('false');
+  });
+
   it('describes the element it explains, for a screen reader', () => {
     const { container } = render(Harness, { props: { text: 'Undo' } });
     const id = container.querySelector('button')!.getAttribute('aria-describedby');

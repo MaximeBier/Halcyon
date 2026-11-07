@@ -32,6 +32,9 @@ const tab = (c: HTMLElement, name: string) =>
   c.querySelector<HTMLButtonElement>(`[data-tab="${name}"]`)!;
 const more = (c: HTMLElement) => c.querySelector<HTMLButtonElement>('[data-more]');
 const add = (c: HTMLElement) => c.querySelector<HTMLButtonElement>('[data-add]')!;
+/** The page's tooltip around an element (board Editor-Tooltip), never a native title. */
+const tipOf = (el: Element | null) =>
+  el?.closest('[data-tooltip-host]')?.querySelector(':scope > [role="tooltip"]')?.textContent;
 const menu = (c: HTMLElement) => c.querySelector<HTMLElement>('[data-menu]');
 const action = (c: HTMLElement, name: string) =>
   c.querySelector<HTMLButtonElement>(`[data-action="${name}"]`);
@@ -85,7 +88,7 @@ describe('the tab row', () => {
     // would promise what a click there cannot keep.
     const { container } = bar();
 
-    const slot = more(container)!.parentElement!;
+    const slot = more(container)!.closest('.slot')!;
     expect(slot.contains(tab(container, 'Apex'))).toBe(true);
     expect(container.querySelectorAll('[data-more]')).toHaveLength(1);
   });
@@ -502,14 +505,15 @@ describe('ProfileBar - what the small things say on hover', () => {
       keyCount: (n: string) => (n === 'Apex' ? 6 : 1),
     });
 
-    expect(tab(container, 'Apex').querySelector('.count')!.getAttribute('title')).toBe('6 keys');
-    expect(tab(container, 'Solo').querySelector('.count')!.getAttribute('title')).toBe('1 key');
+    expect(tipOf(tab(container, 'Apex').querySelector('.count'))).toBe('6 keys');
+    expect(tipOf(tab(container, 'Solo').querySelector('.count'))).toBe('1 key');
   });
 
   it('calls the + what it makes', () => {
     const { container } = bar();
 
-    expect(add(container).getAttribute('title')).toBe('New profile');
+    expect(tipOf(add(container))).toBe('New profile');
+    expect(add(container).hasAttribute('title')).toBe(false);
     expect(add(container).getAttribute('aria-label')).toBe('New profile');
   });
 });

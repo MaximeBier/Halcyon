@@ -110,6 +110,12 @@ describe('the URL to paste', () => {
     await Promise.resolve();
 
     expect(q(container, '[data-copy]').textContent).toContain('Failed');
+    // The way out, on the page's tooltip — described to a screen reader too.
+    const button = q(container, '[data-copy]');
+    const tip = button.closest('[data-tooltip-host]')!.querySelector(':scope > [role="tooltip"]')!;
+    expect(tip.textContent).toBe('Select the URL and copy it by hand');
+    expect(button.getAttribute('aria-describedby')).toBe(tip.id);
+    expect(button.hasAttribute('title')).toBe(false);
   });
 });
 

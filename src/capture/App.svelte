@@ -1017,10 +1017,14 @@
       {#if word}<span class="wordmark">HALCYON</span>{/if}
     </span>
   {:else}
-    <a class="brand" href="/" title="Halcyon home page">
-      <img class="mark" src="/logo/halcyon-logo.svg" width="22" height="22" alt="" />
-      {#if word}<span class="wordmark">HALCYON</span>{/if}
-    </a>
+    <Tooltip text="Halcyon home page">
+      {#snippet children()}
+        <a class="brand" href="/" aria-label="Halcyon home page">
+          <img class="mark" src="/logo/halcyon-logo.svg" width="22" height="22" alt="" />
+          {#if word}<span class="wordmark">HALCYON</span>{/if}
+        </a>
+      {/snippet}
+    </Tooltip>
   {/if}
 {/snippet}
 
@@ -1262,7 +1266,11 @@
             {#if styled}
               <!-- Not a colour on the title: a dot survives being read by
                    someone who cannot tell its colour from grey. -->
-              <span class="modified" data-modified title="Differs from the defaults"></span>
+              <Tooltip text="Differs from the defaults">
+                {#snippet children()}
+                  <span class="modified" data-modified></span>
+                {/snippet}
+              </Tooltip>
             {/if}
           </h2>
           <div class="scroll">
@@ -1273,11 +1281,11 @@
         <section class="block keys-block" aria-labelledby="keys-title">
           <h2 class="block-title" id="keys-title">
             Keys
-            <span
-              class="count"
-              title={`${config.keys.length} key${config.keys.length === 1 ? '' : 's'}`}
-              >{config.keys.length}</span
-            >
+            <Tooltip text={`${config.keys.length} key${config.keys.length === 1 ? '' : 's'}`}>
+              {#snippet children()}
+                <span class="count">{config.keys.length}</span>
+              {/snippet}
+            </Tooltip>
           </h2>
           <div class="scroll">
             <KeyList

@@ -32,6 +32,10 @@ function menu(
 }
 
 const trigger = (c: HTMLElement) => c.querySelector<HTMLButtonElement>('[data-settings-trigger]')!;
+/** The page's tooltip around the gear (board Editor-Tooltip), never a native title. */
+const tip = (c: HTMLElement) =>
+  trigger(c).closest('[data-tooltip-host]')?.querySelector(':scope > [role="tooltip"]')
+    ?.textContent;
 const panel = (c: HTMLElement) => c.querySelector<HTMLElement>('[data-settings-menu]');
 const action = (c: HTMLElement, name: string) =>
   c.querySelector<HTMLButtonElement>(`[data-action="${name}"]`)!;
@@ -193,7 +197,7 @@ describe('what the menu holds', () => {
 
     const hung = container.querySelector('[data-test-obs-panel]')!;
     expect(hung).not.toBeNull();
-    expect(hung.parentElement).toBe(trigger(container).parentElement);
+    expect(hung.parentElement).toBe(container.querySelector('.settings'));
 
     await fireEvent.click(trigger(container));
     expect(onObsClose).toHaveBeenCalledTimes(1);
@@ -259,16 +263,21 @@ describe('the gear button', () => {
 });
 
 describe('the gear says how much there is to check', () => {
-  it('names the count on its title, and stays plain with nothing to check', () => {
-    expect(trigger(menu().container).getAttribute('title')).toBe('Settings');
+  it('names the count on its tooltip and its label, and stays plain with nothing to check', () => {
+    expect(tip(menu().container)).toBe('Settings');
     cleanup();
-    expect(trigger(menu({ toCheck: 1 }).container).getAttribute('title')).toBe(
-      'Settings · 1 thing to check',
-    );
+    const one = menu({ toCheck: 1 }).container;
+    expect(tip(one)).toBe('Settings · 1 thing to check');
+    expect(trigger(one).getAttribute('aria-label')).toBe('Settings · 1 thing to check');
+    expect(trigger(one).hasAttribute('title')).toBe(false);
     cleanup();
-    expect(trigger(menu({ toCheck: 2 }).container).getAttribute('title')).toBe(
-      'Settings · 2 things to check',
-    );
+    expect(tip(menu({ toCheck: 2 }).container)).toBe('Settings · 2 things to check');
+  });
+
+  it('keeps its tooltip out of the way of its own menu', async () => {
+    const { container } = menu();
+    await open(container);
+    expect(tip(container)).toBeUndefined();
   });
 });
 
@@ -327,6 +336,12 @@ describe('Copy overlay URL', () => {
     action(container, 'copy-url').click();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(action(container, 'copy-url').textContent!.trim()).toBe('Copy failed');
+    const label = action(container, 'copy-url').querySelector('[data-copy-label]')!;
+    expect(label.textContent!.trim()).toBe('Copy failed');
+    // The way out, on the page's tooltip rather than a native title.
+    expect(
+      label.closest('[data-tooltip-host]')!.querySelector(':scope > [role="tooltip"]')!.textContent,
+    ).toBe('Select the URL in the OBS pill’s popover instead');
+    expect(label.hasAttribute('title')).toBe(false);
   });
 });

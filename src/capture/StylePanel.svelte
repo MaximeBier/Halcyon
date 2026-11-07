@@ -398,17 +398,20 @@
         <div class="presets">
           <div class="swatches" role="group" aria-label="Presets">
             {#each PRESETS as preset (preset.name)}
-              <button
-                type="button"
-                class="preset he-tile he-choice"
-                data-preset={preset.name}
-                class:on={worn === preset}
-                aria-pressed={worn === preset}
-                aria-label={`Preset: ${preset.name}`}
-                title={preset.name}
-                style:background={`linear-gradient(180deg, ${preset.activeColor} 0 46%, ${preset.fillColor} 46% 76%, ${preset.restColor} 76% 100%)`}
-                onclick={() => onChange(withPreset(config, preset))}
-              ></button>
+              <Tooltip text={preset.name}>
+                {#snippet children()}
+                  <button
+                    type="button"
+                    class="preset he-tile he-choice"
+                    data-preset={preset.name}
+                    class:on={worn === preset}
+                    aria-pressed={worn === preset}
+                    aria-label={`Preset: ${preset.name}`}
+                    style:background={`linear-gradient(180deg, ${preset.activeColor} 0 46%, ${preset.fillColor} 46% 76%, ${preset.restColor} 76% 100%)`}
+                    onclick={() => onChange(withPreset(config, preset))}
+                  ></button>
+                {/snippet}
+              </Tooltip>
             {/each}
           </div>
         </div>
@@ -691,22 +694,29 @@
                 The click on the empty place is the gesture Chrome wants before it
                 asks for the fonts: the list is read here, never on load.
               -->
-              <button
-                type="button"
-                class="font installed he-tile he-slot"
-                data-installed
-                aria-pressed="false"
-                aria-expanded={menu !== null}
-                aria-haspopup="dialog"
-                disabled={access === 'unsupported'}
-                title={access === 'unsupported'
+              <Tooltip
+                text={access === 'unsupported'
                   ? 'This browser cannot list the fonts installed here'
-                  : undefined}
-                onclick={toggleInstalled}
+                  : null}
+                fill
               >
-                <span class="sample plus" aria-hidden="true"><Plus size={22} /></span>
-                <span class="name">Installed font</span>
-              </button>
+                {#snippet children(describedBy)}
+                  <button
+                    type="button"
+                    class="font installed he-tile he-slot"
+                    data-installed
+                    aria-pressed="false"
+                    aria-expanded={menu !== null}
+                    aria-haspopup="dialog"
+                    aria-describedby={describedBy}
+                    disabled={access === 'unsupported'}
+                    onclick={toggleInstalled}
+                  >
+                    <span class="sample plus" aria-hidden="true"><Plus size={22} /></span>
+                    <span class="name">Installed font</span>
+                  </button>
+                {/snippet}
+              </Tooltip>
             {/if}
             {#if menu !== null}
               <InstalledFontsMenu families={menu} current={config.style.fontFamily} onPick={pick} />
@@ -761,18 +771,21 @@
           <span class="label" id="global-labelSize-label">Text size</span>
           <div class="segments" role="group" aria-labelledby="global-labelSize-label">
             {#each LABEL_SIZES as [value, letter, name] (value)}
-              <button
-                type="button"
-                class="segment he-segment"
-                data-label-size={value}
-                class:on={config.style.labelSize === value}
-                aria-pressed={config.style.labelSize === value}
-                aria-label={name}
-                title={name}
-                onclick={() => onChange(setGlobalStyle(config, 'labelSize', value))}
-              >
-                {letter}
-              </button>
+              <Tooltip text={name}>
+                {#snippet children()}
+                  <button
+                    type="button"
+                    class="segment he-segment"
+                    data-label-size={value}
+                    class:on={config.style.labelSize === value}
+                    aria-pressed={config.style.labelSize === value}
+                    aria-label={name}
+                    onclick={() => onChange(setGlobalStyle(config, 'labelSize', value))}
+                  >
+                    {letter}
+                  </button>
+                {/snippet}
+              </Tooltip>
             {/each}
           </div>
         </div>
@@ -918,18 +931,21 @@
           <div class="segments" role="group" aria-labelledby="global-fillDirection-label">
             {#each FILL_DIRECTIONS as [value, label] (value)}
               {@const Arrow = FILL_ICONS[value]}
-              <button
-                type="button"
-                class="segment he-segment"
-                data-direction={value}
-                class:on={config.style.fillDirection === value}
-                aria-pressed={config.style.fillDirection === value}
-                aria-label={label}
-                title={label}
-                onclick={() => onChange(setGlobalStyle(config, 'fillDirection', value))}
-              >
-                <Arrow size={14} aria-hidden="true" />
-              </button>
+              <Tooltip text={label}>
+                {#snippet children()}
+                  <button
+                    type="button"
+                    class="segment he-segment"
+                    data-direction={value}
+                    class:on={config.style.fillDirection === value}
+                    aria-pressed={config.style.fillDirection === value}
+                    aria-label={label}
+                    onclick={() => onChange(setGlobalStyle(config, 'fillDirection', value))}
+                  >
+                    <Arrow size={14} aria-hidden="true" />
+                  </button>
+                {/snippet}
+              </Tooltip>
             {/each}
           </div>
         </div>

@@ -23,6 +23,7 @@
     text,
     block = false,
     shrink = false,
+    fill = false,
     children,
   }: {
     /** Nothing to clarify: no tooltip at all. */
@@ -35,6 +36,11 @@
      * inside can shrink.
      */
     shrink?: boolean;
+    /**
+     * In a grid cell, what it wraps fills the cell both ways, as it would
+     * without a host (a tile among tiles).
+     */
+    fill?: boolean;
     children: Snippet<[string | undefined]>;
   } = $props();
 
@@ -44,6 +50,12 @@
   let open = $state(false);
   let instant = $state(false);
   let at = $state<TooltipPlacement>({ left: 0, top: 0, below: false, arrow: 0 });
+  /**
+   * Whether the pointer or the keyboard is on the host right now. A sentence
+   * can arrive while it is (a copy that fails under the pointer): it shows
+   * then, as a native title set mid-hover would.
+   */
+  let within: 'pointer' | 'keyboard' | null = null;
 
   function show(atOnce: boolean) {
     if (!text || !tip || !host) return;
@@ -69,11 +81,18 @@
   /*
    * A sentence that changes while it shows ("Copy overlay URL" → "Overlay URL
    * copied") changes width: placed for the old one, it would sit off-centre.
-   * Placed again, after the DOM holds the new text.
+   * Placed again, after the DOM holds the new text. One that appears while the
+   * host is pointed at or focused opens, once its element is there.
    */
   $effect(() => {
     void text;
-    if (untrack(() => open)) untrack(place);
+    void tip;
+    untrack(() => {
+      // Gone with its sentence: the next one starts shut, and opens afresh.
+      if (!text) open = false;
+      else if (open) place();
+      else if (within) show(within === 'keyboard');
+    });
   });
 
   function hide() {
@@ -90,7 +109,9 @@
     } catch {
       // An engine that cannot answer: say it, rather than hide it.
     }
-    if (visible) show(true);
+    if (!visible) return;
+    within = 'keyboard';
+    show(true);
   }
 </script>
 
@@ -101,12 +122,22 @@
   class="host"
   class:block
   class:shrink
+  class:fill
   data-tooltip-host
   bind:this={host}
-  onpointerenter={() => show(false)}
-  onpointerleave={hide}
+  onpointerenter={() => {
+    within = 'pointer';
+    show(false);
+  }}
+  onpointerleave={() => {
+    within = null;
+    hide();
+  }}
   onfocusin={focused}
-  onfocusout={hide}
+  onfocusout={() => {
+    if (within === 'keyboard') within = null;
+    hide();
+  }}
 >
   {@render children(text ? id : undefined)}
   {#if text}
@@ -132,6 +163,9 @@
   }
   .host.block {
     display: block;
+  }
+  .host.fill {
+    display: grid;
   }
   .host.shrink {
     flex: 0 1 auto;

@@ -18,6 +18,7 @@
   } from './layout';
   import { createGestures, escapeClosesPicker } from './gestures';
   import { Gamepad2, Pencil, Plus, Trash2 } from './icons';
+  import Tooltip from './Tooltip.svelte';
   import { selectionBarPlacement, selectionBarShown } from './selection-bar';
   import { popoverPlacement, type PopoverSide } from './popover-placement';
   import CopyUrlButton from './CopyUrlButton.svelte';
@@ -677,7 +678,13 @@
                  (spec §16.13). On the handle, never in the shared drawing: the
                  broadcast must not show it, and an icon there would ride along
                  into the bundle OBS keeps loaded. -->
-            <span class="gamepad" data-gamepad title="Gamepad"><Gamepad2 size={16} /></span>
+            <span class="gamepad" data-gamepad>
+              <Tooltip text="Gamepad">
+                {#snippet children()}
+                  <Gamepad2 size={16} />
+                {/snippet}
+              </Tooltip>
+            </span>
           {/if}
         </button>
       {/each}

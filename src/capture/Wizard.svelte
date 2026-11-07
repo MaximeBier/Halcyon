@@ -3,6 +3,7 @@
   import { selectOnFocus } from './select-on-focus';
   import { Check } from './icons';
   import HelpText from './HelpText.svelte';
+  import Tooltip from './Tooltip.svelte';
   import { obsNote, stepNumber, type WizardStep } from './wizard';
   import { keyboardHint, obsHint, type ConnectionSettings } from './settings';
   import type { KeyboardStatus } from '../keyboard/device';
@@ -274,18 +275,26 @@
         <div class="url">
           <!-- A value to copy, not a field (he-copy-value): one click selects it all. -->
           <output class="he-copy-value" data-url aria-label="Overlay URL for OBS">{url}</output>
-          <button
-            class="he-btn-primary"
-            data-action="copy"
-            type="button"
-            onclick={copy}
-            onblur={() => (copyState = 'idle')}
-            title={copyState === 'failed'
-              ? 'Select the URL field above and copy it by hand'
-              : undefined}
+          <Tooltip
+            text={copyState === 'failed' ? 'Select the URL field above and copy it by hand' : null}
           >
-            {copyState === 'done' ? 'Copied' : copyState === 'failed' ? 'Copy failed' : 'Copy URL'}
-          </button>
+            {#snippet children(describedBy)}
+              <button
+                class="he-btn-primary"
+                data-action="copy"
+                type="button"
+                aria-describedby={describedBy}
+                onclick={copy}
+                onblur={() => (copyState = 'idle')}
+              >
+                {copyState === 'done'
+                  ? 'Copied'
+                  : copyState === 'failed'
+                    ? 'Copy failed'
+                    : 'Copy URL'}
+              </button>
+            {/snippet}
+          </Tooltip>
         </div>
         {#if size}
           <!-- The stage foot's own figure, so the two never disagree. -->

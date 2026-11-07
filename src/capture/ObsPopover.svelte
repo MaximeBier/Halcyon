@@ -2,6 +2,7 @@
   import { selectOnFocus } from './select-on-focus';
   import { Check } from './icons';
   import HelpText from './HelpText.svelte';
+  import Tooltip from './Tooltip.svelte';
   import { MAX_PORT, type ObsStatus } from '../transport/obs';
   import { obsHint, sourceState, type ConnectionSettings } from './settings';
 
@@ -114,16 +115,21 @@
   <div class="url">
     <!-- A value to copy, not a field (he-copy-value): one click selects it all. -->
     <output class="he-copy-value" aria-label="Overlay URL for OBS">{url}</output>
-    <button
-      type="button"
-      class="he-btn-tertiary"
-      data-copy
-      onclick={copy}
-      onblur={() => (copied = 'idle')}
-      title={copied === 'failed' ? 'Select the URL and copy it by hand' : undefined}
-    >
-      {copied === 'done' ? 'Copied' : copied === 'failed' ? 'Failed' : 'Copy'}
-    </button>
+    <!-- The way out of a failure, on the page's tooltip (board Editor-Tooltip). -->
+    <Tooltip text={copied === 'failed' ? 'Select the URL and copy it by hand' : null}>
+      {#snippet children(describedBy)}
+        <button
+          type="button"
+          class="he-btn-tertiary"
+          data-copy
+          aria-describedby={describedBy}
+          onclick={copy}
+          onblur={() => (copied = 'idle')}
+        >
+          {copied === 'done' ? 'Copied' : copied === 'failed' ? 'Failed' : 'Copy'}
+        </button>
+      {/snippet}
+    </Tooltip>
   </div>
 
   {#if size}

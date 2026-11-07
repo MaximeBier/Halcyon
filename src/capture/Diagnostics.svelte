@@ -7,6 +7,7 @@
   import type { AttentionItem } from './attention';
   import { Check, Copy } from './icons';
   import HelpText from './HelpText.svelte';
+  import Tooltip from './Tooltip.svelte';
 
   /**
    * The panel a bug report is written from (spec §11, §12.3), in three parts
@@ -176,17 +177,24 @@
   <section class="part" aria-labelledby="diag-activity">
     <div class="head">
       <h3 id="diag-activity">Activity</h3>
-      <button
-        type="button"
-        class="he-btn-tertiary"
-        data-action="copy"
-        onclick={copy}
-        onblur={() => (copyState = 'idle')}
-        title={copyState === 'failed' ? 'Select the lines below and copy them by hand' : undefined}
+      <!-- The way out of a failure, on the page's tooltip (board Editor-Tooltip). -->
+      <Tooltip
+        text={copyState === 'failed' ? 'Select the lines below and copy them by hand' : null}
       >
-        <Copy size={14} />
-        {copyState === 'done' ? 'Copied' : copyState === 'failed' ? 'Copy failed' : 'Copy log'}
-      </button>
+        {#snippet children(describedBy)}
+          <button
+            type="button"
+            class="he-btn-tertiary"
+            data-action="copy"
+            aria-describedby={describedBy}
+            onclick={copy}
+            onblur={() => (copyState = 'idle')}
+          >
+            <Copy size={14} />
+            {copyState === 'done' ? 'Copied' : copyState === 'failed' ? 'Copy failed' : 'Copy log'}
+          </button>
+        {/snippet}
+      </Tooltip>
     </div>
     {#if runs.length === 0}
       <p class="line empty">Nothing has happened worth writing down.</p>

@@ -35,6 +35,9 @@ function list(overrides: Record<string, unknown> = {}) {
   return { ...view, ...handlers };
 }
 const row = (c: HTMLElement, id: number) => c.querySelector<HTMLElement>(`[data-key-row="${id}"]`)!;
+/** The page's tooltip around an element (board Editor-Tooltip), never a native title. */
+const tipOf = (el: Element | null) =>
+  el?.closest('[data-tooltip-host]')?.querySelector('[role="tooltip"]')?.textContent;
 
 describe('KeyList', () => {
   it('says nothing yet when there is nothing to list', () => {
@@ -45,9 +48,7 @@ describe('KeyList', () => {
   it('marks a key with a style of its own with the accent dot, and only that key', () => {
     const { container } = list();
 
-    expect(row(container, 1).querySelector('[data-own-style]')?.getAttribute('title')).toBe(
-      'Own style',
-    );
+    expect(tipOf(row(container, 1).querySelector('[data-own-style]'))).toBe('Own style');
     expect(row(container, 2).querySelector('[data-own-style]')).toBeNull();
   });
 
@@ -56,7 +57,7 @@ describe('KeyList', () => {
     const { container } = list();
 
     expect(row(container, 3).textContent).toContain('gamepad');
-    expect(row(container, 2).textContent!.trim()).toBe('Q');
+    expect(row(container, 2).querySelector('[data-pick]')!.textContent!.trim()).toBe('Q');
   });
 
   it('carries no override or renamed tag any more', () => {
@@ -111,6 +112,20 @@ describe('KeyList', () => {
     const { container } = list({ offscreen: [3] });
 
     expect(row(container, 3).textContent).toContain('off screen');
+    expect(tipOf(row(container, 3).querySelector('[data-offscreen]'))).toBe(
+      'Not on the work surface: widen the window, or lower “Key size” in “Global style”',
+    );
+  });
+
+  it('names its two buttons on the page’s tooltip, and for a screen reader by the key', () => {
+    const { container } = list();
+    const edit = row(container, 2).querySelector('[data-edit]')!;
+    const del = row(container, 2).querySelector('[data-delete]')!;
+
+    expect(tipOf(edit)).toBe('Edit');
+    expect(tipOf(del)).toBe('Delete');
+    expect(edit.getAttribute('aria-label')).toBe('Edit Q');
+    expect(container.querySelector('[title]')).toBeNull();
   });
 
   it('offers to delete a multiple selection at once', () => {

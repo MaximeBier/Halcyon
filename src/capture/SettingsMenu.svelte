@@ -3,6 +3,7 @@
   import { Settings } from './icons';
   import { escapeClosesPicker } from './gestures';
   import { Copy } from './icons';
+  import Tooltip from './Tooltip.svelte';
   import type { OverlayConfig } from '../config/schema';
 
   /**
@@ -140,22 +141,27 @@
 </script>
 
 <div class="settings" bind:this={root}>
-  <button
-    type="button"
-    class="trigger he-icon-btn"
-    data-settings-trigger
-    aria-label={title}
-    {title}
-    aria-expanded={open}
-    aria-haspopup="dialog"
-    bind:this={trigger}
-    onclick={() => (obsOpen ? closeObs() : open ? close() : (open = true))}
-  >
-    <Settings size={16} />
-    {#if flagged}
-      <span class="dot" data-flagged></span>
-    {/if}
-  </button>
+  <!-- Its name, and what there is to check, on the page's tooltip (board
+       Editor-Tooltip); none while its menu is open, which says it already. -->
+  <Tooltip text={open || obsOpen ? null : title}>
+    {#snippet children()}
+      <button
+        type="button"
+        class="trigger he-icon-btn"
+        data-settings-trigger
+        aria-label={title}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        bind:this={trigger}
+        onclick={() => (obsOpen ? closeObs() : open ? close() : (open = true))}
+      >
+        <Settings size={16} />
+        {#if flagged}
+          <span class="dot" data-flagged></span>
+        {/if}
+      </button>
+    {/snippet}
+  </Tooltip>
 
   {#if open}
     <!-- A `dialog` of ordinary controls, not a `menu`: nothing here answers to
@@ -205,18 +211,17 @@
         {#if copied === 'idle'}
           <span>Copy overlay URL</span>
         {:else}
-          <!-- The title carries the way out of a failure: the OBS pill's popover
-               has the URL in a field to select by hand. -->
-          <span
-            class="said"
-            data-copy-label
-            title={copied === 'failed'
-              ? 'Select the URL in the OBS pill’s popover instead'
-              : undefined}
-            onanimationend={() => (copied = 'idle')}
+          <!-- The tooltip carries the way out of a failure: the OBS pill's
+               popover has the URL in a field to select by hand. -->
+          <Tooltip
+            text={copied === 'failed' ? 'Select the URL in the OBS pill’s popover instead' : null}
           >
-            {copied === 'done' ? 'Overlay URL copied' : 'Copy failed'}
-          </span>
+            {#snippet children()}
+              <span class="said" data-copy-label onanimationend={() => (copied = 'idle')}>
+                {copied === 'done' ? 'Overlay URL copied' : 'Copy failed'}
+              </span>
+            {/snippet}
+          </Tooltip>
         {/if}
         <span class="icon" aria-hidden="true"><Copy size={16} /></span>
       </button>

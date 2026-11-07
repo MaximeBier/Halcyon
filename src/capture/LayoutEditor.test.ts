@@ -1678,7 +1678,8 @@ describe('LayoutEditor - a key bound to the gamepad says so, here only', () => {
 
     expect(handles[0]!.querySelector('[data-gamepad]')).toBeNull();
     const tag = handles[1]!.querySelector('[data-gamepad]')!;
-    expect(tag.getAttribute('title')).toBe('Gamepad');
+    expect(tag.querySelector('[role="tooltip"]')!.textContent).toBe('Gamepad');
+    expect(tag.hasAttribute('title')).toBe(false);
     expect(tag.querySelector('svg')).not.toBeNull();
   });
 

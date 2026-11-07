@@ -2,6 +2,7 @@
   import { hasOverrides } from '../config/resolve';
   import type { OverlayConfig } from '../config/schema';
   import { Pencil, Trash2 } from './icons';
+  import Tooltip from './Tooltip.svelte';
 
   /**
    * The panel's list of keys (spec §16.14, board Editor-SelectionCapture).
@@ -53,7 +54,11 @@
           {#if hasOverrides(key)}
             <!-- A dot, not a colour on the name: it survives being read by
                  someone who cannot tell the accent from grey. -->
-            <span class="own" data-own-style title="Own style"></span>
+            <Tooltip text="Own style">
+              {#snippet children()}
+                <span class="own" data-own-style></span>
+              {/snippet}
+            </Tooltip>
           {/if}
           {#if key.mode === 'axis'}
             <!-- Wootility's word for what the key is bound to; a keyboard key
@@ -62,35 +67,42 @@
           {/if}
           {#if offscreen.includes(key.id)}
             <!-- Red: a key nobody can see outranks how it is painted. -->
-            <span
-              class="offscreen"
-              title="Not on the work surface: widen the window, or lower the key size in the global style"
+            <Tooltip
+              text="Not on the work surface: widen the window, or lower “Key size” in “Global style”"
             >
-              off screen
-            </span>
+              {#snippet children()}
+                <span class="offscreen" data-offscreen>off screen</span>
+              {/snippet}
+            </Tooltip>
           {/if}
         </button>
         <span class="actions">
-          <button
-            type="button"
-            class="he-icon-btn he-icon-btn--bare"
-            data-edit
-            aria-label={`Edit ${key.label}`}
-            title="Edit"
-            onclick={() => onEdit(key.id)}
-          >
-            <Pencil size={16} />
-          </button>
-          <button
-            type="button"
-            class="he-icon-btn he-icon-btn--bare"
-            data-delete
-            aria-label={`Delete ${key.label}`}
-            title="Delete"
-            onclick={() => onDelete(key.id)}
-          >
-            <Trash2 size={16} />
-          </button>
+          <Tooltip text="Edit">
+            {#snippet children()}
+              <button
+                type="button"
+                class="he-icon-btn he-icon-btn--bare"
+                data-edit
+                aria-label={`Edit ${key.label}`}
+                onclick={() => onEdit(key.id)}
+              >
+                <Pencil size={16} />
+              </button>
+            {/snippet}
+          </Tooltip>
+          <Tooltip text="Delete">
+            {#snippet children()}
+              <button
+                type="button"
+                class="he-icon-btn he-icon-btn--bare"
+                data-delete
+                aria-label={`Delete ${key.label}`}
+                onclick={() => onDelete(key.id)}
+              >
+                <Trash2 size={16} />
+              </button>
+            {/snippet}
+          </Tooltip>
         </span>
       </li>
     {/each}

@@ -931,7 +931,9 @@ describe('StylePanel - how much of a resting key shows', () => {
 
     expect(Boolean(row.inert) || row.hasAttribute('inert')).toBe(false);
     expect(row.querySelector<HTMLInputElement>('input[type="color"]')!.disabled).toBe(false);
-    expect(container.querySelector('[role="tooltip"]')).toBeNull();
+    expect(
+      row.closest('[data-tooltip-host]')!.querySelector(':scope > [role="tooltip"]'),
+    ).toBeNull();
   });
 
   it('says why the stage did not change when the keys go hidden', async () => {
@@ -1190,7 +1192,12 @@ describe('StylePanel - Colors, read on a key (spec §16.13)', () => {
 
   it('names every preset, the default first', async () => {
     const { container } = await panel(defaultConfig(), 'colors');
-    const names = [...container.querySelectorAll<HTMLElement>('[data-preset]')].map((p) => p.title);
+    // On the page's tooltip (board Editor-Tooltip), never a native title.
+    const names = [...container.querySelectorAll<HTMLElement>('[data-preset]')].map(
+      (p) =>
+        p.closest('[data-tooltip-host]')!.querySelector(':scope > [role="tooltip"]')!.textContent,
+    );
+    expect(container.querySelector('[data-preset][title]')).toBeNull();
 
     expect(names).toEqual([
       'Halcyon',

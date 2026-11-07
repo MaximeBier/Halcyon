@@ -274,9 +274,11 @@
           oncontextmenu={(event) => context(name, event)}
         >
           <span class="name">{name}</span>
-          <span class="count" title={`${keyCount(name)} key${keyCount(name) === 1 ? '' : 's'}`}
-            >{keyCount(name)}</span
-          >
+          <Tooltip text={`${keyCount(name)} key${keyCount(name) === 1 ? '' : 's'}`}>
+            {#snippet children()}
+              <span class="count">{keyCount(name)}</span>
+            {/snippet}
+          </Tooltip>
         </button>
 
         {#if name === active}
@@ -284,18 +286,21 @@
              profile, so a `⋯` on the others would promise what a click there
              cannot keep. A sibling of the tab, never inside it — a button in
              a button is not a thing. -->
-          <button
-            type="button"
-            class="more he-icon-btn he-icon-btn--bare"
-            data-more
-            aria-label={`Options for “${name}”`}
-            title="Profile menu"
-            aria-expanded={menu === 'tab'}
-            aria-haspopup="dialog"
-            onclick={(event) => toggle('tab', event.currentTarget)}
-          >
-            <Ellipsis size={16} />
-          </button>
+          <Tooltip text={menu === 'tab' ? null : 'Profile menu'}>
+            {#snippet children()}
+              <button
+                type="button"
+                class="more he-icon-btn he-icon-btn--bare"
+                data-more
+                aria-label={`Options for “${name}”`}
+                aria-expanded={menu === 'tab'}
+                aria-haspopup="dialog"
+                onclick={(event) => toggle('tab', event.currentTarget)}
+              >
+                <Ellipsis size={16} />
+              </button>
+            {/snippet}
+          </Tooltip>
         {/if}
       </div>
     {/each}
@@ -305,18 +310,21 @@
          (board prototype, noteFluid). Never against Add key: it stays in the
          strip. -->
     <div class="slot pinned" style:anchor-name={anchors.add}>
-      <button
-        type="button"
-        class="add he-icon-btn he-icon-btn--bare he-icon-btn--wide"
-        data-add
-        aria-label="New profile"
-        title="New profile"
-        aria-expanded={menu === 'add'}
-        aria-haspopup="dialog"
-        onclick={(event) => toggle('add', event.currentTarget)}
-      >
-        <Plus size={16} />
-      </button>
+      <Tooltip text={menu === 'add' ? null : 'New profile'}>
+        {#snippet children()}
+          <button
+            type="button"
+            class="add he-icon-btn he-icon-btn--bare he-icon-btn--wide"
+            data-add
+            aria-label="New profile"
+            aria-expanded={menu === 'add'}
+            aria-haspopup="dialog"
+            onclick={(event) => toggle('add', event.currentTarget)}
+          >
+            <Plus size={16} />
+          </button>
+        {/snippet}
+      </Tooltip>
     </div>
   </div>
 

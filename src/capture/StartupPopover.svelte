@@ -158,16 +158,20 @@
                  chrome:// link from a page, so pretending it is one would only
                  teach that the guide is broken. -->
             Go to <code data-address>{path.address}</code>
-            <button
-              class="he-btn-tertiary"
-              data-copy
-              type="button"
-              onclick={copy}
-              onblur={() => (copied = 'idle')}
-              title={copied === 'failed' ? 'Select the address and copy it by hand' : undefined}
-            >
-              {copied === 'done' ? 'Copied' : copied === 'failed' ? 'Failed' : 'Copy'}
-            </button>
+            <Tooltip text={copied === 'failed' ? 'Select the address and copy it by hand' : null}>
+              {#snippet children(describedBy)}
+                <button
+                  class="he-btn-tertiary"
+                  data-copy
+                  type="button"
+                  aria-describedby={describedBy}
+                  onclick={copy}
+                  onblur={() => (copied = 'idle')}
+                >
+                  {copied === 'done' ? 'Copied' : copied === 'failed' ? 'Failed' : 'Copy'}
+                </button>
+              {/snippet}
+            </Tooltip>
             — then {path.instruction}
           </span>
         </li>

@@ -353,19 +353,24 @@
   labelId: string | null = null,
 )}
   {#if overridden.includes(property)}
-    <button
-      type="button"
-      class="label overridden he-btn-tertiary"
-      id={labelId}
-      data-marker
-      data-reset={property}
-      title={property === 'fontFamily' ? 'Back to the global font' : 'Back to the global style'}
-      aria-label={`${label}: back to the global ${property === 'fontFamily' ? 'font' : 'style'}`}
-      onclick={() => onChange(clearKeyStyle(config, selectedIds, property))}
+    <Tooltip
+      text={property === 'fontFamily' ? 'Back to the global font' : 'Back to the global style'}
     >
-      {label}
-      <RotateCcw size={14} />
-    </button>
+      {#snippet children()}
+        <button
+          type="button"
+          class="label overridden he-btn-tertiary"
+          id={labelId}
+          data-marker
+          data-reset={property}
+          aria-label={`${label}: back to the global ${property === 'fontFamily' ? 'font' : 'style'}`}
+          onclick={() => onChange(clearKeyStyle(config, selectedIds, property))}
+        >
+          {label}
+          <RotateCcw size={14} />
+        </button>
+      {/snippet}
+    </Tooltip>
   {:else if control}
     <label for={control}>{label}</label>
   {:else}
@@ -442,17 +447,20 @@
                own style, and is the way back (spec §16.15) — the counterpart of
                an overridden style line. The word inside keeps its id, so the
                group below is still announced as "Label". -->
-          <button
-            type="button"
-            class="label overridden he-btn-tertiary"
-            data-reset="label"
-            title="Back to the key name"
-            aria-label={`Label: back to ${detectedLabel}`}
-            onclick={() => onChange(setKeyLabel(config, single.id, detectedLabel))}
-          >
-            <span id="key-label">Label</span>
-            <RotateCcw size={14} />
-          </button>
+          <Tooltip text="Back to the key name">
+            {#snippet children()}
+              <button
+                type="button"
+                class="label overridden he-btn-tertiary"
+                data-reset="label"
+                aria-label={`Label: back to ${detectedLabel}`}
+                onclick={() => onChange(setKeyLabel(config, single.id, detectedLabel))}
+              >
+                <span id="key-label">Label</span>
+                <RotateCcw size={14} />
+              </button>
+            {/snippet}
+          </Tooltip>
         {:else}
           <span class="label" id="key-label">Label</span>
         {/if}
@@ -795,18 +803,21 @@
             <div class="segmented small" role="group" aria-labelledby="key-fillDirection-label">
               {#each FILL_DIRECTIONS as [value, label] (value)}
                 {@const Arrow = FILL_ICONS[value]}
-                <button
-                  type="button"
-                  class="he-segment"
-                  data-direction={value}
-                  class:on={effective.fillDirection === value}
-                  aria-pressed={effective.fillDirection === value}
-                  aria-label={label}
-                  title={label}
-                  onclick={() => apply('fillDirection', value)}
-                >
-                  <Arrow size={14} aria-hidden="true" />
-                </button>
+                <Tooltip text={label}>
+                  {#snippet children()}
+                    <button
+                      type="button"
+                      class="he-segment"
+                      data-direction={value}
+                      class:on={effective.fillDirection === value}
+                      aria-pressed={effective.fillDirection === value}
+                      aria-label={label}
+                      onclick={() => apply('fillDirection', value)}
+                    >
+                      <Arrow size={14} aria-hidden="true" />
+                    </button>
+                  {/snippet}
+                </Tooltip>
               {/each}
             </div>
           </div>

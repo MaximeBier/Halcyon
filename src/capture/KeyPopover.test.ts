@@ -13,6 +13,10 @@ import type { FontAccess, LocalFonts } from './local-fonts';
 
 afterEach(cleanup);
 
+/** The page's tooltip around an element (board Editor-Tooltip), never a native title. */
+const tipOf = (el: Element | null) =>
+  el?.closest('[data-tooltip-host]')?.querySelector(':scope > [role="tooltip"]')?.textContent;
+
 /** A stage of 1440 × 720 at the default unit: 20 × 10 key units. */
 const SURFACE = surfaceOf({ width: 1440, height: 720 }, DEFAULT_STYLE.unit);
 
@@ -323,7 +327,8 @@ describe('KeyPopover - going back to the detected label', () => {
     const back = resetLabel(container)!;
 
     expect(back.textContent!.trim()).toBe('Label');
-    expect(back.getAttribute('title')).toBe('Back to the key name');
+    expect(tipOf(back)).toBe('Back to the key name');
+    expect(back.hasAttribute('title')).toBe(false);
     expect(labelBadge(container)).toBeNull();
     expect(container.textContent).not.toContain('Reset to detected');
   });
@@ -457,7 +462,8 @@ describe('KeyPopover - the Style block', () => {
 
     const overriddenName = marker(container, 'fillColor')!;
     expect(overriddenName.textContent!.trim()).toBe('Press depth');
-    expect(overriddenName.getAttribute('title')).toBe('Back to the global style');
+    expect(tipOf(overriddenName)).toBe('Back to the global style');
+    expect(overriddenName.hasAttribute('title')).toBe(false);
     expect(row(container, 'restColor').querySelector('[data-marker]')).toBeNull();
     expect(row(container, 'restColor').textContent).not.toMatch(/global|override/);
     expect(row(container, 'fillColor').textContent).not.toMatch(/override/);
@@ -1170,7 +1176,8 @@ describe('KeyPopover - Background with nothing to paint (board Editor-Tooltip)',
       true,
     );
     expect(
-      row(container).closest('[data-tooltip-host]')!.querySelector('[role="tooltip"]')!.textContent,
+      row(container).closest('[data-tooltip-host]')!.querySelector(':scope > [role="tooltip"]')!
+        .textContent,
     ).toBe('No background while At rest is “Outline only”.');
   });
 
@@ -1179,7 +1186,9 @@ describe('KeyPopover - Background with nothing to paint (board Editor-Tooltip)',
     const { container } = popover(config, [1, 2]);
 
     expect(Boolean(row(container).inert) || row(container).hasAttribute('inert')).toBe(false);
-    expect(container.querySelector('[role="tooltip"]')).toBeNull();
+    expect(
+      row(container).closest('[data-tooltip-host]')?.querySelector(':scope > [role="tooltip"]'),
+    ).toBeFalsy();
   });
 });
 
@@ -1196,7 +1205,8 @@ describe('KeyPopover - Press depth on Gamepad keys (board Editor-Tooltip)', () =
       row(container).querySelector<HTMLInputElement>('input[name="fillColorHex"]')!.disabled,
     ).toBe(true);
     expect(
-      row(container).closest('[data-tooltip-host]')!.querySelector('[role="tooltip"]')!.textContent,
+      row(container).closest('[data-tooltip-host]')!.querySelector(':scope > [role="tooltip"]')!
+        .textContent,
     ).toBe('Gamepad keys fill with Triggered.');
   });
 
