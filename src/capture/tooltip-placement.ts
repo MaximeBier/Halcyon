@@ -3,9 +3,10 @@
  * in viewport pixels — the tooltip lives in the top layer, positioned fixed.
  *
  * Above by default, 8 px away; under when the top of the window would cut it
- * (the header). Centred on the element, slid to stay on screen — which near
- * the right edge aligns it on the right — with the arrow kept on the
- * element's centre whatever the slide.
+ * (the header). Centred on the element — unless that would take it past the
+ * window's right edge, or the element is a whole row: then its right edge sits
+ * on the element's, the arrow 14 px in, over the end of the row where its
+ * field is ("Add key", a disabled Background row). Never off screen either way.
  */
 import type { PixelBox, Size } from './selection-bar';
 
@@ -17,20 +18,35 @@ export interface TooltipPlacement {
   arrow: number;
 }
 
+export interface TooltipOptions {
+  /** The host is a whole row (a disabled panel row), not a control. */
+  row?: boolean;
+  gap?: number;
+}
+
 export const TOOLTIP_GAP = 8;
 /** The arrow is 8 px wide: it never comes closer than this to a corner. */
 const ARROW_INSET = 10;
+/** Right-aligned, the arrow's centre from the right edge (board: `right: 10px` on an 8 px arrow). */
+const ARROW_END = 14;
 
 export function tooltipPlacement(
   host: PixelBox,
   tip: Size,
   view: Size,
-  gap: number = TOOLTIP_GAP,
+  { row = false, gap = TOOLTIP_GAP }: TooltipOptions = {},
 ): TooltipPlacement {
   const centre = host.x + host.w / 2;
-  const left = Math.max(0, Math.min(centre - tip.width / 2, view.width - tip.width));
+  const end = host.x + host.w;
+  const centred = centre - tip.width / 2;
+  const rightAligned = row || centred + tip.width > view.width;
+  const wanted = rightAligned ? end - tip.width : centred;
+  const left = Math.max(0, Math.min(wanted, view.width - tip.width));
+  // Right-aligned, the arrow points at the row's end — or at a small
+  // element's middle, which is never further left than that.
+  const target = rightAligned ? Math.max(centre, end - ARROW_END) : centre;
+  const arrow = Math.max(ARROW_INSET, Math.min(target - left, tip.width - ARROW_INSET));
   const above = host.y - gap - tip.height;
   const below = above < 0;
-  const arrow = Math.max(ARROW_INSET, Math.min(centre - left, tip.width - ARROW_INSET));
   return { left, top: below ? host.y + host.h + gap : above, below, arrow };
 }

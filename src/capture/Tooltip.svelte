@@ -27,7 +27,7 @@
   }: {
     /** Nothing to clarify: no tooltip at all. */
     text: string | null | undefined;
-    /** A whole row rather than an inline control. */
+    /** A whole row rather than an inline control: the tooltip aligns on its right, over its field. */
     block?: boolean;
     /**
      * In a flex row, the host gives way with what it wraps (a pill whose name
@@ -62,6 +62,7 @@
       { x: h.left, y: h.top, w: h.width, h: h.height },
       { width: t.width, height: t.height },
       { width: window.innerWidth, height: window.innerHeight },
+      { row: block },
     );
   }
 
