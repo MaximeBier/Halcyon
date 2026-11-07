@@ -91,7 +91,8 @@
     padding: 10px 14px;
 
     font: var(--he-font);
-    font-size: var(--he-size-md);
+    /* The message and its action at one size (board OBS-Toast). */
+    font-size: var(--he-size-xs);
     color: var(--he-text);
     background: var(--he-popover);
     border: 1px solid var(--he-border);
