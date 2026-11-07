@@ -163,6 +163,24 @@ describe('step 1 · the keyboard', () => {
     expect(container.querySelector('[data-status]')!.textContent).toMatch(/plug/i);
   });
 
+  it('turns the box red only for a keyboard that refused to open', () => {
+    // `disconnected` is where the status starts, before `getDevices()` has
+    // answered: a red box there flashed at every opening of the wizard, and
+    // stayed for a keyboard merely unplugged. The board draws red for a
+    // device that refused, and for nothing else.
+    const refused = (keyboard: KeyboardStatus) => {
+      const { container } = wizard('keyboard', { keyboard });
+      const value = container.querySelector('[data-status]')!.getAttribute('data-refused');
+      cleanup();
+      return value;
+    };
+
+    expect(refused('open-failed')).toBe('true');
+    expect(refused('no-analog-interface')).toBe('true');
+    expect(refused('disconnected')).toBe('false');
+    expect(refused('no-permission')).toBe('false');
+  });
+
   it('names another app holding the device, rather than scanning forever', () => {
     const { container } = wizard('keyboard', { keyboard: 'open-failed' });
 

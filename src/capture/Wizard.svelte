@@ -93,6 +93,16 @@
   );
 
   /**
+   * The failures that turn the whole box red (board Wizard-Step1): a keyboard
+   * that is there and refused to open. Not `disconnected`, which is also where
+   * the status starts until `getDevices()` answers: the box flashed red at
+   * every opening, and an unplugged keyboard is a step to take, not a fault.
+   */
+  const keyboardRefused = $derived(
+    keyboard === 'no-analog-interface' || keyboard === 'open-failed',
+  );
+
+  /**
    * Whether a password has been tried: one was there already (saved from a
    * session before), or something was typed. On a first arrival the socket
    * tries an empty one and OBS refuses it — "Wrong password" before anyone
@@ -190,7 +200,7 @@
         shows up. Other analog keyboards are not supported yet.
       </p>
 
-      <p class="status" data-status data-failed={keyboardFailed}>
+      <p class="status" data-status data-failed={keyboardFailed} data-refused={keyboardRefused}>
         <span class="dot" class:he-pulse={!keyboardFailed} aria-hidden="true"></span>
         <!-- The automatic look is `navigator.hid.getDevices()`, which only
              returns a keyboard this site was already allowed: on a first visit
@@ -497,9 +507,9 @@
   .dot.he-pulse {
     background: var(--he-text-muted);
   }
-  /* A failure is told by the whole box, not the dot alone (board Wizard-Step1):
+  /* A refusal is told by the whole box, not the dot alone (board Wizard-Step1):
      the sentence in red, the border a deep red. */
-  .status[data-failed='true'] {
+  .status[data-refused='true'] {
     color: var(--he-danger);
     border-color: var(--he-border-danger);
   }
