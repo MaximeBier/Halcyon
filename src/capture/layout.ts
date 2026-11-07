@@ -403,7 +403,7 @@ export function normalizeRect(from: Point, to: Point): Rect {
 }
 
 /**
- * The keys a lasso touches, in configuration order (spec §8.7).
+ * The keys a lasso touches, in configuration order (spec §16.5).
  *
  * Overlap, not containment: requiring a key to sit entirely inside means
  * drawing around the outside of everything, which cannot be done against the

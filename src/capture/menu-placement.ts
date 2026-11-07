@@ -1,6 +1,6 @@
 /**
  * Where a menu drawn in the top layer hangs from what opened it, in viewport
- * pixels (the installed-fonts menu, spec §16.13).
+ * pixels (the installed-fonts menu, spec §8.9).
  *
  * In the top layer it is clipped by nothing — the side panel's scrolling
  * section once cut it off under Keys — so it is the window it has to fit:

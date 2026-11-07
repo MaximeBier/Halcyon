@@ -35,7 +35,7 @@ export const EVENT_SCENES = 1 << 2;
 /**
  * EventSubscription.Transitions: SceneTransitionStarted, which fires on the
  * first frame of a scene change where CurrentProgramSceneChanged waits for the
- * last one. The capture page follows the early signal (spec §4).
+ * last one. The capture page follows the early signal (spec §17.1).
  */
 export const EVENT_TRANSITIONS = 1 << 4;
 

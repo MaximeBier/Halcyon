@@ -18,7 +18,7 @@ const k = (usage: number, code: string, x: number, y: number, w = 1, h = 1): Key
   h,
 });
 
-/** ISO 105-key keyboard. The ANSI variant is a future avenue (spec §15). */
+/** ISO 105-key keyboard, the only geometry there is (spec §8.5). */
 export const ISO_GEOMETRY: readonly KeyGeometry[] = [
   // Function row
   k(0x29, 'Escape', 0, 0),

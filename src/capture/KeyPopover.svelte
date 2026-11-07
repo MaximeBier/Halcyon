@@ -110,8 +110,8 @@
   const single = $derived(selection.length === 1 ? selection[0]! : null);
 
   /**
-   * The label the detected layout gives this position, when it differs from
-   * what the key wears — that is, when the key has been renamed by hand.
+   * The label learning gives this position — its glyph, or the detected
+   * layout's name — when the key wears neither: renamed by hand.
    *
    * Null with no layout: there is nothing to go back to, and the position name
    * `labelFor` would produce is worse than anything the user typed.
@@ -159,8 +159,7 @@
   }
 
   /**
-   * Back to the name, on request — destructive like the recompute button, and
-   * for the same reason: it is a click, not a side effect.
+   * Back to the name, on request: a click, never a side effect.
    *
    * With no layout detected this hands back the position name for a writing
    * key, which is poor. It is still the honest answer, it is one field away
@@ -444,7 +443,7 @@
       <div class="row">
         {#if labelKind === 'text' && detectedLabel !== null}
           <!-- Renamed by hand: the name of the row says it, in the accent of
-               own style, and is the way back (spec §16.15) — the counterpart of
+               own style, and is the way back (spec §8.2) — the counterpart of
                an overridden style line. The word inside keeps its id, so the
                group below is still announced as "Label". -->
           <Tooltip text="Back to the key name">

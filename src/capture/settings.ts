@@ -117,7 +117,7 @@ export function keyboardHint(status: KeyboardStatus): string {
     case 'open-failed':
       // The device answered and was authorised — it just refused to open,
       // which on Windows means something else already has it exclusively
-      // (spec §10). Naming Wootility is the concrete first guess, same
+      // (spec §11). Naming Wootility is the concrete first guess, same
       // reasoning as the firmware wording above: send the reader to the thing
       // that turns out to be true most often, not to a diagnostics panel that
       // cannot see who is holding the device either.

@@ -11,7 +11,7 @@ export interface OverlayCounts {
 
 export interface OverlayRegistry {
   /**
-   * `browser` is the overlay saying where it is (spec §16.7), not a guess made
+   * `browser` is the overlay saying where it is (spec §6), not a guess made
    * here: only the page itself can tell, and it decides once before its first
    * paint.
    */

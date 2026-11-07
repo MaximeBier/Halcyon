@@ -51,7 +51,7 @@ export interface SceneFollower {
 }
 
 /**
- * Makes the overlay follow OBS's scenes (spec §2.1).
+ * Makes the overlay follow OBS's scenes (spec §17.1).
  *
  * Plain values in, plain calls out, like `profile-actions.ts`: every rune it
  * would touch arrives as a getter or a setter, so the reactivity stays in the

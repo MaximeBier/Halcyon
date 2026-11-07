@@ -10,7 +10,7 @@
     /**
      * No keyboard to learn from. Dimmed and inert rather than hidden: someone
      * who cannot see the feature cannot plan for it, and cannot tell "not yet"
-     * from "not here" (the spec §16.8 doctrine `Gated` used to carry).
+     * from "not here" (spec §16.5: greyed, never hidden).
      */
     disabled?: boolean;
     onCancel: () => void;

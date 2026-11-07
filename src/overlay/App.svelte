@@ -144,7 +144,7 @@
 </script>
 
 <!--
-  Nothing is drawn until the capture has sent a configuration (spec §14). That
+  Nothing is drawn until the capture has sent a configuration (spec §6). That
   is a choice, not an oversight: it removes any cache on the overlay side, and
   with it the question of when to invalidate one.
 -->

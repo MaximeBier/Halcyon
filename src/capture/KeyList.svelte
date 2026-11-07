@@ -7,7 +7,7 @@
   /**
    * The panel's list of keys (spec §16.14, board Editor-SelectionCapture).
    *
-   * The row is the only thing that can reach an off-screen key (spec §16.5):
+   * The row is the only thing that can reach an off-screen key (spec §16.12):
    * its handle is clipped away with the stage overflow. So the row selects —
    * plain, ctrl-toggle, shift-range, which the page decides — and a double
    * click, or the pencil, opens the popover, which already folds itself back

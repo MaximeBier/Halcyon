@@ -64,7 +64,7 @@ describe('what the popover says about the connection', () => {
 
   it('names the tab as the thing that is not a source in OBS', () => {
     // The exact confusion the fold this replaced was built around: a tab
-    // opened to check the overlay is an overlay too (spec §16.7).
+    // opened to check the overlay is an overlay too (spec §11).
     const { container } = popover({ overlays: { inObs: 0, inBrowser: 1 } });
 
     expect(container.textContent).toContain(

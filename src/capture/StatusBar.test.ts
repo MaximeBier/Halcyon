@@ -154,7 +154,8 @@ describe('the keyboard pill', () => {
 
 describe('the one OBS pill', () => {
   it('says OBS, and leaves the figures out entirely', () => {
-    // Spec §16.15: the figures went under the pill, where one goes to read them.
+    // The figures left the bar: who is listening is read in the OBS popover
+    // (spec §16.4, §16.13), and the rate is not shown at all.
     const { container } = bar();
 
     expect(pill(container, 'obs').textContent!.trim()).toBe('OBS');

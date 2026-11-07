@@ -164,10 +164,10 @@ export function setKeyLabel(config: OverlayConfig, id: number, label: string): O
  * (spec §8.6). Making it a function rather than a reaction to `layoutOverride`
  * is what keeps that impossible.
  *
- * It produces exactly what learning produces — glyph included, since board 6e.
- * That is the whole contract of the button: it puts a key back where a fresh
- * capture would have put it. Leaving the glyph out here would have made it
- * turn every icon back into a word on its way to fixing one letter.
+ * It produces exactly what learning produces (`learnedLabelFor`), glyph
+ * included: it puts every key back where a fresh capture would have put it.
+ * No control calls it today; its tests hold that contract for the day one
+ * does.
  */
 export function recomputeLabels(
   config: OverlayConfig,

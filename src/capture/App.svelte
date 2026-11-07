@@ -275,7 +275,7 @@
    *
    * Two figures rather than one since 2026-08-23: opening `overlay.html` in a
    * tab to check that it works is an overlay, so the total could no longer say
-   * whether the one in OBS was among them (spec §16.7).
+   * whether the one in OBS was among them (spec §11).
    */
   let listeners = $state({ inObs: 0, inBrowser: 0 });
   /** Families the live overlays say they cannot draw (Diagnostics, and the ⚙ dot). */
@@ -289,7 +289,7 @@
   let sceneState = $state<SceneState>({ scenes: null, live: null, links: [] });
   /** Our browser sources as OBS listed them at the last scan, or null while not connected. */
   let sources = $state<HalcyonSource[] | null>(null);
-  /** The one-shot auto-reload of spec §2.3: once per session, whatever the version heard. */
+  /** The one-shot auto-reload of spec §17.3: once per session, whatever the version heard. */
   let reloadedForForeign = false;
 
   /**
@@ -527,7 +527,7 @@
       url: `ws://localhost:${untrack(() => port)}`,
       password: untrack(() => settings.password),
       // Scenes for the late signal, Transitions for the early one: the profile
-      // has to change with the first frame of the fade, not the last (spec §4).
+      // has to change with the first frame of the fade, not the last (spec §17.1).
       eventSubscriptions: EVENT_GENERAL | EVENT_SCENES | EVENT_TRANSITIONS,
       onEvent: (type, data) => sceneFollower.onEvent(type, data),
       onStatus: (s) => {
@@ -557,7 +557,7 @@
         // Almost always an overlay left open across a deployment. Since
         // 2026-09-15 the page reloads the sources itself, once: OBS can be
         // told to, and asking someone to do it by hand was the one step of
-        // the diagnosis the page could not do for them (spec §2.3).
+        // the diagnosis the page could not do for them (spec §17.3).
         if (reloadedForForeign) {
           note('user', `An overlay is running protocol v${version}; reload it.`);
           return;

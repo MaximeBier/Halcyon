@@ -352,7 +352,7 @@ describe('what is still going on', () => {
   });
 });
 
-describe('the setup, retouched (spec §16.8, 2026-11-06)', () => {
+describe('the setup, retouched (spec §16.8)', () => {
   it('makes Choose device the primary button of step 1', () => {
     // On a first visit it is the only gesture that moves the setup on.
     const { container } = wizard('keyboard', { keyboard: 'no-permission' });

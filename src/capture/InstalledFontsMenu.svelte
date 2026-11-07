@@ -54,7 +54,7 @@
   });
 
   /**
-   * In the top layer (spec §16.13), placed in the window from the element it
+   * In the top layer (spec §8.9), placed in the window from the element it
    * hangs from — its parent: the tile, the popover's font row. Inside the side
    * panel's scrolling section it slid under Keys; in a key's popover it could
    * run off the bottom of the screen. Placed again when the window or any
