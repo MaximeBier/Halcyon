@@ -324,7 +324,7 @@ describe('Diagnostics - what needs attention (spec §11)', () => {
   const ITEMS: AttentionItem[] = [
     {
       id: 'font:Bahnschrift',
-      text: 'Bahnschrift is not installed on the PC running OBS. All keys drawn in Archivo.',
+      text: 'Bahnschrift is not installed on the PC running OBS. All keys are drawn in Archivo.',
       action: 'change-font',
     },
     {

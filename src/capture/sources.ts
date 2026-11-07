@@ -111,7 +111,7 @@ export async function reloadSources(
 }
 
 export function reloadLog(reloaded: number, found: number): string {
-  if (found === 0) return 'No Halcyon source in OBS to reload.';
+  if (found === 0) return 'No Halcyon source in OBS to reload';
   const noun = `Halcyon source${found === 1 ? '' : 's'}`;
   return reloaded === found
     ? `Reloaded ${reloaded} ${noun} in OBS.`

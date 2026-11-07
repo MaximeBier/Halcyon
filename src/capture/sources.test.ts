@@ -124,6 +124,6 @@ describe('reloadSources', () => {
   it('words the log for the report', () => {
     expect(reloadLog(2, 2)).toBe('Reloaded 2 Halcyon sources in OBS.');
     expect(reloadLog(1, 2)).toBe('Reloaded 1 of 2 Halcyon sources in OBS.');
-    expect(reloadLog(0, 0)).toBe('No Halcyon source in OBS to reload.');
+    expect(reloadLog(0, 0)).toBe('No Halcyon source in OBS to reload');
   });
 });

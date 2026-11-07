@@ -49,6 +49,7 @@
   import {
     createJournal,
     describeAnomaly,
+    foreignProtocolLine,
     hexDump,
     keyboardLine,
     obsLine,
@@ -394,7 +395,7 @@
     else streamProbe.start(performance.now());
     probing = streamProbe.running;
     probeReading = streamProbe.reading();
-    note('user', probing ? 'Background probe started.' : 'Background probe stopped.');
+    note('user', probing ? 'Background probe started' : 'Background probe stopped');
   }
 
   /**
@@ -417,7 +418,7 @@
     connectOptions: () => ({ url: `ws://localhost:${port}`, password: settings.password }),
     onStatus: (status) => {
       obsProbe = status;
-      if (status && status !== 'testing') note('user', `OBS probe: ${status}.`);
+      if (status && status !== 'testing') note('user', `OBS probe: ${status}`);
     },
   });
 
@@ -565,17 +566,12 @@
         // told to, and asking someone to do it by hand was the one step of
         // the diagnosis the page could not do for them (spec §17.3).
         if (reloadedForForeign) {
-          note('user', `An overlay is running protocol v${version}; reload it.`);
+          note('user', foreignProtocolLine(version, false));
           return;
         }
         reloadedForForeign = true;
         void reloadObsSources().then((reloaded) => {
-          note(
-            'user',
-            reloaded > 0
-              ? `An overlay ran protocol v${version}. Sources reloaded.`
-              : `An overlay is running protocol v${version}; reload it.`,
-          );
+          note('user', foreignProtocolLine(version, reloaded > 0));
         });
       },
       onMessage: (message) => {
@@ -972,7 +968,7 @@
       if (capturing) {
         snapshot = hexDump(data);
         capturing = false;
-        note('user', 'Raw report captured.');
+        note('user', 'Raw report captured');
       }
       streamProbe.observe(timestamp);
       session.handleReport(data, timestamp);

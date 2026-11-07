@@ -30,7 +30,7 @@ export function needsAttention(
     // The overlay goes on drawing, in the face it brings itself, which is why
     // the line says what is drawn rather than that something failed.
     text: `${family} is not installed on the PC running OBS. ${
-      keys === total ? 'All keys' : keys === 1 ? '1 key' : `${keys} keys`
+      keys === total ? 'All keys are' : keys === 1 ? '1 key is' : `${keys} keys are`
     } drawn in Archivo.`,
     action: 'change-font',
   }));

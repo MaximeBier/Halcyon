@@ -6,6 +6,7 @@ import {
   describeAnomaly,
   groupRuns,
   hexDump,
+  foreignProtocolLine,
   keyboardLine,
   obsLine,
   type JournalEntry,
@@ -259,34 +260,45 @@ describe('a connection change, in words', () => {
   ];
 
   it('writes the OBS states as the board Diagnostics does', () => {
-    expect(obsLine('identified')).toBe('OBS connected.');
-    expect(obsLine('auth-failed')).toBe('Wrong OBS password.');
-    expect(obsLine('unreachable')).toBe('OBS not answering.');
-    expect(obsLine('disconnected')).toBe('OBS disconnected.');
+    expect(obsLine('identified')).toBe('OBS connected');
+    expect(obsLine('auth-failed')).toBe('Wrong OBS password');
+    expect(obsLine('unreachable')).toBe('OBS not answering');
+    expect(obsLine('disconnected')).toBe('OBS disconnected');
   });
 
   it('names the keyboard when it is known', () => {
-    expect(keyboardLine('connected', 'Wooting 60HE+', null)).toBe('Wooting 60HE+ connected.');
-    expect(keyboardLine('connected', null, null)).toBe('Keyboard connected.');
+    expect(keyboardLine('connected', 'Wooting 60HE+', null)).toBe('Wooting 60HE+ connected');
+    expect(keyboardLine('connected', null, null)).toBe('Keyboard connected');
   });
 
   it('names the keyboard that left, which the link no longer knows', () => {
-    expect(keyboardLine('disconnected', null, 'Wooting 60HE+')).toBe('Wooting 60HE+ disconnected.');
-    expect(keyboardLine('disconnected', null, null)).toBe('Keyboard disconnected.');
+    expect(keyboardLine('disconnected', null, 'Wooting 60HE+')).toBe('Wooting 60HE+ disconnected');
+    expect(keyboardLine('disconnected', null, null)).toBe('Keyboard disconnected');
   });
 
   it('never lends the last keyboard’s name to a device that failed to open', () => {
     expect(keyboardLine('open-failed', null, 'Wooting 60HE+')).not.toContain('60HE+');
   });
 
-  it('never shows an internal state name, and every line is a sentence', () => {
+  it('says a foreign protocol and the reload in one sentence, as the board does', () => {
+    expect(foreignProtocolLine(4, true)).toBe(
+      'An overlay ran protocol v4, so its sources were reloaded.',
+    );
+    expect(foreignProtocolLine(4, false)).toBe('An overlay is running protocol v4; reload it.');
+  });
+
+  // The board's grammar (OBS-Diagnostics): an event told as a fragment —
+  // "OBS connected", "Scene Gameplay → opened Apex ranked" — carries no
+  // period; a sentence with a verb of its own ends with one.
+  it('never shows an internal state name, and ends only a full sentence with a period', () => {
     const lines = [
       ...OBS.map(obsLine),
       ...KEYBOARD.map((s) => keyboardLine(s, 'Wooting 60HE+', null)),
       ...KEYBOARD.map((s) => keyboardLine(s, null, null)),
     ];
     for (const line of lines) {
-      expect(line).toMatch(/^[A-Z].*[.…]$/);
+      expect(line).toMatch(/^[A-Z]/);
+      expect(line.endsWith('.')).toBe(/ (has|refused|cannot) /.test(line));
       expect(line).not.toMatch(
         /identified|auth-failed|unreachable|no-permission|analog-interface|open-failed|unsupported|idle|:/,
       );

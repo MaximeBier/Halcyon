@@ -140,26 +140,31 @@ function fullTime(time: number): string {
 }
 
 /**
- * An OBS connection change as the Activity list writes it (board
- * OBS-Diagnostics): a short sentence, never the client's state name — "OBS:
- * identified." told a streamer nothing they could use.
+ * The Activity list's grammar (board OBS-Diagnostics): an event told as a
+ * fragment — "OBS connected", "Scene Gameplay → opened Apex ranked" — carries
+ * no period; a sentence with a verb of its own ends with one.
+ */
+
+/**
+ * An OBS connection change as the Activity list writes it: never the client's
+ * state name — "OBS: identified." told a streamer nothing they could use.
  */
 export function obsLine(status: ObsStatus): string {
   switch (status) {
     case 'identified':
-      return 'OBS connected.';
+      return 'OBS connected';
     case 'connecting':
       return 'Connecting to OBS…';
     case 'auth-failed':
-      return 'Wrong OBS password.';
+      return 'Wrong OBS password';
     case 'unreachable':
-      return 'OBS not answering.';
+      return 'OBS not answering';
     case 'disconnected':
-      return 'OBS disconnected.';
+      return 'OBS disconnected';
     case 'idle':
       // Only ever the page's own doing: the client is closed to be rebuilt
       // with new credentials (`reconnect` in App.svelte).
-      return 'OBS connection closed.';
+      return 'OBS connection closed';
   }
 }
 
@@ -177,11 +182,11 @@ export function keyboardLine(
 ): string {
   switch (status) {
     case 'connected':
-      return `${name ?? 'Keyboard'} connected.`;
+      return `${name ?? 'Keyboard'} connected`;
     case 'disconnected':
-      return `${name ?? previous ?? 'Keyboard'} disconnected.`;
+      return `${name ?? previous ?? 'Keyboard'} disconnected`;
     case 'no-permission':
-      return 'No keyboard allowed yet.';
+      return 'No keyboard allowed yet';
     case 'no-analog-interface':
       return `${name ?? 'This keyboard'} has no analog interface.`;
     case 'open-failed':
@@ -189,6 +194,16 @@ export function keyboardLine(
     case 'unsupported':
       return 'This browser cannot read keyboards.';
   }
+}
+
+/**
+ * An overlay on another protocol version (spec §17.3), and whether the page
+ * reloaded its sources for it: one sentence, as the board writes it.
+ */
+export function foreignProtocolLine(version: number, reloaded: boolean): string {
+  return reloaded
+    ? `An overlay ran protocol v${version}, so its sources were reloaded.`
+    : `An overlay is running protocol v${version}; reload it.`;
 }
 
 export function describeAnomaly(anomaly: DecodeAnomaly): string {

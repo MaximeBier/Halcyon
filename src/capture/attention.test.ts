@@ -29,9 +29,9 @@ describe('what Diagnostics asks someone to look at', () => {
     ]);
 
     expect(items.map((item) => item.text)).toEqual([
-      'Bahnschrift is not installed on the PC running OBS. All keys drawn in Archivo.',
-      'Impact is not installed on the PC running OBS. 1 key drawn in Archivo.',
-      'Calibri is not installed on the PC running OBS. 2 keys drawn in Archivo.',
+      'Bahnschrift is not installed on the PC running OBS. All keys are drawn in Archivo.',
+      'Impact is not installed on the PC running OBS. 1 key is drawn in Archivo.',
+      'Calibri is not installed on the PC running OBS. 2 keys are drawn in Archivo.',
     ]);
     expect(items.every((item) => item.action === 'change-font')).toBe(true);
   });
