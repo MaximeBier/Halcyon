@@ -86,11 +86,12 @@
 
 <div class="scenes" bind:this={root}>
   <!-- Why it is inert, or — as an icon — what it is: the page's tooltip
-       (board Editor-Tooltip), never a title. -->
+       (board Editor-Tooltip), never a title; none while its menu is open,
+       which says it already. -->
   <Tooltip
     text={buttonState === 'inert'
       ? 'Connect OBS to link scenes'
-      : compact
+      : compact && !open
         ? 'Link OBS scenes'
         : null}
   >

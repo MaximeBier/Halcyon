@@ -46,6 +46,15 @@ describe('the header button', () => {
     expect(tip(trigger())).toBe('Link OBS scenes');
   });
 
+  it('keeps its tooltip out of the way of its own menu, like ⚙, ⋯ and +', async () => {
+    const { trigger, open } = links({ compact: true });
+    await open();
+    const ownTip = trigger()
+      .closest('[data-tooltip-host]')
+      ?.querySelector(':scope > [role="tooltip"]');
+    expect(ownTip ?? null).toBeNull();
+  });
+
   it('keeps its accent outline as an icon while there is something to set up', () => {
     const unlinked = ROWS.map((r) => ({ ...r, profile: null }));
     const { trigger } = links({ rows: unlinked, compact: true });

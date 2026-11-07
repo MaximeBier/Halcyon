@@ -226,6 +226,15 @@ describe('StartupPopover - the trigger in a narrow header (board Editor-HeaderNa
     expect(trigger(container).classList).not.toContain('he-btn-quiet');
   });
 
+  it('keeps its tooltip out of the way of its own menu, like ⚙, ⋯ and +', async () => {
+    const { container, open } = guide({ compact: true });
+    await open();
+    const ownTip = trigger(container)
+      .closest('[data-tooltip-host]')
+      ?.querySelector(':scope > [role="tooltip"]');
+    expect(ownTip ?? null).toBeNull();
+  });
+
   it('says its name in full while it has room', () => {
     const { container } = guide();
     expect(trigger(container).textContent!.trim()).toBe('Start with Windows');

@@ -104,8 +104,9 @@
 </script>
 
 <div class="startup" bind:this={root}>
-  <!-- As an icon, its name is the page's tooltip (board Editor-HeaderNarrow). -->
-  <Tooltip text={compact ? 'Start with Windows' : null}>
+  <!-- As an icon, its name is the page's tooltip (board Editor-HeaderNarrow);
+       none while its menu is open, which says it already. -->
+  <Tooltip text={compact && !open ? 'Start with Windows' : null}>
     {#snippet children()}
       <button
         class="trigger"
