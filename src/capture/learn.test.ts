@@ -1,7 +1,11 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   addLearnedKey,
+  createArmingGate,
   ESCAPE_USAGE,
   learnedByStopPress,
   learnKeys,
@@ -211,5 +215,103 @@ describe('learnedByStopPress', () => {
 
   it('answers no when nothing was learned', () => {
     expect(learnedByStopPress(null, 1001)).toBe(false);
+  });
+});
+
+describe('createArmingGate', () => {
+  const ENTER = 0x28;
+  const X = 0x1b;
+  /** A key as the firmware reports it: past actuation, it types. */
+  const down = (index: number, usage: number, travel: number, active = travel >= 400) => ({
+    index,
+    usage,
+    travel,
+    active,
+  });
+  const ids = (entries: readonly AnalogEntry[]) => entries.map((e) => e.index);
+
+  it('passes nothing while the capture is not armed', () => {
+    const gate = createArmingGate();
+    expect(gate.pass([down(5, ENTER, 600)], false)).toEqual([]);
+  });
+
+  it('ignores the key that armed it, for as long as it stays down', () => {
+    // Tab to Add key, Enter: the click fires on keydown, Enter still pressed.
+    const gate = createArmingGate();
+    gate.pass([down(5, ENTER, 600)], false);
+    expect(ids(gate.pass([down(5, ENTER, 700)], true))).toEqual([]);
+    expect(ids(gate.pass([down(5, ENTER, 900)], true))).toEqual([]);
+  });
+
+  it('learns it like any other once it has been let go', () => {
+    const gate = createArmingGate();
+    gate.pass([down(5, ENTER, 600)], false);
+    gate.pass([down(5, ENTER, 300)], true);
+    // A released key stays in the report at zero (spec §3.1).
+    expect(ids(gate.pass([down(5, ENTER, 0)], true))).toEqual([5]);
+    expect(ids(gate.pass([down(5, ENTER, 500)], true))).toEqual([5]);
+  });
+
+  it('counts a key gone from the report as let go', () => {
+    const gate = createArmingGate();
+    gate.pass([down(5, ENTER, 600)], false);
+    gate.pass([], true);
+    expect(ids(gate.pass([down(5, ENTER, 500)], true))).toEqual([5]);
+  });
+
+  it('learns the other keys pressed after arming, the held one still down', () => {
+    const gate = createArmingGate();
+    gate.pass([down(5, ENTER, 600)], false);
+    expect(ids(gate.pass([down(5, ENTER, 600), down(9, X, 300)], true))).toEqual([9]);
+  });
+
+  it('holds a key on its way down too: shallow at arming, it is the same press', () => {
+    // Rapid trigger can actuate under the learning depth, and the report
+    // showing it active can come a beat after the keydown that armed.
+    const gate = createArmingGate();
+    gate.pass([down(5, ENTER, 40, false)], false);
+    expect(ids(gate.pass([down(5, ENTER, 500)], true))).toEqual([]);
+  });
+
+  it('holds nothing when armed from the mouse, the keyboard at rest', () => {
+    const gate = createArmingGate();
+    gate.pass([down(5, ENTER, 0, false)], false);
+    expect(ids(gate.pass([down(5, ENTER, 300)], true))).toEqual([5]);
+  });
+
+  it('takes a fresh look each time it is armed again', () => {
+    const gate = createArmingGate();
+    gate.pass([], false);
+    expect(ids(gate.pass([down(5, ENTER, 300)], true))).toEqual([5]);
+    // Stopped, then armed again with Enter on the button.
+    gate.pass([down(5, ENTER, 0)], false);
+    gate.pass([down(5, ENTER, 600)], false);
+    expect(ids(gate.pass([down(5, ENTER, 600)], true))).toEqual([]);
+  });
+
+  it('keeps the held key off the layout, through learnKeys', () => {
+    const gate = createArmingGate();
+    gate.pass([down(5, ENTER, 600)], false);
+    const config = learnKeys(
+      defaultConfig(),
+      gate.pass([down(5, ENTER, 700), down(9, X, 300)], true),
+      azerty,
+      SURFACE,
+    );
+    expect(config.keys.map((key) => key.id)).toEqual([9]);
+  });
+});
+
+describe('the page learns through the gate, from every report', () => {
+  const app = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'App.svelte'), 'utf-8');
+
+  it('shows the gate every report before the guard, and learns only what it lets through', () => {
+    // Below `if (!learning) return`, the gate would never see the report
+    // before arming — the one that says what is already down.
+    const pass = app.indexOf('armingGate.pass(entries, learning)');
+    const guard = app.indexOf('if (!learning) return;', pass - 400);
+    expect(pass).toBeGreaterThan(-1);
+    expect(guard).toBeGreaterThan(pass);
+    expect(app).toMatch(/learnKeys\(\s*config,\s*learnable,/);
   });
 });

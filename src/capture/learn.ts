@@ -43,6 +43,70 @@ export function learnKeys(
 }
 
 /**
+ * What learning may read of a report, given whether the capture is armed.
+ * Fed every report, armed or not: it has to know what is down at the moment
+ * the capture is armed.
+ */
+export interface ArmingGate {
+  pass(entries: readonly AnalogEntry[], armed: boolean): readonly AnalogEntry[];
+}
+
+/** Down at all, as far as the gate is concerned: any travel, or typing. */
+function touched(entry: AnalogEntry): boolean {
+  return entry.travel > 0 || entry.active;
+}
+
+/**
+ * Keeps out of learning the keys already down when the capture is armed
+ * (spec §8.4), until each has been let go once.
+ *
+ * Arming from the keyboard is the case: Tab to "Add key", Enter — the click
+ * fires on the keydown, Enter still pressed, and the next report learned it.
+ * Space clicks on its keyup, but the key is still on its way up, above the
+ * learning depth. One gate for every way of arming (the header button, the
+ * empty stage's, the wizard handing over), since it reads the stream, not
+ * the button.
+ *
+ * Down means any travel at all, not the learning depth: with rapid trigger a
+ * key can actuate long before that depth, and the report showing it active can come
+ * a beat after the keydown that armed — read against the threshold, that
+ * Enter slipped through on its way down. Let go means gone from the report or
+ * back to zero. The cost is a finger resting on a key when arming from the
+ * mouse: that key has to be lifted once.
+ *
+ * The keys down are those of the report before the first armed one: a
+ * keyboard at rest sends nothing, so the last report is the keyboard's state
+ * at the moment of arming.
+ */
+/** What the gate hands back unarmed, most reports: one array, never a fresh one. */
+const NOTHING: readonly AnalogEntry[] = [];
+
+export function createArmingGate(): ArmingGate {
+  let previous: readonly AnalogEntry[] = [];
+  let wasArmed = false;
+  const held = new Set<number>();
+  return {
+    pass(entries, armed) {
+      if (armed && !wasArmed) {
+        for (const entry of previous) if (touched(entry)) held.add(entry.index);
+      }
+      wasArmed = armed;
+      previous = entries;
+      if (!armed) {
+        held.clear();
+        return NOTHING;
+      }
+      if (held.size === 0) return entries;
+      for (const index of held) {
+        const now = entries.find((entry) => entry.index === index);
+        if (!now || !touched(now)) held.delete(index);
+      }
+      return entries.filter((entry) => !held.has(entry.index));
+    },
+  };
+}
+
+/**
  * Adds a key learned by pressing it (spec §8.4).
  *
  * Deduplicated on the matrix index rather than the usage: the index is what

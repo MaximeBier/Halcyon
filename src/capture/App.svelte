@@ -25,7 +25,7 @@
   import { createOverlayRegistry } from './overlays';
   import { createConfigBroadcaster } from './broadcast';
   import { newPageId } from '../protocol/identity';
-  import { learnedByStopPress, learnKeys } from './learn';
+  import { createArmingGate, learnedByStopPress, learnKeys } from './learn';
   import { keysOutside, pickedFromList, removeKey, removeKeys, surfaceOf } from './layout';
   import { loadLayoutMap, resolveLayout, type LayoutMapLike } from '../keyboard/labels';
   import { setLayoutOverride } from '../config/edit';
@@ -150,6 +150,11 @@
    * key was never asked for; the effect below takes it back.
    */
   let lastLearned: { id: number; usage: number; at: number } | null = null;
+  /**
+   * The keys already down when the capture is armed — the Enter that clicked
+   * Add key — kept out of learning until let go once (`createArmingGate`).
+   */
+  const armingGate = createArmingGate();
 
   $effect(() => {
     if (learning) return;
@@ -927,11 +932,19 @@
       // Before the learning guard: a key is watched from the moment it is
       // seen, not from the moment someone happens to be adding one.
       if (suggester.observe(entries)) observed += 1;
+      // Every report, armed or not: the gate has to know what is down at the
+      // moment the capture is armed, however it was armed.
+      const learnable = armingGate.pass(entries, learning);
       if (!learning) return;
       // The same surface the editor draws on, derived from the same box and
       // the same unit: a key learned onto a surface the stage does not have
       // would land where nobody can reach it.
-      const next = learnKeys(config, entries, activeLayout, surfaceOf(stageBox, config.style.unit));
+      const next = learnKeys(
+        config,
+        learnable,
+        activeLayout,
+        surfaceOf(stageBox, config.style.unit),
+      );
       // The mode is never closed here: it stays armed until it is stopped, so
       // a whole layout can be captured in one pass. `learnKeys` hands the same
       // configuration back when a report adds nothing — a key held down, or
