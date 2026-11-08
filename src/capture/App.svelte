@@ -840,6 +840,12 @@
   let obsOpen = $state<'pill' | 'settings' | null>(null);
 
   let fold = $state<Fold>(1);
+  /**
+   * The third step: Link OBS scenes and Start with Windows down to their icon,
+   * and the right block closing up with them. One flag for both, so the gap
+   * can never change at another step than the buttons it spaces.
+   */
+  const iconsOnly = $derived(fold >= 3);
   let bar = $state<HTMLElement | null>(null);
   let lead = $state<HTMLElement | null>(null);
   let fitting = 0;
@@ -1121,7 +1127,7 @@
         {/if}
       </div>
 
-      <div class="tools">
+      <div class="tools" class:icons={iconsOnly}>
         <!-- Document-level controls. In the header because it is the one zone
          visible in every state of the page: wizard up, folds shut, popover
          gone — and the first need for undo comes when the selection has just
@@ -1157,12 +1163,12 @@
           onOpen={() => void sceneFollower.refresh()}
           onLink={(uuid, name) => sceneFollower.link(uuid, name)}
           onUnlink={(uuid) => sceneFollower.unlink(uuid)}
-          compact={fold >= 3}
+          compact={iconsOnly}
         />
 
         <!-- In the header for the same reason undo is: the guide must be findable
          from every state of the page, and it anchors to nothing on the stage. -->
-        <StartupPopover {standalone} {install} onInstall={installApp} compact={fold >= 3} />
+        <StartupPopover {standalone} {install} onInstall={installApp} compact={iconsOnly} />
 
         <!-- Last, and the rarest: the layout override, the device picker, the
          door to Diagnostics and the build (board 3a). -->
@@ -1391,16 +1397,15 @@
     margin-inline-start: auto;
     display: flex;
     align-items: center;
-    gap: 18px;
+    /* Box to box, every button alike — a framed icon, the accent outline,
+       the quiet words whose hover face stays inside their own box: the row
+       reads even whatever state each one is in. Closer once the words have
+       become icons (`iconsOnly`), a row of 28 px squares. The undo/redo pair
+       keeps its own, tighter gap (`.edits`). */
+    gap: var(--he-header-tools-gap);
   }
-  /* The quiet words ("Link OBS scenes", "Start with Windows") sit 18 px from
-     their neighbours (board OBS-5e-Header): their padding and transparent
-     border (`--he-quiet-pad` and `--he-quiet-border`, controls.css) are for the hover
-     face alone, which spills past the words (board OBS-5e-ButtonStates)
-     instead of pushing them apart. The 28 px icon of a folded header keeps
-     its own box. */
-  .tools :global(.he-btn-quiet:not(.compact)) {
-    margin-inline: calc(-1 * (var(--he-quiet-pad) + var(--he-quiet-border)));
+  .tools.icons {
+    gap: var(--he-header-tools-gap-icons);
   }
   /* Neither block sets `white-space`: it is inherited, and the popovers that
      hang from the pills and the actions (OBS, Link OBS scenes, Start with
@@ -1436,7 +1441,7 @@
   .edits {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--he-header-pair-gap);
   }
   /* The KeyLearner recipe: present for the reader, absent from the layout. */
   .sr {

@@ -82,6 +82,17 @@ export const UI_TOKENS = {
   radiusPanel: '6px',
   radiusCard: '10px',
   headerHeight: '54px',
+  /**
+   * The header's right block, measured box to box — frame to frame, hover
+   * face to hover face — whatever face each button wears (spec §16.9). Wide
+   * while the buttons still say their names (board Main), closer once they
+   * are 28 px icons (board Editor-HeaderNarrow), where the wide gap left the
+   * row looking scattered.
+   */
+  headerToolsGap: '14px',
+  headerToolsGapIcons: '8px',
+  /** Undo and Redo, one pair: a step closer than the rest of the row (boards Main, Editor-HeaderNarrow). */
+  headerPairGap: '6px',
   /** The profile tab row under the header (board 3a). */
   tabRowHeight: '50px',
   panelWidth: '380px',

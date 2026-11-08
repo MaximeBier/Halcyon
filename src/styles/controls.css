@@ -437,20 +437,14 @@ input.he-range:focus-visible {
  * A header button once there is nothing left to set up ("Link OBS scenes"
  * configured, "Start with Windows" installed): plain muted words that still
  * answer the pointer like a button, so they never read as a label.
- *
- * Its side padding and border are properties, not literals: a row that wants
- * the words where they would sit without the hover face (the header's tools)
- * pulls them back by exactly this much, and the two cannot drift apart.
  */
 .he-btn-quiet {
-  --he-quiet-pad: 10px;
-  --he-quiet-border: 1px;
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   block-size: 28px;
-  padding: 0 var(--he-quiet-pad);
-  border: var(--he-quiet-border) solid transparent;
+  padding: 0 10px;
+  border: 1px solid transparent;
   border-radius: var(--he-radius);
   background: transparent;
   font: var(--he-font);

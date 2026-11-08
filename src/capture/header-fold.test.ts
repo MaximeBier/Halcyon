@@ -1,4 +1,8 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { UI_TOKENS } from '../styles/ui-tokens';
 import { fitHeader, headerSpills, LAST_FOLD, spills, type Fold, type Laid } from './header-fold';
 
 /** A header whose content is as wide as each fold makes it, in a window this wide. */
@@ -162,5 +166,44 @@ describe('the header, read from the page', () => {
     const bar = el(1909, 'padding-right: 20px', [lead, el(1900)]);
 
     expect(headerSpills(bar, lead)).toBe(true);
+  });
+});
+
+/**
+ * jsdom lays nothing out, so the right block's spacing is held by its
+ * declarations (spec §16.9, boards Main and Editor-HeaderNarrow).
+ */
+describe('the right block of the header, evenly spaced at every step', () => {
+  const app = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'App.svelte'), 'utf-8');
+  const style = (/<style>([\s\S]*?)<\/style>/.exec(app)?.[1] ?? '').replace(
+    /\/\*[\s\S]*?\*\//g,
+    '',
+  );
+  /** The declarations of the rule written exactly `selector {`. */
+  const rule = (selector: string) => {
+    const start = style.indexOf(`\n  ${selector} {`);
+    return start < 0 ? '' : style.slice(start, style.indexOf('}', start));
+  };
+
+  it('spaces the buttons box to box: no button is pulled into its neighbours', () => {
+    // A negative margin let the quiet words' hover face run up to the next
+    // button, and on a folded header pulled one icon closer than the others.
+    expect(style).not.toContain('he-btn-quiet');
+    expect(style).not.toMatch(/margin-inline:\s*(calc\()?-/);
+    expect(rule('.tools')).toContain('gap: var(--he-header-tools-gap);');
+    expect(rule('.tools.icons')).toContain('gap: var(--he-header-tools-gap-icons);');
+    expect(rule('.edits')).toContain('gap: var(--he-header-pair-gap);');
+  });
+
+  it('closes up at the step its words become icons, never at another', () => {
+    // The same flag as the two icons (`compact={iconsOnly}`, row-heights.test.ts).
+    expect(app).toContain('const iconsOnly = $derived(fold >= 3);');
+    expect(app).toContain('<div class="tools" class:icons={iconsOnly}>');
+  });
+
+  it('keeps 14 px with the words, 8 px between icons, 6 px inside the undo/redo pair', () => {
+    expect(UI_TOKENS.headerToolsGap).toBe('14px');
+    expect(UI_TOKENS.headerToolsGapIcons).toBe('8px');
+    expect(UI_TOKENS.headerPairGap).toBe('6px');
   });
 });

@@ -150,8 +150,10 @@ describe('the header, on one line at every width (board Editor-HeaderNarrow)', (
       const at = header.indexOf(`<${name}`);
       return header.slice(at, header.indexOf('/>', at));
     };
-    expect(element('SceneLinks')).toContain('compact={fold >= 3}');
-    expect(element('StartupPopover')).toContain('compact={fold >= 3}');
+    // The third step, one flag for the two icons and the gap that spaces them.
+    expect(source).toContain('const iconsOnly = $derived(fold >= 3);');
+    expect(element('SceneLinks')).toContain('compact={iconsOnly}');
+    expect(element('StartupPopover')).toContain('compact={iconsOnly}');
     expect(element('StatusBar')).toContain('squeeze={fold >= 5}');
     // Both names give way together, little by little: OBS's too, not at once at the end.
     expect(element('StatusBar')).toContain('squeezeObs={fold >= 5}');

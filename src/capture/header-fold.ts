@@ -5,7 +5,8 @@
  *
  * 1. everything shown;
  * 2. the word HALCYON goes, the mark stays;
- * 3. Link OBS scenes and Start with Windows keep only their icon;
+ * 3. Link OBS scenes and Start with Windows keep only their icon, and the
+ *    right block closes up around them (`iconsOnly`, App.svelte);
  * 4. "Resume setup · N/3" becomes "Setup · N/3";
  * 5. the keyboard's name and the OBS pill's give way together, little by
  *    little, "…", 40 px of each kept — the OBS pill waiting for a step of its
